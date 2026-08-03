@@ -13,8 +13,7 @@ PROJECT_DIR = Path(__file__).resolve().parent
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from a2wsgi import ASGIMiddleware  # noqa: E402
-
 from app.main import app as _fastapi_app  # noqa: E402
+from app.wsgi_adapter import ASGIParaWSGI  # noqa: E402
 
-application = ASGIMiddleware(_fastapi_app)
+application = ASGIParaWSGI(_fastapi_app)
