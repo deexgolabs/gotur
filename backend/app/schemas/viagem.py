@@ -1,0 +1,37 @@
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
+
+from app.schemas.onibus import OnibusOut
+from app.schemas.rota import RotaOut
+
+
+class ViagemCreate(BaseModel):
+    rota_id: int
+    onibus_id: int
+    data_hora_partida: datetime
+    preco: float
+
+
+class ViagemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tenant_id: int
+    data_hora_partida: datetime
+    preco: float
+    ativo: bool
+    rota: RotaOut
+    onibus: OnibusOut
+
+
+class ViagemBuscaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    empresa_nome: str
+    data_hora_partida: datetime
+    preco: float
+    origem: str
+    destino: str
+    poltronas_livres: int

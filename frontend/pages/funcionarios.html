@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Funcionários</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Funcionários</h1>
+    <p class="subtitulo">Equipe da sua empresa.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Novo funcionário</h2>
+      <form id="form-funcionario">
+        <div class="grid-form">
+          <div>
+            <label for="nome">Nome</label>
+            <input id="nome" required />
+          </div>
+          <div>
+            <label for="email">E-mail</label>
+            <input id="email" type="email" required />
+          </div>
+          <div>
+            <label for="senha">Senha provisória</label>
+            <input id="senha" type="password" required minlength="6" />
+          </div>
+          <div>
+            <label for="role">Papel</label>
+            <select id="role">
+              <option value="funcionario">Funcionário (atendente)</option>
+              <option value="admin_empresa">Administrador</option>
+            </select>
+          </div>
+          <div>
+            <label for="telefone">Telefone</label>
+            <input id="telefone" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Cadastrar</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Equipe cadastrada</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Status</th><th></th></tr></thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhum funcionário cadastrado ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+    const ROTULOS = { funcionario: "Funcionário", admin_empresa: "Administrador" };
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/usuarios/funcionarios");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (u) => `
+        <tr>
+          <td>${u.nome}</td>
+          <td>${u.email}</td>
+          <td>${ROTULOS[u.role] || u.role}</td>
+          <td><span class="selo ${u.ativo ? "livre" : "bloqueada"}">${u.ativo ? "Ativo" : "Inativo"}</span></td>
+          <td>${u.ativo ? `<button class="secundario" data-id="${u.id}">Desativar</button>` : ""}</td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/usuarios/funcionarios/${btn.dataset.id}/desativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-funcionario").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("POST", "/usuarios/funcionarios", {
+          nome: document.getElementById("nome").value.trim(),
+          email: document.getElementById("email").value.trim(),
+          senha: document.getElementById("senha").value,
+          role: document.getElementById("role").value,
+          telefone: document.getElementById("telefone").value.trim() || null,
+        });
+        ev.target.reset();
+        mostrarAlerta("Funcionário cadastrado com sucesso.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

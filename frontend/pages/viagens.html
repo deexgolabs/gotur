@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Viagens</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Viagens</h1>
+    <p class="subtitulo">Crie viagens e gerencie a venda de passagens.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao escondido" id="cartao-nova-viagem">
+      <h2 style="margin-top:0">Nova viagem</h2>
+      <form id="form-viagem">
+        <div class="grid-form">
+          <div>
+            <label for="rota">Rota</label>
+            <select id="rota" required></select>
+          </div>
+          <div>
+            <label for="onibus">Ônibus</label>
+            <select id="onibus" required></select>
+          </div>
+          <div>
+            <label for="data-hora">Data e hora de partida</label>
+            <input id="data-hora" type="datetime-local" required />
+          </div>
+          <div>
+            <label for="preco">Preço (R$)</label>
+            <input id="preco" type="number" min="0" step="0.01" required />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Criar viagem</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Próximas viagens</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Rota</th><th>Data/Hora</th><th>Ônibus</th><th>Preço</th><th></th></tr></thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhuma viagem cadastrada ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa", "funcionario");
+    const ehAdmin = auth && auth.role === "admin_empresa";
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    function formatarDataHora(iso) {
+      const d = new Date(iso);
+      return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    async function carregarSelects() {
+      const [rotas, onibusLista] = await Promise.all([api("GET", "/rotas"), api("GET", "/onibus")]);
+      document.getElementById("rota").innerHTML = rotas
+        .map((r) => `<option value="${r.id}">${r.origem} → ${r.destino}</option>`)
+        .join("");
+      document.getElementById("onibus").innerHTML = onibusLista
+        .map((o) => `<option value="${o.id}">${o.identificacao} (${o.poltronas.length} poltronas)</option>`)
+        .join("");
+    }
+
+    async function carregarViagens() {
+      const lista = await api("GET", "/viagens");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (v) => `
+        <tr>
+          <td>${v.rota.origem} → ${v.rota.destino}</td>
+          <td>${formatarDataHora(v.data_hora_partida)}</td>
+          <td>${v.onibus.identificacao}</td>
+          <td>R$ ${Number(v.preco).toFixed(2)}</td>
+          <td><a href="/pages/mapa-poltronas.html?viagem_id=${v.id}"><button>Mapa de poltronas</button></a></td>
+        </tr>`
+        )
+        .join("");
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      if (ehAdmin) {
+        document.getElementById("cartao-nova-viagem").classList.remove("escondido");
+        carregarSelects().catch((e) => mostrarAlerta(e.message));
+      }
+      carregarViagens().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-viagem").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const dataHora = document.getElementById("data-hora").value;
+        await api("POST", "/viagens", {
+          rota_id: parseInt(document.getElementById("rota").value, 10),
+          onibus_id: parseInt(document.getElementById("onibus").value, 10),
+          data_hora_partida: new Date(dataHora).toISOString(),
+          preco: parseFloat(document.getElementById("preco").value),
+        });
+        ev.target.reset();
+        mostrarAlerta("Viagem criada com sucesso.", "sucesso");
+        carregarViagens();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

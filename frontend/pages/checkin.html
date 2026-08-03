@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Check-in</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Check-in de embarque</h1>
+    <p class="subtitulo">Digite ou escaneie o código (localizador) da passagem do passageiro.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <form id="form-buscar">
+        <div class="grid-form">
+          <div>
+            <label for="localizador">Localizador</label>
+            <input id="localizador" required autofocus autocomplete="off" style="text-transform:uppercase" placeholder="Ex: SRJIA6" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Buscar passagem</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="cartao escondido" id="cartao-resultado">
+      <h2 style="margin-top:0" id="titulo-resultado"></h2>
+      <p id="detalhes-resultado" style="color:var(--cinza)"></p>
+      <div id="selo-checkin"></div>
+      <div class="linha-acoes">
+        <button id="btn-confirmar-checkin">Confirmar embarque</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa", "funcionario");
+    let localizadorAtual = null;
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") {
+        setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+      }
+    }
+
+    function formatarDataHora(iso) {
+      return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    function renderizarResultado(p) {
+      localizadorAtual = p.localizador;
+      document.getElementById("cartao-resultado").classList.remove("escondido");
+      document.getElementById("titulo-resultado").textContent = `${p.cliente_nome} — Poltrona ${p.numero_poltrona}`;
+      document.getElementById("detalhes-resultado").textContent =
+        `${p.origem} → ${p.destino} · ${formatarDataHora(p.data_hora_partida)} · Localizador ${p.localizador}`;
+
+      const jaEmbarcou = !!p.checkin_em;
+      const cancelada = p.status_passagem === "cancelada";
+      document.getElementById("selo-checkin").innerHTML = cancelada
+        ? `<span class="selo cancelada">Passagem cancelada</span>`
+        : jaEmbarcou
+        ? `<span class="selo confirmada">Embarque confirmado em ${formatarDataHora(p.checkin_em)}</span>`
+        : `<span class="selo hold">Aguardando embarque</span>`;
+
+      const btn = document.getElementById("btn-confirmar-checkin");
+      btn.classList.toggle("escondido", cancelada || jaEmbarcou);
+    }
+
+    document.getElementById("form-buscar").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      document.getElementById("cartao-resultado").classList.add("escondido");
+      try {
+        const codigo = document.getElementById("localizador").value.trim().toUpperCase();
+        const passagem = await api("GET", `/checkin/${codigo}`);
+        renderizarResultado(passagem);
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("btn-confirmar-checkin").addEventListener("click", async () => {
+      if (!localizadorAtual) return;
+      try {
+        const passagem = await api("POST", `/checkin/${localizadorAtual}`);
+        renderizarResultado(passagem);
+        mostrarAlerta("Embarque confirmado com sucesso.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    if (auth) {
+      montarTopo("topo");
+    }
+  </script>
+</body>
+</html>

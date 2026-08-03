@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Selecionar poltrona</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Selecione sua poltrona</h1>
+    <p class="subtitulo">Clique em uma poltrona livre. Ela fica reservada por alguns minutos enquanto você finaliza a compra.</p>
+
+    <div id="alerta"></div>
+
+    <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start">
+      <div>
+        <div class="mapa-onibus" id="mapa-onibus"></div>
+        <div class="legenda">
+          <span><i class="i-livre"></i>Livre</span>
+          <span><i class="i-selecionada"></i>Selecionada</span>
+          <span><i class="i-hold"></i>Indisponível (em reserva)</span>
+          <span><i class="i-vendida"></i>Vendida</span>
+          <span><i class="i-bloqueada"></i>Bloqueada</span>
+        </div>
+      </div>
+
+      <div class="cartao escondido" id="cartao-compra" style="min-width:280px">
+        <h2 style="margin-top:0">Finalizar compra — poltrona <span id="numero-selecionada"></span></h2>
+        <form id="form-compra">
+          <div style="margin-bottom:12px">
+            <label for="cliente-nome">Nome do passageiro</label>
+            <input id="cliente-nome" required />
+          </div>
+          <div style="margin-bottom:12px">
+            <label for="cliente-documento">CPF</label>
+            <input id="cliente-documento" required />
+          </div>
+          <div style="margin-bottom:12px">
+            <label for="forma-pagamento">Forma de pagamento</label>
+            <select id="forma-pagamento">
+              <option value="pix">Pix</option>
+              <option value="cartao">Cartão</option>
+              <option value="dinheiro">Dinheiro</option>
+            </select>
+            <p class="rodape-form" style="text-align:left">Pagamento registrado manualmente nesta versão.</p>
+          </div>
+          <div class="linha-acoes">
+            <button type="submit">Confirmar compra</button>
+            <button type="button" class="secundario" id="btn-liberar">Escolher outra</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("cliente");
+    const params = new URLSearchParams(window.location.search);
+    const viagemId = params.get("viagem_id");
+    let poltronaSelecionadaId = null;
+
+    if (!viagemId) {
+      window.location.href = "/pages/busca.html";
+    }
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    function esconderFormulario() {
+      poltronaSelecionadaId = null;
+      document.getElementById("cartao-compra").classList.add("escondido");
+      document.getElementById("form-compra").reset();
+    }
+
+    async function carregarMapa() {
+      const poltronas = await api("GET", `/viagens/${viagemId}/poltronas`);
+      const porFileira = {};
+      poltronas.forEach((p) => {
+        porFileira[p.fileira] = porFileira[p.fileira] || [];
+        porFileira[p.fileira].push(p);
+      });
+
+      const container = document.getElementById("mapa-onibus");
+      container.innerHTML = Object.keys(porFileira)
+        .sort((a, b) => a - b)
+        .map((fileira) => {
+          const assentos = porFileira[fileira].sort((a, b) => a.coluna - b.coluna);
+          const celulas = [];
+          assentos.forEach((p) => {
+            if (p.coluna === 3) celulas.push('<div class="poltrona corredor"></div>');
+            const classes = ["poltrona", p.status];
+            if (p.poltrona_viagem_id === poltronaSelecionadaId) classes.push("selecionada");
+            celulas.push(
+              `<div class="${classes.join(" ")}" data-id="${p.poltrona_viagem_id}" data-status="${p.status}" data-numero="${p.numero}">${p.numero}</div>`
+            );
+          });
+          return `<div class="fileira-poltronas">${celulas.join("")}</div>`;
+        })
+        .join("");
+
+      container.querySelectorAll(".poltrona[data-id]").forEach((el) => {
+        el.addEventListener("click", () => onClicarPoltrona(el));
+      });
+    }
+
+    async function onClicarPoltrona(el) {
+      if (el.dataset.status !== "livre") {
+        mostrarAlerta("Esta poltrona não está disponível.");
+        return;
+      }
+      try {
+        await api("POST", `/viagens/${viagemId}/poltronas/${el.dataset.id}/hold`);
+        poltronaSelecionadaId = parseInt(el.dataset.id, 10);
+        document.getElementById("numero-selecionada").textContent = el.dataset.numero;
+        if (!document.getElementById("cliente-nome").value) {
+          document.getElementById("cliente-nome").value = auth.nome;
+        }
+        document.getElementById("cartao-compra").classList.remove("escondido");
+        await carregarMapa();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    }
+
+    document.getElementById("btn-liberar").addEventListener("click", async () => {
+      if (!poltronaSelecionadaId) return;
+      try {
+        await api("POST", `/viagens/${viagemId}/poltronas/${poltronaSelecionadaId}/liberar`);
+        esconderFormulario();
+        carregarMapa();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("form-compra").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      if (!poltronaSelecionadaId) return;
+      try {
+        const passagem = await api("POST", `/viagens/${viagemId}/passagens`, {
+          poltrona_viagem_id: poltronaSelecionadaId,
+          cliente_nome: document.getElementById("cliente-nome").value.trim(),
+          cliente_documento: document.getElementById("cliente-documento").value.trim(),
+          forma_pagamento: document.getElementById("forma-pagamento").value,
+        });
+        mostrarAlerta(`Compra confirmada! Localizador: ${passagem.localizador}`, "sucesso");
+        esconderFormulario();
+        setTimeout(() => (window.location.href = "/pages/minhas-passagens.html"), 1500);
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    if (auth && viagemId) {
+      montarTopo("topo");
+      carregarMapa().catch((e) => mostrarAlerta(e.message));
+    }
+  </script>
+</body>
+</html>

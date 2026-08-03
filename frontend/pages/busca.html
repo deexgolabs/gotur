@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Buscar viagem</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Buscar viagem</h1>
+    <p class="subtitulo">Encontre passagens disponíveis entre duas cidades.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <form id="form-busca">
+        <div class="grid-form">
+          <div>
+            <label for="origem">Origem</label>
+            <input id="origem" required placeholder="Ex: São Paulo" />
+          </div>
+          <div>
+            <label for="destino">Destino</label>
+            <input id="destino" required placeholder="Ex: Rio de Janeiro" />
+          </div>
+          <div>
+            <label for="data">Data</label>
+            <input id="data" type="date" required />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Buscar</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="resultados"></div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("cliente");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    function formatarHora(iso) {
+      return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      const hoje = new Date().toISOString().slice(0, 10);
+      document.getElementById("data").value = hoje;
+      document.getElementById("data").min = hoje;
+    }
+
+    document.getElementById("form-busca").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const resultados = document.getElementById("resultados");
+      resultados.innerHTML = "";
+      try {
+        const origem = document.getElementById("origem").value.trim();
+        const destino = document.getElementById("destino").value.trim();
+        const data = document.getElementById("data").value;
+        const query = new URLSearchParams({ origem, destino, data }).toString();
+        const viagens = await api("GET", `/viagens/buscar?${query}`);
+
+        if (viagens.length === 0) {
+          resultados.innerHTML = '<p class="vazio">Nenhuma viagem encontrada para essa busca.</p>';
+          return;
+        }
+
+        resultados.innerHTML = viagens
+          .map(
+            (v) => `
+          <div class="cartao" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="font-weight:700">${v.empresa_nome}</div>
+              <div style="color:var(--cinza);font-size:.9rem">${v.origem} → ${v.destino} · ${formatarHora(v.data_hora_partida)}</div>
+              <div style="color:var(--cinza);font-size:.85rem">${v.poltronas_livres} poltronas livres</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-weight:700;font-size:1.2rem;margin-bottom:8px">R$ ${Number(v.preco).toFixed(2)}</div>
+              <a href="/pages/comprar.html?viagem_id=${v.id}"><button ${v.poltronas_livres === 0 ? "disabled" : ""}>Selecionar poltrona</button></a>
+            </div>
+          </div>`
+          )
+          .join("");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

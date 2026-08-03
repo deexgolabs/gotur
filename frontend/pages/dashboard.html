@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Início</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1 id="titulo">Bem-vindo(a)</h1>
+    <p class="subtitulo" id="subtitulo"></p>
+    <div class="cartoes-resumo" id="cartoes"></div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirLogin();
+    if (auth) {
+      montarTopo("topo");
+      document.getElementById("titulo").textContent = `Olá, ${auth.nome}`;
+
+      const cartoesPorPapel = {
+        super_admin: [
+          { href: "/pages/empresas.html", titulo: "Empresas", desc: "Cadastrar e gerenciar viações na plataforma" },
+        ],
+        admin_empresa: [
+          { href: "/pages/funcionarios.html", titulo: "Funcionários", desc: "Gerencie a equipe da sua empresa" },
+          { href: "/pages/onibus.html", titulo: "Ônibus", desc: "Cadastre veículos e o layout de poltronas" },
+          { href: "/pages/rotas.html", titulo: "Rotas", desc: "Origens e destinos atendidos" },
+          { href: "/pages/viagens.html", titulo: "Viagens", desc: "Crie viagens, venda passagens e gerencie poltronas" },
+          { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem" },
+          { href: "/pages/relatorios.html", titulo: "Relatórios", desc: "Ocupação, vendas e desempenho da equipe" },
+        ],
+        funcionario: [
+          { href: "/pages/viagens.html", titulo: "Viagens", desc: "Venda passagens e gerencie o mapa de poltronas" },
+          { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem" },
+        ],
+        cliente: [
+          { href: "/pages/busca.html", titulo: "Buscar viagem", desc: "Encontre passagens disponíveis" },
+          { href: "/pages/minhas-passagens.html", titulo: "Minhas passagens", desc: "Veja e cancele suas passagens" },
+        ],
+      };
+
+      const subtitulos = {
+        super_admin: "Gerencie as empresas cadastradas na plataforma GoTur.",
+        admin_empresa: "Gerencie sua empresa, frota, rotas e vendas.",
+        funcionario: "Atenda seus clientes e venda passagens.",
+        cliente: "Encontre e compre suas passagens.",
+      };
+      document.getElementById("subtitulo").textContent = subtitulos[auth.role] || "";
+
+      const cartoes = cartoesPorPapel[auth.role] || [];
+      document.getElementById("cartoes").innerHTML = cartoes
+        .map(
+          (c) => `
+        <a class="cartao-resumo" href="${c.href}">
+          <div class="titulo">${c.titulo}</div>
+          <div class="desc">${c.desc}</div>
+        </a>`
+        )
+        .join("");
+    }
+  </script>
+</body>
+</html>

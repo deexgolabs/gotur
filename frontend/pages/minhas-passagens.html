@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Minhas passagens</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Minhas passagens</h1>
+    <p class="subtitulo">Suas compras realizadas na GoTur.</p>
+
+    <div id="alerta"></div>
+
+    <div id="lista"></div>
+    <p class="vazio escondido" id="vazio">Você ainda não comprou nenhuma passagem.</p>
+  </main>
+
+  <dialog id="dialog-qrcode" style="border:none;border-radius:8px;padding:24px;max-width:320px;width:100%;text-align:center">
+    <h2 style="margin-top:0" id="qrcode-localizador"></h2>
+    <img id="qrcode-img" alt="QR Code da passagem" style="width:100%;max-width:220px" />
+    <p class="rodape-form">Apresente este código no embarque.</p>
+    <button type="button" class="secundario" id="btn-fechar-qrcode" style="width:100%">Fechar</button>
+  </dialog>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("cliente");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    function formatarHora(iso) {
+      return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/passagens/minhas");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      document.getElementById("lista").innerHTML = lista
+        .map(
+          (p) => `
+        <div class="cartao" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-weight:700">${p.empresa_nome} · ${p.origem} → ${p.destino}</div>
+            <div style="color:var(--cinza);font-size:.9rem">${formatarHora(p.data_hora_partida)} · Poltrona ${p.numero_poltrona}</div>
+            <div style="color:var(--cinza);font-size:.85rem">Localizador: <strong>${p.localizador}</strong> · Passageiro: ${p.cliente_nome}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="margin-bottom:8px"><span class="selo ${p.status}">${p.status === "confirmada" ? "Confirmada" : "Cancelada"}</span></div>
+            <div style="font-weight:700;margin-bottom:8px">R$ ${Number(p.preco).toFixed(2)}</div>
+            ${p.status === "confirmada" ? `<button class="secundario" data-qrcode="${p.localizador}" style="margin-right:8px">Ver QR Code</button>` : ""}
+            ${p.status === "confirmada" ? `<button class="perigo" data-viagem="${p.viagem_id}" data-id="${p.id}">Cancelar</button>` : ""}
+          </div>
+        </div>`
+        )
+        .join("");
+
+      document.querySelectorAll("button[data-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Cancelar esta passagem?")) return;
+          try {
+            await api("POST", `/viagens/${btn.dataset.viagem}/passagens/${btn.dataset.id}/cancelar`);
+            mostrarAlerta("Passagem cancelada.", "sucesso");
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      document.querySelectorAll("button[data-qrcode]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirQrCode(btn.dataset.qrcode));
+      });
+    }
+
+    async function abrirQrCode(localizador) {
+      try {
+        const auth = obterAuth();
+        const resposta = await fetch(`/api/passagens/${localizador}/qrcode`, {
+          headers: { Authorization: `Bearer ${auth.access_token}` },
+        });
+        if (!resposta.ok) throw new Error("Não foi possível gerar o QR Code.");
+        const blob = await resposta.blob();
+        document.getElementById("qrcode-img").src = URL.createObjectURL(blob);
+        document.getElementById("qrcode-localizador").textContent = localizador;
+        document.getElementById("dialog-qrcode").showModal();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("btn-fechar-qrcode").addEventListener("click", () => {
+      document.getElementById("dialog-qrcode").close();
+    });
+  </script>
+</body>
+</html>

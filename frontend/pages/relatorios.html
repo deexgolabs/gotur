@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Relatórios</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Relatórios</h1>
+    <p class="subtitulo">Ocupação, vendas e desempenho da equipe.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Vendas por período</h2>
+      <form id="form-periodo">
+        <div class="grid-form">
+          <div>
+            <label for="inicio">De</label>
+            <input id="inicio" type="date" required />
+          </div>
+          <div>
+            <label for="fim">Até</label>
+            <input id="fim" type="date" required />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Gerar</button>
+        </div>
+      </form>
+
+      <div id="resumo-vendas" class="cartoes-resumo escondido" style="margin-top:20px"></div>
+    </div>
+
+    <h2>Ocupação das viagens</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Rota</th><th>Data/Hora</th><th>Poltronas</th><th>Vendidas</th><th>Ocupação</th></tr></thead>
+        <tbody id="corpo-ocupacao"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio-ocupacao">Nenhuma viagem cadastrada ainda.</p>
+    </div>
+
+    <h2>Desempenho por funcionário</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Funcionário</th><th>Passagens vendidas</th><th>Total arrecadado</th></tr></thead>
+        <tbody id="corpo-funcionarios"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio-funcionarios">Nenhuma venda registrada por funcionários ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+    const ROTULOS_PAGAMENTO = { dinheiro: "Dinheiro", cartao: "Cartão", pix: "Pix", outro: "Outro" };
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    function formatarDataHora(iso) {
+      return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    async function carregarOcupacao() {
+      const lista = await api("GET", "/relatorios/ocupacao");
+      const corpo = document.getElementById("corpo-ocupacao");
+      document.getElementById("vazio-ocupacao").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (v) => `
+        <tr>
+          <td>${v.origem} → ${v.destino}</td>
+          <td>${formatarDataHora(v.data_hora_partida)}</td>
+          <td>${v.total_poltronas}</td>
+          <td>${v.poltronas_vendidas}</td>
+          <td>${v.percentual_ocupacao}%</td>
+        </tr>`
+        )
+        .join("");
+    }
+
+    async function carregarFuncionarios() {
+      const lista = await api("GET", "/relatorios/funcionarios");
+      const corpo = document.getElementById("corpo-funcionarios");
+      document.getElementById("vazio-funcionarios").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (f) => `
+        <tr>
+          <td>${f.nome}</td>
+          <td>${f.total_passagens}</td>
+          <td>R$ ${f.total_arrecadado.toFixed(2)}</td>
+        </tr>`
+        )
+        .join("");
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      const hoje = new Date().toISOString().slice(0, 10);
+      const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      document.getElementById("inicio").value = trintaDiasAtras;
+      document.getElementById("fim").value = hoje;
+      carregarOcupacao().catch((e) => mostrarAlerta(e.message));
+      carregarFuncionarios().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-periodo").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const inicio = document.getElementById("inicio").value;
+        const fim = document.getElementById("fim").value;
+        const resumo = await api("GET", `/relatorios/vendas?inicio=${inicio}&fim=${fim}`);
+        const porForma = Object.entries(resumo.por_forma_pagamento)
+          .map(([forma, valor]) => `<div class="cartao-resumo"><div class="titulo">R$ ${valor.toFixed(2)}</div><div class="desc">${ROTULOS_PAGAMENTO[forma] || forma}</div></div>`)
+          .join("");
+        document.getElementById("resumo-vendas").classList.remove("escondido");
+        document.getElementById("resumo-vendas").innerHTML = `
+          <div class="cartao-resumo"><div class="titulo">${resumo.total_passagens}</div><div class="desc">Passagens vendidas</div></div>
+          <div class="cartao-resumo"><div class="titulo">R$ ${resumo.total_arrecadado.toFixed(2)}</div><div class="desc">Total arrecadado</div></div>
+          ${porForma}
+        `;
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

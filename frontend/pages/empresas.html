@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Empresas</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Empresas</h1>
+    <p class="subtitulo">Viações cadastradas na plataforma.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Nova empresa</h2>
+      <form id="form-empresa">
+        <div class="grid-form">
+          <div>
+            <label for="nome">Nome da viação</label>
+            <input id="nome" required />
+          </div>
+          <div>
+            <label for="cnpj">CNPJ</label>
+            <input id="cnpj" required />
+          </div>
+          <div>
+            <label for="email">E-mail de contato</label>
+            <input id="email" type="email" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Cadastrar empresa</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Empresas cadastradas</h2>
+    <div class="cartao">
+      <table>
+        <thead>
+          <tr><th>Nome</th><th>CNPJ</th><th>Contato</th><th>Status</th><th>Admin da empresa</th></tr>
+        </thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhuma empresa cadastrada ainda.</p>
+    </div>
+  </main>
+
+  <dialog id="dialog-admin" style="border:none;border-radius:8px;padding:24px;max-width:360px;width:100%">
+    <h2 style="margin-top:0">Criar administrador</h2>
+    <form id="form-admin">
+      <div style="margin-bottom:12px">
+        <label for="admin-nome">Nome</label>
+        <input id="admin-nome" required />
+      </div>
+      <div style="margin-bottom:12px">
+        <label for="admin-email">E-mail</label>
+        <input id="admin-email" type="email" required />
+      </div>
+      <div style="margin-bottom:12px">
+        <label for="admin-senha">Senha provisória</label>
+        <input id="admin-senha" type="password" required minlength="6" />
+      </div>
+      <div class="linha-acoes">
+        <button type="submit">Criar</button>
+        <button type="button" class="secundario" id="btn-fechar-dialog">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("super_admin");
+    let empresaSelecionada = null;
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    async function carregarEmpresas() {
+      const empresas = await api("GET", "/empresas");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", empresas.length > 0);
+      corpo.innerHTML = empresas
+        .map(
+          (e) => `
+        <tr>
+          <td>${e.nome}</td>
+          <td>${e.cnpj}</td>
+          <td>${e.email_contato || "-"}</td>
+          <td><span class="selo ${e.ativo ? "livre" : "bloqueada"}">${e.ativo ? "Ativa" : "Inativa"}</span></td>
+          <td><button class="secundario" data-id="${e.id}" data-nome="${e.nome}">Criar admin</button></td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-id]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          empresaSelecionada = btn.dataset.id;
+          document.getElementById("dialog-admin").querySelector("h2").textContent = `Criar administrador — ${btn.dataset.nome}`;
+          document.getElementById("dialog-admin").showModal();
+        });
+      });
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregarEmpresas().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-empresa").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("POST", "/empresas", {
+          nome: document.getElementById("nome").value.trim(),
+          cnpj: document.getElementById("cnpj").value.trim(),
+          email_contato: document.getElementById("email").value.trim() || null,
+        });
+        ev.target.reset();
+        mostrarAlerta("Empresa cadastrada com sucesso.", "sucesso");
+        carregarEmpresas();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("btn-fechar-dialog").addEventListener("click", () => {
+      document.getElementById("dialog-admin").close();
+    });
+
+    document.getElementById("form-admin").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("POST", `/empresas/${empresaSelecionada}/admin`, {
+          nome: document.getElementById("admin-nome").value.trim(),
+          email: document.getElementById("admin-email").value.trim(),
+          senha: document.getElementById("admin-senha").value,
+          role: "admin_empresa",
+        });
+        document.getElementById("dialog-admin").close();
+        ev.target.reset();
+        mostrarAlerta("Administrador criado com sucesso.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

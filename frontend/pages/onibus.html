@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Ônibus</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Ônibus</h1>
+    <p class="subtitulo">Frota e layout de poltronas da sua empresa.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Novo ônibus</h2>
+      <form id="form-onibus">
+        <div class="grid-form">
+          <div>
+            <label for="identificacao">Identificação (placa/nº)</label>
+            <input id="identificacao" required />
+          </div>
+          <div>
+            <label for="tipo">Tipo</label>
+            <select id="tipo">
+              <option value="convencional">Convencional</option>
+              <option value="executivo">Executivo</option>
+              <option value="leito">Leito</option>
+            </select>
+          </div>
+          <div>
+            <label for="total">Total de poltronas</label>
+            <input id="total" type="number" min="4" max="80" value="40" required />
+          </div>
+        </div>
+        <p class="rodape-form" style="text-align:left">O layout de poltronas (2+2 por fileira) é gerado automaticamente.</p>
+        <div class="linha-acoes">
+          <button type="submit">Cadastrar ônibus</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Frota cadastrada</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Identificação</th><th>Tipo</th><th>Poltronas</th><th>Status</th></tr></thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhum ônibus cadastrado ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+    const ROTULOS = { convencional: "Convencional", executivo: "Executivo", leito: "Leito" };
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/onibus");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (o) => `
+        <tr>
+          <td>${o.identificacao}</td>
+          <td>${ROTULOS[o.tipo] || o.tipo}</td>
+          <td>${o.poltronas.length}</td>
+          <td><span class="selo ${o.ativo ? "livre" : "bloqueada"}">${o.ativo ? "Ativo" : "Inativo"}</span></td>
+        </tr>`
+        )
+        .join("");
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-onibus").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("POST", "/onibus", {
+          identificacao: document.getElementById("identificacao").value.trim(),
+          tipo: document.getElementById("tipo").value,
+          total_poltronas: parseInt(document.getElementById("total").value, 10),
+        });
+        ev.target.reset();
+        document.getElementById("total").value = 40;
+        mostrarAlerta("Ônibus cadastrado com sucesso.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

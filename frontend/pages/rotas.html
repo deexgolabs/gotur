@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Rotas</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Rotas</h1>
+    <p class="subtitulo">Origens e destinos atendidos pela sua empresa.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Nova rota</h2>
+      <form id="form-rota">
+        <div class="grid-form">
+          <div>
+            <label for="origem">Origem</label>
+            <input id="origem" required />
+          </div>
+          <div>
+            <label for="destino">Destino</label>
+            <input id="destino" required />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Cadastrar rota</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Rotas cadastradas</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Origem</th><th>Destino</th><th>Status</th></tr></thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhuma rota cadastrada ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/rotas");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (r) => `
+        <tr>
+          <td>${r.origem}</td>
+          <td>${r.destino}</td>
+          <td><span class="selo ${r.ativo ? "livre" : "bloqueada"}">${r.ativo ? "Ativa" : "Inativa"}</span></td>
+        </tr>`
+        )
+        .join("");
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-rota").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("POST", "/rotas", {
+          origem: document.getElementById("origem").value.trim(),
+          destino: document.getElementById("destino").value.trim(),
+        });
+        ev.target.reset();
+        mostrarAlerta("Rota cadastrada com sucesso.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

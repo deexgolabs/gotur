@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Entrar</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="tela-login">
+    <div class="caixa-login">
+      <div class="marca">Go<span>Tur</span></div>
+      <p class="lema">Sistema de passagens rodoviárias</p>
+
+      <div class="abas">
+        <button id="aba-entrar" class="ativa" type="button">Entrar</button>
+        <button id="aba-cadastrar" type="button">Criar conta (cliente)</button>
+      </div>
+
+      <div id="alerta"></div>
+
+      <form id="form-login">
+        <div style="margin-bottom:14px">
+          <label for="login-email">E-mail</label>
+          <input id="login-email" type="email" required autocomplete="email" />
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="login-senha">Senha</label>
+          <input id="login-senha" type="password" required autocomplete="current-password" />
+        </div>
+        <button type="submit" style="width:100%">Entrar</button>
+      </form>
+
+      <form id="form-cadastro" class="escondido">
+        <div style="margin-bottom:14px">
+          <label for="cad-nome">Nome completo</label>
+          <input id="cad-nome" required />
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="cad-email">E-mail</label>
+          <input id="cad-email" type="email" required />
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="cad-documento">CPF</label>
+          <input id="cad-documento" required />
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="cad-senha">Senha</label>
+          <input id="cad-senha" type="password" required minlength="6" />
+        </div>
+        <button type="submit" style="width:100%">Criar conta</button>
+      </form>
+
+      <p class="rodape-form">Funcionários e administradores recebem acesso da sua empresa.</p>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const abaEntrar = document.getElementById("aba-entrar");
+    const abaCadastrar = document.getElementById("aba-cadastrar");
+    const formLogin = document.getElementById("form-login");
+    const formCadastro = document.getElementById("form-cadastro");
+    const alertaEl = document.getElementById("alerta");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      alertaEl.innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    abaEntrar.addEventListener("click", () => {
+      abaEntrar.classList.add("ativa");
+      abaCadastrar.classList.remove("ativa");
+      formLogin.classList.remove("escondido");
+      formCadastro.classList.add("escondido");
+      alertaEl.innerHTML = "";
+    });
+
+    abaCadastrar.addEventListener("click", () => {
+      abaCadastrar.classList.add("ativa");
+      abaEntrar.classList.remove("ativa");
+      formCadastro.classList.remove("escondido");
+      formLogin.classList.add("escondido");
+      alertaEl.innerHTML = "";
+    });
+
+    function irParaDashboard() {
+      window.location.href = "/pages/dashboard.html";
+    }
+
+    formLogin.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      alertaEl.innerHTML = "";
+      try {
+        const dados = await api("POST", "/auth/login", {
+          email: document.getElementById("login-email").value.trim(),
+          senha: document.getElementById("login-senha").value,
+        });
+        salvarAuth(dados);
+        irParaDashboard();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    formCadastro.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      alertaEl.innerHTML = "";
+      try {
+        const dados = await api("POST", "/auth/registrar-cliente", {
+          nome: document.getElementById("cad-nome").value.trim(),
+          email: document.getElementById("cad-email").value.trim(),
+          documento: document.getElementById("cad-documento").value.trim(),
+          senha: document.getElementById("cad-senha").value,
+        });
+        salvarAuth(dados);
+        irParaDashboard();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    if (obterAuth()) {
+      irParaDashboard();
+    }
+  </script>
+</body>
+</html>
