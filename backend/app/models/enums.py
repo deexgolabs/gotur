@@ -21,6 +21,15 @@ class StatusPoltrona(str, enum.Enum):
     VENDIDA = "vendida"
 
 
+class TipoOcupacao(str, enum.Enum):
+    """Tipo de um registro no "livro-razão" de ocupação de poltrona por
+    trecho (app.models.ocupacao_poltrona.OcupacaoPoltrona)."""
+
+    HOLD = "hold"
+    BLOQUEIO = "bloqueio"
+    VENDA = "venda"
+
+
 class StatusPassagem(str, enum.Enum):
     CONFIRMADA = "confirmada"
     CANCELADA = "cancelada"

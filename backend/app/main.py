@@ -5,30 +5,27 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from sqlalchemy import inspect, text
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 from app import models  # noqa: F401 - garante que os modelos sejam registrados no metadata
 from app.config import settings
-from app.database import Base, engine
-from app.routers import auth, checkin, empresas, onibus, passagens, poltronas, relatorios, rotas, usuarios, viagens
+from app.routers import (
+    auditoria,
+    auth,
+    checkin,
+    empresas,
+    onibus,
+    passagens,
+    poltronas,
+    relatorios,
+    rotas,
+    usuarios,
+    viagens,
+)
 
-Base.metadata.create_all(bind=engine)
-
-
-def _aplicar_migracoes_leves() -> None:
-    """Sem Alembic ainda: adiciona colunas novas em bancos sqlite já existentes."""
-    inspecao = inspect(engine)
-    if "passagens" not in inspecao.get_table_names():
-        return
-    colunas = {c["name"] for c in inspecao.get_columns("passagens")}
-    if "checkin_em" not in colunas:
-        with engine.begin() as conexao:
-            conexao.execute(text("ALTER TABLE passagens ADD COLUMN checkin_em DATETIME"))
-
-
-_aplicar_migracoes_leves()
+# Schema do banco é gerenciado via Alembic (ver backend/alembic/), não mais
+# criado/alterado automaticamente aqui. Rode `alembic upgrade head` antes de
+# subir a aplicação (veja DEPLOY.md).
 
 app = FastAPI(title="GoTur API")
 
@@ -53,6 +50,7 @@ for router in (
     passagens.meu_router,
     relatorios.router,
     checkin.router,
+    auditoria.router,
 ):
     api.include_router(router)
 

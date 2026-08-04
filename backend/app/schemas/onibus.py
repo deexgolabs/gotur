@@ -8,6 +8,8 @@ class PoltronaLayout(BaseModel):
     andar: int = 1
     fileira: int
     coluna: int
+    categoria: str = "padrao"
+    multiplicador_preco: float = 1.00
 
 
 class OnibusCreate(BaseModel):
@@ -28,6 +30,18 @@ class PoltronaOnibusOut(BaseModel):
     andar: int
     fileira: int
     coluna: int
+    categoria: str
+    multiplicador_preco: float
+
+
+class PoltronaOnibusUpdate(BaseModel):
+    categoria: str
+    multiplicador_preco: float = Field(gt=0, le=10)
+
+
+class OnibusUpdate(BaseModel):
+    identificacao: str | None = None
+    tipo: TipoOnibus | None = None
 
 
 class OnibusOut(BaseModel):

@@ -3,3 +3,5 @@ __pycache__/
 venv/
 .env
 gotur.db
+test_gotur.db
+.pytest_cache/

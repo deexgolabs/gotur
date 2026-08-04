@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, ForeignKey, Integer, String
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,5 +28,7 @@ class PoltronaOnibus(Base):
     andar: Mapped[int] = mapped_column(Integer, default=1)
     fileira: Mapped[int] = mapped_column(Integer, nullable=False)
     coluna: Mapped[int] = mapped_column(Integer, nullable=False)
+    categoria: Mapped[str] = mapped_column(String(30), default="padrao")
+    multiplicador_preco: Mapped[float] = mapped_column(Numeric(4, 2), default=1.00)
 
     onibus = relationship("Onibus", back_populates="poltronas")

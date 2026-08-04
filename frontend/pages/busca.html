@@ -85,8 +85,9 @@
               <div style="color:var(--cinza);font-size:.85rem">${v.poltronas_livres} poltronas livres</div>
             </div>
             <div style="text-align:right">
-              <div style="font-weight:700;font-size:1.2rem;margin-bottom:8px">R$ ${Number(v.preco).toFixed(2)}</div>
-              <a href="/pages/comprar.html?viagem_id=${v.id}"><button ${v.poltronas_livres === 0 ? "disabled" : ""}>Selecionar poltrona</button></a>
+              <div style="font-weight:700;font-size:1.2rem;margin-bottom:2px">a partir de R$ ${Number(v.preco).toFixed(2)}</div>
+              <div style="color:var(--cinza);font-size:.78rem;margin-bottom:8px">poltronas especiais podem custar mais</div>
+              <a href="/pages/comprar.html?viagem_id=${v.id}&origem_parada_id=${v.parada_origem_id}&destino_parada_id=${v.parada_destino_id}"><button ${v.poltronas_livres === 0 ? "disabled" : ""}>Selecionar poltrona</button></a>
             </div>
           </div>`
           )

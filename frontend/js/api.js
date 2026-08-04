@@ -41,3 +41,31 @@ async function api(metodo, caminho, corpo) {
   }
   return dados;
 }
+
+function baixarCsv(nomeArquivo, cabecalhos, linhas) {
+  const escapar = (valor) => {
+    const texto = valor === null || valor === undefined ? "" : String(valor);
+    return /[",\n;]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
+  };
+  const conteudo = [cabecalhos, ...linhas].map((linha) => linha.map(escapar).join(";")).join("\r\n");
+  const blob = new Blob(["﻿" + conteudo], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = nomeArquivo;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function abrirArquivoAutenticado(caminho, nomeJanela) {
+  const auth = obterAuth();
+  const resposta = await fetch(`${API_BASE}${caminho}`, {
+    headers: auth && auth.access_token ? { Authorization: `Bearer ${auth.access_token}` } : {},
+  });
+  if (!resposta.ok) {
+    throw new Error("Não foi possível abrir o arquivo.");
+  }
+  const blob = await resposta.blob();
+  const url = URL.createObjectURL(blob);
+  window.open(url, nomeJanela || "_blank");
+}

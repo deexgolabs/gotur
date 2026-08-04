@@ -13,6 +13,11 @@ class ViagemCreate(BaseModel):
     preco: float
 
 
+class ViagemUpdate(BaseModel):
+    data_hora_partida: datetime | None = None
+    preco: float | None = None
+
+
 class ViagemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -34,4 +39,6 @@ class ViagemBuscaOut(BaseModel):
     preco: float
     origem: str
     destino: str
+    parada_origem_id: int
+    parada_destino_id: int
     poltronas_livres: int

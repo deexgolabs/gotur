@@ -13,6 +13,8 @@ class PoltronaMapaOut(BaseModel):
     andar: int
     fileira: int
     coluna: int
+    categoria: str
+    preco: float
     status: StatusPoltrona
     hold_expira_em: datetime | None = None
 

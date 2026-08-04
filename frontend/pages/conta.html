@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Minha conta</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Minha conta</h1>
+    <p class="subtitulo">Dados de acesso e senha.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Contato</h2>
+      <form id="form-contato">
+        <div class="grid-form">
+          <div>
+            <label for="telefone">Telefone (WhatsApp)</label>
+            <input id="telefone" type="tel" placeholder="(00) 00000-0000" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Trocar senha</h2>
+      <form id="form-senha">
+        <div class="grid-form">
+          <div>
+            <label for="senha-atual">Senha atual</label>
+            <input id="senha-atual" type="password" required autocomplete="current-password" />
+          </div>
+          <div>
+            <label for="senha-nova">Nova senha</label>
+            <input id="senha-nova" type="password" required minlength="6" autocomplete="new-password" />
+          </div>
+          <div>
+            <label for="senha-nova-confirmar">Confirmar nova senha</label>
+            <input id="senha-nova-confirmar" type="password" required minlength="6" autocomplete="new-password" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Salvar nova senha</button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirLogin();
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") {
+        setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+      }
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      api("GET", "/usuarios/me")
+        .then((perfil) => {
+          document.getElementById("telefone").value = perfil.telefone || "";
+        })
+        .catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-contato").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("PATCH", "/usuarios/me", { telefone: document.getElementById("telefone").value.trim() || null });
+        mostrarAlerta("Dados de contato atualizados.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("form-senha").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const nova = document.getElementById("senha-nova").value;
+      const confirmar = document.getElementById("senha-nova-confirmar").value;
+      if (nova !== confirmar) {
+        mostrarAlerta("A confirmação não bate com a nova senha.");
+        return;
+      }
+      try {
+        await api("POST", "/usuarios/me/senha", {
+          senha_atual: document.getElementById("senha-atual").value,
+          senha_nova: nova,
+        });
+        document.getElementById("form-senha").reset();
+        mostrarAlerta("Senha alterada com sucesso.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

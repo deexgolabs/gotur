@@ -14,6 +14,20 @@
 
     <div id="alerta"></div>
 
+    <div class="cartao escondido" id="cartao-trecho" style="max-width:520px">
+      <label style="margin-bottom:8px">Vender para qual trecho da viagem?</label>
+      <div class="grid-form">
+        <div>
+          <label for="select-origem-trecho" style="font-weight:400;font-size:.8rem">Embarque</label>
+          <select id="select-origem-trecho"></select>
+        </div>
+        <div>
+          <label for="select-destino-trecho" style="font-weight:400;font-size:.8rem">Desembarque</label>
+          <select id="select-destino-trecho"></select>
+        </div>
+      </div>
+    </div>
+
     <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start">
       <div>
         <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:400">
@@ -34,6 +48,7 @@
 
       <div class="cartao escondido" id="cartao-venda" style="min-width:280px">
         <h2 style="margin-top:0">Vender poltrona <span id="numero-selecionada"></span></h2>
+        <p class="rodape-form" style="text-align:left;margin-top:-8px" id="preco-selecionada"></p>
         <form id="form-venda">
           <div style="margin-bottom:12px">
             <label for="cliente-nome">Nome do passageiro</label>
@@ -63,7 +78,7 @@
     <h2>Passagens vendidas</h2>
     <div class="cartao">
       <table>
-        <thead><tr><th>Localizador</th><th>Passageiro</th><th>CPF</th><th>Preço</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Localizador</th><th>Passageiro</th><th>CPF</th><th>Trecho</th><th>Preço</th><th>Status</th><th></th></tr></thead>
         <tbody id="corpo-passagens"></tbody>
       </table>
       <p class="vazio escondido" id="vazio-passagens">Nenhuma passagem vendida ainda.</p>
@@ -78,6 +93,8 @@
     const viagemId = params.get("viagem_id");
     let poltronaSelecionadaId = null;
     let intervaloAtualizacao = null;
+    let trechoOrigemId = null;
+    let trechoDestinoId = null;
 
     if (!viagemId) {
       window.location.href = "/pages/viagens.html";
@@ -90,6 +107,39 @@
       }
     }
 
+    function queryTrecho() {
+      if (!trechoOrigemId || !trechoDestinoId) return "";
+      return `?origem_parada_id=${trechoOrigemId}&destino_parada_id=${trechoDestinoId}`;
+    }
+
+    async function carregarParadas() {
+      const viagens = await api("GET", "/viagens");
+      const viagem = viagens.find((v) => v.id == viagemId);
+      if (!viagem) return;
+      const paradas = [...viagem.rota.paradas].sort((a, b) => a.ordem - b.ordem);
+      if (paradas.length <= 2) return;
+
+      document.getElementById("cartao-trecho").classList.remove("escondido");
+      const selectOrigem = document.getElementById("select-origem-trecho");
+      const selectDestino = document.getElementById("select-destino-trecho");
+      const opcoes = paradas.map((p) => `<option value="${p.id}">${p.nome}</option>`).join("");
+      selectOrigem.innerHTML = opcoes;
+      selectDestino.innerHTML = opcoes;
+      selectOrigem.value = paradas[0].id;
+      selectDestino.value = paradas[paradas.length - 1].id;
+      trechoOrigemId = paradas[0].id;
+      trechoDestinoId = paradas[paradas.length - 1].id;
+
+      const aoMudarTrecho = () => {
+        trechoOrigemId = parseInt(selectOrigem.value, 10);
+        trechoDestinoId = parseInt(selectDestino.value, 10);
+        esconderFormularioVenda();
+        carregarMapa().catch((e) => mostrarAlerta(e.message));
+      };
+      selectOrigem.addEventListener("change", aoMudarTrecho);
+      selectDestino.addEventListener("change", aoMudarTrecho);
+    }
+
     function esconderFormularioVenda() {
       poltronaSelecionadaId = null;
       document.getElementById("cartao-venda").classList.add("escondido");
@@ -97,7 +147,7 @@
     }
 
     async function carregarMapa() {
-      const poltronas = await api("GET", `/viagens/${viagemId}/poltronas`);
+      const poltronas = await api("GET", `/viagens/${viagemId}/poltronas${queryTrecho()}`);
       const porFileira = {};
       poltronas.forEach((p) => {
         porFileira[p.fileira] = porFileira[p.fileira] || [];
@@ -114,8 +164,9 @@
             if (p.coluna === 3) celulas.push('<div class="poltrona corredor"></div>');
             const classes = ["poltrona", p.status];
             if (p.poltrona_viagem_id === poltronaSelecionadaId) classes.push("selecionada");
+            const tituloCategoria = p.categoria && p.categoria !== "padrao" ? `${p.categoria} · R$ ${p.preco.toFixed(2)}` : `R$ ${p.preco.toFixed(2)}`;
             celulas.push(
-              `<div class="${classes.join(" ")}" data-id="${p.poltrona_viagem_id}" data-status="${p.status}" data-numero="${p.numero}">${p.numero}</div>`
+              `<div class="${classes.join(" ")}" data-id="${p.poltrona_viagem_id}" data-status="${p.status}" data-numero="${p.numero}" data-preco="${p.preco}" title="${tituloCategoria}">${p.numero}</div>`
             );
           });
           return `<div class="fileira-poltronas">${celulas.join("")}</div>`;
@@ -135,12 +186,12 @@
       try {
         if (modoBloqueio) {
           if (status === "bloqueada") {
-            await api("POST", `/viagens/${viagemId}/poltronas/${poltronaId}/desbloquear`);
+            await api("POST", `/viagens/${viagemId}/poltronas/${poltronaId}/desbloquear${queryTrecho()}`);
             mostrarAlerta("Poltrona desbloqueada.", "sucesso");
           } else if (status === "livre") {
             const motivo = prompt("Motivo do bloqueio (ex: manutenção, reservada para tripulação):");
             if (!motivo) return;
-            await api("POST", `/viagens/${viagemId}/poltronas/${poltronaId}/bloquear`, { motivo });
+            await api("POST", `/viagens/${viagemId}/poltronas/${poltronaId}/bloquear${queryTrecho()}`, { motivo });
             mostrarAlerta("Poltrona bloqueada.", "sucesso");
           } else {
             mostrarAlerta("Só é possível bloquear poltronas livres.");
@@ -155,9 +206,10 @@
           return;
         }
 
-        await api("POST", `/viagens/${viagemId}/poltronas/${poltronaId}/hold`);
+        await api("POST", `/viagens/${viagemId}/poltronas/${poltronaId}/hold${queryTrecho()}`);
         poltronaSelecionadaId = poltronaId;
         document.getElementById("numero-selecionada").textContent = el.dataset.numero;
+        document.getElementById("preco-selecionada").textContent = `Preço: R$ ${Number(el.dataset.preco).toFixed(2)}`;
         document.getElementById("cartao-venda").classList.remove("escondido");
         await carregarMapa();
       } catch (erro) {
@@ -168,7 +220,7 @@
     document.getElementById("btn-liberar").addEventListener("click", async () => {
       if (!poltronaSelecionadaId) return;
       try {
-        await api("POST", `/viagens/${viagemId}/poltronas/${poltronaSelecionadaId}/liberar`);
+        await api("POST", `/viagens/${viagemId}/poltronas/${poltronaSelecionadaId}/liberar${queryTrecho()}`);
         esconderFormularioVenda();
         carregarMapa();
       } catch (erro) {
@@ -185,6 +237,8 @@
           cliente_nome: document.getElementById("cliente-nome").value.trim(),
           cliente_documento: document.getElementById("cliente-documento").value.trim(),
           forma_pagamento: document.getElementById("forma-pagamento").value,
+          parada_origem_id: trechoOrigemId,
+          parada_destino_id: trechoDestinoId,
         });
         mostrarAlerta(`Passagem vendida! Localizador: ${passagem.localizador}`, "sucesso");
         esconderFormularioVenda();
@@ -205,20 +259,54 @@
           <td>${p.localizador}</td>
           <td>${p.cliente_nome}</td>
           <td>${p.cliente_documento}</td>
+          <td>${p.origem_trecho ? `${p.origem_trecho} → ${p.destino_trecho}` : "-"}</td>
           <td>R$ ${Number(p.preco).toFixed(2)}</td>
-          <td><span class="selo ${p.status}">${p.status === "confirmada" ? "Confirmada" : "Cancelada"}</span></td>
-          <td>${p.status === "confirmada" ? `<button class="perigo" data-id="${p.id}">Cancelar</button>` : ""}</td>
+          <td>
+            <span class="selo ${p.status}">${p.status === "confirmada" ? "Confirmada" : "Cancelada"}</span>
+            ${p.reembolsado_em ? `<span class="selo confirmada">Reembolsado R$ ${Number(p.valor_reembolsado).toFixed(2)}</span>` : ""}
+          </td>
+          <td>
+            ${p.status === "confirmada" ? `<button class="secundario" data-bilhete="${p.localizador}">Bilhete PDF</button>` : ""}
+            ${p.status === "confirmada" ? `<button class="perigo" data-cancelar="${p.id}">Cancelar</button>` : ""}
+            ${p.status === "cancelada" && !p.reembolsado_em ? `<button class="secundario" data-reembolsar="${p.id}">Reembolsar</button>` : ""}
+          </td>
         </tr>`
         )
         .join("");
 
-      corpo.querySelectorAll("button[data-id]").forEach((btn) => {
+      corpo.querySelectorAll("button[data-bilhete]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          abrirArquivoAutenticado(`/passagens/${btn.dataset.bilhete}/bilhete.pdf`, "bilhete").catch((e) => mostrarAlerta(e.message));
+        });
+      });
+
+      corpo.querySelectorAll("button[data-cancelar]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           if (!confirm("Cancelar esta passagem e liberar a poltrona?")) return;
           try {
-            await api("POST", `/viagens/${viagemId}/passagens/${btn.dataset.id}/cancelar`);
+            await api("POST", `/viagens/${viagemId}/passagens/${btn.dataset.cancelar}/cancelar`);
             mostrarAlerta("Passagem cancelada.", "sucesso");
             await Promise.all([carregarMapa(), carregarPassagens()]);
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-reembolsar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const passagem = lista.find((p) => p.id == btn.dataset.reembolsar);
+          const valorStr = prompt(`Valor a reembolsar (R$, máx ${Number(passagem.preco).toFixed(2)}):`, Number(passagem.preco).toFixed(2));
+          if (valorStr === null) return;
+          const motivo = prompt("Motivo do reembolso:");
+          if (!motivo) return;
+          try {
+            await api("POST", `/viagens/${viagemId}/passagens/${passagem.id}/reembolsar`, {
+              valor: parseFloat(valorStr),
+              motivo,
+            });
+            mostrarAlerta("Reembolso registrado.", "sucesso");
+            carregarPassagens();
           } catch (erro) {
             mostrarAlerta(erro.message);
           }
@@ -228,7 +316,9 @@
 
     if (auth && viagemId) {
       montarTopo("topo");
-      Promise.all([carregarMapa(), carregarPassagens()]).catch((e) => mostrarAlerta(e.message));
+      carregarParadas()
+        .then(() => Promise.all([carregarMapa(), carregarPassagens()]))
+        .catch((e) => mostrarAlerta(e.message));
       intervaloAtualizacao = setInterval(() => {
         if (!poltronaSelecionadaId) carregarMapa().catch(() => {});
       }, 15000);

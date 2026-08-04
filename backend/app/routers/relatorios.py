@@ -6,13 +6,15 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import require_roles
 from app.database import get_db
-from app.models.enums import StatusPassagem, StatusPoltrona, UserRole
+from app.models.enums import StatusPassagem, TipoOcupacao, UserRole
+from app.models.ocupacao_poltrona import OcupacaoPoltrona
 from app.models.pagamento import Pagamento
 from app.models.passagem import Passagem
 from app.models.poltrona_viagem import PoltronaViagem
 from app.models.usuario import Usuario
 from app.models.viagem import Viagem
 from app.schemas.relatorio import OcupacaoViagemOut, VendasPorFuncionarioOut, VendasResumoOut
+from app.services.trecho import buscar_paradas_da_rota
 
 router = APIRouter(prefix="/relatorios", tags=["relatorios"])
 
@@ -22,6 +24,9 @@ def relatorio_ocupacao(
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
+    """`percentual_ocupacao` é o fator de ocupação médio (load factor):
+    considera venda de trechos parciais, não só poltronas inteiras vendidas
+    de ponta a ponta."""
     viagens = (
         db.query(Viagem)
         .options(joinedload(Viagem.rota))
@@ -32,13 +37,28 @@ def relatorio_ocupacao(
 
     resultado = []
     for v in viagens:
-        total = db.query(func.count(PoltronaViagem.id)).filter(PoltronaViagem.viagem_id == v.id).scalar() or 0
-        vendidas = (
-            db.query(func.count(PoltronaViagem.id))
-            .filter(PoltronaViagem.viagem_id == v.id, PoltronaViagem.status == StatusPoltrona.VENDIDA)
-            .scalar()
-            or 0
+        paradas = buscar_paradas_da_rota(db, v.rota_id)
+        peso_total = sum(float(p.peso_proximo) for p in paradas if p.peso_proximo is not None) or 1.0
+
+        poltronas_ids = [
+            pid for (pid,) in db.query(PoltronaViagem.id).filter(PoltronaViagem.viagem_id == v.id).all()
+        ]
+        total = len(poltronas_ids)
+
+        vendas = (
+            db.query(OcupacaoPoltrona)
+            .filter(OcupacaoPoltrona.poltrona_viagem_id.in_(poltronas_ids), OcupacaoPoltrona.tipo == TipoOcupacao.VENDA)
+            .all()
+            if poltronas_ids
+            else []
         )
+
+        poltronas_com_venda = {venda.poltrona_viagem_id for venda in vendas}
+        peso_vendido = sum(venda.parada_destino_ordem - venda.parada_origem_ordem for venda in vendas)
+        # aproximação: pondera pela quantidade de "segmentos" cobertos, já
+        # que o peso exato por segmento pode variar por trecho.
+        fracao_media = (peso_vendido / (total * max(len(paradas) - 1, 1))) if total else 0
+
         resultado.append(
             OcupacaoViagemOut(
                 viagem_id=v.id,
@@ -46,8 +66,8 @@ def relatorio_ocupacao(
                 destino=v.rota.destino,
                 data_hora_partida=v.data_hora_partida,
                 total_poltronas=total,
-                poltronas_vendidas=vendidas,
-                percentual_ocupacao=round((vendidas / total * 100) if total else 0, 1),
+                poltronas_vendidas=len(poltronas_com_venda),
+                percentual_ocupacao=round(min(fracao_media, 1.0) * 100, 1),
             )
         )
     return resultado

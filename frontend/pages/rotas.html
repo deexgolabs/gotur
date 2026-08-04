@@ -27,7 +27,17 @@
             <input id="destino" required />
           </div>
         </div>
-        <div class="linha-acoes">
+
+        <div style="margin-top:16px">
+          <label>Paradas intermediárias (opcional)</label>
+          <p class="rodape-form" style="text-align:left;margin:0 0 8px">
+            Permite vender só um trecho da viagem (ex: embarcar numa parada e desembarcar em outra). O preço de cada trecho é dividido igualmente entre os segmentos.
+          </p>
+          <div id="lista-paradas"></div>
+          <button type="button" class="secundario" id="btn-add-parada" style="margin-top:6px">+ Adicionar parada intermediária</button>
+        </div>
+
+        <div class="linha-acoes" style="margin-top:16px">
           <button type="submit">Cadastrar rota</button>
         </div>
       </form>
@@ -36,7 +46,7 @@
     <h2>Rotas cadastradas</h2>
     <div class="cartao">
       <table>
-        <thead><tr><th>Origem</th><th>Destino</th><th>Status</th></tr></thead>
+        <thead><tr><th>Trajeto</th><th>Status</th><th></th></tr></thead>
         <tbody id="corpo-tabela"></tbody>
       </table>
       <p class="vazio escondido" id="vazio">Nenhuma rota cadastrada ainda.</p>
@@ -57,15 +67,61 @@
       const corpo = document.getElementById("corpo-tabela");
       document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
       corpo.innerHTML = lista
-        .map(
-          (r) => `
+        .map((r) => {
+          const paradas = [...r.paradas].sort((a, b) => a.ordem - b.ordem);
+          const trajeto = paradas.length > 2 ? paradas.map((p) => p.nome).join(" → ") : `${r.origem} → ${r.destino}`;
+          return `
         <tr>
-          <td>${r.origem}</td>
-          <td>${r.destino}</td>
+          <td>${trajeto}</td>
           <td><span class="selo ${r.ativo ? "livre" : "bloqueada"}">${r.ativo ? "Ativa" : "Inativa"}</span></td>
-        </tr>`
-        )
+          <td>
+            <button class="secundario" data-editar="${r.id}">Editar</button>
+            ${r.ativo
+              ? `<button class="perigo" data-desativar="${r.id}">Desativar</button>`
+              : `<button class="secundario" data-ativar="${r.id}">Reativar</button>`}
+          </td>
+        </tr>`;
+        })
         .join("");
+
+      corpo.querySelectorAll("button[data-editar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const linha = lista.find((r) => r.id == btn.dataset.editar);
+          const novaOrigem = prompt("Origem:", linha.origem);
+          if (novaOrigem === null) return;
+          const novoDestino = prompt("Destino:", linha.destino);
+          if (novoDestino === null) return;
+          try {
+            await api("PATCH", `/rotas/${linha.id}`, { origem: novaOrigem.trim(), destino: novoDestino.trim() });
+            mostrarAlerta("Rota atualizada.", "sucesso");
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/rotas/${btn.dataset.desativar}/desativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-ativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/rotas/${btn.dataset.ativar}/ativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
     }
 
     if (auth) {
@@ -73,14 +129,38 @@
       carregar().catch((e) => mostrarAlerta(e.message));
     }
 
+    document.getElementById("btn-add-parada").addEventListener("click", () => {
+      const linha = document.createElement("div");
+      linha.style.cssText = "display:flex;gap:8px;margin-bottom:8px;align-items:center";
+      linha.innerHTML = `
+        <input type="text" placeholder="Nome da parada" style="flex:1" class="input-nome-parada" />
+        <button type="button" class="perigo" style="padding:9px 12px">Remover</button>
+      `;
+      linha.querySelector("button").addEventListener("click", () => linha.remove());
+      document.getElementById("lista-paradas").appendChild(linha);
+    });
+
     document.getElementById("form-rota").addEventListener("submit", async (ev) => {
       ev.preventDefault();
       try {
-        await api("POST", "/rotas", {
-          origem: document.getElementById("origem").value.trim(),
-          destino: document.getElementById("destino").value.trim(),
-        });
+        const origem = document.getElementById("origem").value.trim();
+        const destino = document.getElementById("destino").value.trim();
+        const intermediarias = Array.from(document.querySelectorAll(".input-nome-parada"))
+          .map((el) => el.value.trim())
+          .filter(Boolean);
+
+        const corpo = { origem, destino };
+        if (intermediarias.length) {
+          corpo.paradas = [
+            { nome: origem },
+            ...intermediarias.map((nome) => ({ nome })),
+            { nome: destino, peso_proximo: null },
+          ];
+        }
+
+        await api("POST", "/rotas", corpo);
         ev.target.reset();
+        document.getElementById("lista-paradas").innerHTML = "";
         mostrarAlerta("Rota cadastrada com sucesso.", "sucesso");
         carregar();
       } catch (erro) {

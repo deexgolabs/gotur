@@ -33,10 +33,18 @@
       </form>
 
       <div id="resumo-vendas" class="cartoes-resumo escondido" style="margin-top:20px"></div>
+      <div id="grafico-vendas" style="margin-top:20px"></div>
+      <div class="linha-acoes" id="acoes-vendas" style="margin-top:12px" hidden>
+        <button type="button" class="secundario" id="btn-csv-vendas">Exportar CSV</button>
+      </div>
     </div>
 
-    <h2>Ocupação das viagens</h2>
+    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      Ocupação das viagens
+      <button type="button" class="secundario" id="btn-csv-ocupacao">Exportar CSV</button>
+    </h2>
     <div class="cartao">
+      <div id="grafico-ocupacao" style="overflow-x:auto"></div>
       <table>
         <thead><tr><th>Rota</th><th>Data/Hora</th><th>Poltronas</th><th>Vendidas</th><th>Ocupação</th></tr></thead>
         <tbody id="corpo-ocupacao"></tbody>
@@ -44,7 +52,10 @@
       <p class="vazio escondido" id="vazio-ocupacao">Nenhuma viagem cadastrada ainda.</p>
     </div>
 
-    <h2>Desempenho por funcionário</h2>
+    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      Desempenho por funcionário
+      <button type="button" class="secundario" id="btn-csv-funcionarios">Exportar CSV</button>
+    </h2>
     <div class="cartao">
       <table>
         <thead><tr><th>Funcionário</th><th>Passagens vendidas</th><th>Total arrecadado</th></tr></thead>
@@ -59,6 +70,9 @@
   <script>
     const auth = exigirPapel("admin_empresa");
     const ROTULOS_PAGAMENTO = { dinheiro: "Dinheiro", cartao: "Cartão", pix: "Pix", outro: "Outro" };
+    let ultimaOcupacao = [];
+    let ultimosFuncionarios = [];
+    let ultimoResumoVendas = null;
 
     function mostrarAlerta(mensagem, tipo = "erro") {
       document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
@@ -68,8 +82,41 @@
       return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
     }
 
+    function escaparTexto(texto) {
+      const div = document.createElement("div");
+      div.textContent = texto;
+      return div.innerHTML;
+    }
+
+    function svgBarrasHorizontal(itens, opts = {}) {
+      if (!itens.length) return '<p class="vazio">Sem dados para exibir.</p>';
+      const alturaBarra = 22;
+      const espaco = 12;
+      const larguraRotulo = 170;
+      const larguraMaxBarra = 260;
+      const largura = larguraRotulo + larguraMaxBarra + 80;
+      const altura = itens.length * (alturaBarra + espaco) + espaco;
+      const max = Math.max(...itens.map((i) => i.valor), 1);
+      const cor = opts.cor || "#0b5fa5";
+
+      const barras = itens
+        .map((item, i) => {
+          const y = espaco + i * (alturaBarra + espaco);
+          const larguraBarra = Math.max((item.valor / max) * larguraMaxBarra, 2);
+          return `
+            <text x="0" y="${y + alturaBarra / 2 + 4}" font-size="12" fill="#374151">${escaparTexto(item.label)}</text>
+            <rect x="${larguraRotulo}" y="${y}" width="${larguraBarra}" height="${alturaBarra}" rx="4" fill="${cor}"></rect>
+            <text x="${larguraRotulo + larguraBarra + 8}" y="${y + alturaBarra / 2 + 4}" font-size="12" fill="#374151">${escaparTexto(item.valorTexto ?? item.valor)}</text>
+          `;
+        })
+        .join("");
+
+      return `<svg viewBox="0 0 ${largura} ${altura}" width="100%" style="max-width:560px;min-width:320px">${barras}</svg>`;
+    }
+
     async function carregarOcupacao() {
       const lista = await api("GET", "/relatorios/ocupacao");
+      ultimaOcupacao = lista;
       const corpo = document.getElementById("corpo-ocupacao");
       document.getElementById("vazio-ocupacao").classList.toggle("escondido", lista.length > 0);
       corpo.innerHTML = lista
@@ -84,10 +131,19 @@
         </tr>`
         )
         .join("");
+
+      document.getElementById("grafico-ocupacao").innerHTML = svgBarrasHorizontal(
+        lista.slice(0, 12).map((v) => ({
+          label: `${v.origem} → ${v.destino} (${formatarDataHora(v.data_hora_partida)})`,
+          valor: v.percentual_ocupacao,
+          valorTexto: `${v.percentual_ocupacao}%`,
+        }))
+      );
     }
 
     async function carregarFuncionarios() {
       const lista = await api("GET", "/relatorios/funcionarios");
+      ultimosFuncionarios = lista;
       const corpo = document.getElementById("corpo-funcionarios");
       document.getElementById("vazio-funcionarios").classList.toggle("escondido", lista.length > 0);
       corpo.innerHTML = lista
@@ -118,6 +174,8 @@
         const inicio = document.getElementById("inicio").value;
         const fim = document.getElementById("fim").value;
         const resumo = await api("GET", `/relatorios/vendas?inicio=${inicio}&fim=${fim}`);
+        ultimoResumoVendas = resumo;
+        document.getElementById("acoes-vendas").hidden = false;
         const porForma = Object.entries(resumo.por_forma_pagamento)
           .map(([forma, valor]) => `<div class="cartao-resumo"><div class="titulo">R$ ${valor.toFixed(2)}</div><div class="desc">${ROTULOS_PAGAMENTO[forma] || forma}</div></div>`)
           .join("");
@@ -127,9 +185,46 @@
           <div class="cartao-resumo"><div class="titulo">R$ ${resumo.total_arrecadado.toFixed(2)}</div><div class="desc">Total arrecadado</div></div>
           ${porForma}
         `;
+        document.getElementById("grafico-vendas").innerHTML = svgBarrasHorizontal(
+          Object.entries(resumo.por_forma_pagamento).map(([forma, valor]) => ({
+            label: ROTULOS_PAGAMENTO[forma] || forma,
+            valor,
+            valorTexto: `R$ ${valor.toFixed(2)}`,
+          })),
+          { cor: "#1c9b6e" }
+        );
       } catch (erro) {
         mostrarAlerta(erro.message);
       }
+    });
+
+    document.getElementById("btn-csv-ocupacao").addEventListener("click", () => {
+      baixarCsv(
+        "ocupacao-viagens.csv",
+        ["Origem", "Destino", "Data/Hora", "Poltronas", "Vendidas", "Ocupação (%)"],
+        ultimaOcupacao.map((v) => [v.origem, v.destino, formatarDataHora(v.data_hora_partida), v.total_poltronas, v.poltronas_vendidas, v.percentual_ocupacao])
+      );
+    });
+
+    document.getElementById("btn-csv-funcionarios").addEventListener("click", () => {
+      baixarCsv(
+        "desempenho-funcionarios.csv",
+        ["Funcionário", "Passagens vendidas", "Total arrecadado (R$)"],
+        ultimosFuncionarios.map((f) => [f.nome, f.total_passagens, f.total_arrecadado.toFixed(2)])
+      );
+    });
+
+    document.getElementById("btn-csv-vendas").addEventListener("click", () => {
+      if (!ultimoResumoVendas) return;
+      const linhasForma = Object.entries(ultimoResumoVendas.por_forma_pagamento).map(([forma, valor]) => [
+        ROTULOS_PAGAMENTO[forma] || forma,
+        valor.toFixed(2),
+      ]);
+      baixarCsv(
+        "vendas-por-periodo.csv",
+        ["Forma de pagamento", "Total (R$)"],
+        [...linhasForma, ["TOTAL", ultimoResumoVendas.total_arrecadado.toFixed(2)], ["Passagens vendidas", ultimoResumoVendas.total_passagens]]
+      );
     });
   </script>
 </body>

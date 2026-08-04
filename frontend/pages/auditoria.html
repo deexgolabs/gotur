@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Auditoria</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Log de auditoria</h1>
+    <p class="subtitulo">Últimas ações registradas pela equipe (vendas, cancelamentos, bloqueios de poltrona, check-ins).</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Detalhes</th></tr></thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhuma ação registrada ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+
+    const ROTULOS_ACAO = {
+      venda_passagem: "Venda de passagem",
+      cancelamento_passagem: "Cancelamento de passagem",
+      bloqueio_poltrona: "Bloqueio de poltrona",
+      desbloqueio_poltrona: "Desbloqueio de poltrona",
+      checkin: "Check-in",
+      reembolso: "Reembolso",
+    };
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    function formatarDataHora(iso) {
+      return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "medium" });
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/auditoria");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (r) => `
+        <tr>
+          <td>${formatarDataHora(r.criado_em)}</td>
+          <td>${r.usuario_nome || "—"}</td>
+          <td>${ROTULOS_ACAO[r.acao] || r.acao}</td>
+          <td>${r.detalhes || ""}</td>
+        </tr>`
+        )
+        .join("");
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+  </script>
+</body>
+</html>

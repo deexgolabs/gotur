@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, require_roles
-from app.core.security import hash_senha
+from app.core.security import hash_senha, verificar_senha
 from app.database import get_db
 from app.models.enums import UserRole
 from app.models.usuario import Usuario
-from app.schemas.usuario import FuncionarioCreate, UsuarioOut
+from app.schemas.usuario import AtualizarPerfilRequest, FuncionarioCreate, TrocarSenhaRequest, UsuarioOut
 
 router = APIRouter(prefix="/usuarios", tags=["usuarios"])
 
@@ -67,3 +67,31 @@ def desativar_funcionario(
 @router.get("/me", response_model=UsuarioOut)
 def meu_perfil(usuario_atual: Usuario = Depends(get_current_user)):
     return usuario_atual
+
+
+@router.patch("/me", response_model=UsuarioOut)
+def atualizar_meu_perfil(
+    dados: AtualizarPerfilRequest,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    for campo, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(usuario_atual, campo, valor)
+    db.commit()
+    db.refresh(usuario_atual)
+    return usuario_atual
+
+
+@router.post("/me/senha", status_code=status.HTTP_204_NO_CONTENT)
+def trocar_minha_senha(
+    dados: TrocarSenhaRequest,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    if not verificar_senha(dados.senha_atual, usuario_atual.senha_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Senha atual incorreta")
+    if len(dados.senha_nova) < 6:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A nova senha deve ter ao menos 6 caracteres")
+
+    usuario_atual.senha_hash = hash_senha(dados.senha_nova)
+    db.commit()

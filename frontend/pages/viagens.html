@@ -44,7 +44,7 @@
     <h2>Próximas viagens</h2>
     <div class="cartao">
       <table>
-        <thead><tr><th>Rota</th><th>Data/Hora</th><th>Ônibus</th><th>Preço</th><th></th></tr></thead>
+        <thead><tr><th>Rota</th><th>Data/Hora</th><th>Ônibus</th><th>Preço</th><th>Status</th><th></th></tr></thead>
         <tbody id="corpo-tabela"></tbody>
       </table>
       <p class="vazio escondido" id="vazio">Nenhuma viagem cadastrada ainda.</p>
@@ -88,10 +88,59 @@
           <td>${formatarDataHora(v.data_hora_partida)}</td>
           <td>${v.onibus.identificacao}</td>
           <td>R$ ${Number(v.preco).toFixed(2)}</td>
-          <td><a href="/pages/mapa-poltronas.html?viagem_id=${v.id}"><button>Mapa de poltronas</button></a></td>
+          <td><span class="selo ${v.ativo ? "livre" : "bloqueada"}">${v.ativo ? "Ativa" : "Cancelada"}</span></td>
+          <td>
+            <a href="/pages/mapa-poltronas.html?viagem_id=${v.id}"><button>Mapa de poltronas</button></a>
+            ${ehAdmin ? `<button class="secundario" data-editar="${v.id}">Editar</button>` : ""}
+            ${ehAdmin
+              ? v.ativo
+                ? `<button class="perigo" data-desativar="${v.id}">Cancelar</button>`
+                : `<button class="secundario" data-ativar="${v.id}">Reativar</button>`
+              : ""}
+          </td>
         </tr>`
         )
         .join("");
+
+      if (!ehAdmin) return;
+
+      corpo.querySelectorAll("button[data-editar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const item = lista.find((v) => v.id == btn.dataset.editar);
+          const novoPreco = prompt("Novo preço (R$):", Number(item.preco).toFixed(2));
+          if (novoPreco === null) return;
+          try {
+            await api("PATCH", `/viagens/${item.id}`, { preco: parseFloat(novoPreco) });
+            mostrarAlerta("Viagem atualizada.", "sucesso");
+            carregarViagens();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Cancelar esta viagem? Ela sai da busca de clientes, mas passagens já vendidas continuam válidas.")) return;
+          try {
+            await api("PATCH", `/viagens/${btn.dataset.desativar}/desativar`);
+            carregarViagens();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-ativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/viagens/${btn.dataset.ativar}/ativar`);
+            carregarViagens();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
     }
 
     if (auth) {

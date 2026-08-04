@@ -11,6 +11,15 @@ class FuncionarioCreate(BaseModel):
     telefone: str | None = None
 
 
+class TrocarSenhaRequest(BaseModel):
+    senha_atual: str
+    senha_nova: str
+
+
+class AtualizarPerfilRequest(BaseModel):
+    telefone: str | None = None
+
+
 class UsuarioOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -20,3 +29,4 @@ class UsuarioOut(BaseModel):
     role: UserRole
     tenant_id: int | None
     ativo: bool
+    telefone: str | None = None

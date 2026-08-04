@@ -45,12 +45,21 @@
     <h2>Frota cadastrada</h2>
     <div class="cartao">
       <table>
-        <thead><tr><th>Identificação</th><th>Tipo</th><th>Poltronas</th><th>Status</th></tr></thead>
+        <thead><tr><th>Identificação</th><th>Tipo</th><th>Poltronas</th><th>Status</th><th></th></tr></thead>
         <tbody id="corpo-tabela"></tbody>
       </table>
       <p class="vazio escondido" id="vazio">Nenhum ônibus cadastrado ainda.</p>
     </div>
   </main>
+
+  <dialog id="dialog-poltronas" style="border:none;border-radius:8px;padding:24px;max-width:520px;width:100%">
+    <h2 style="margin-top:0" id="titulo-dialog-poltronas">Categorias de poltronas</h2>
+    <p class="rodape-form" style="text-align:left">Clique numa poltrona para definir a categoria e o multiplicador de preço (ex: "executiva", 1.5x = 50% mais cara que o preço base da viagem).</p>
+    <div class="mapa-onibus" id="mapa-poltronas-onibus" style="margin:14px 0"></div>
+    <div class="linha-acoes">
+      <button type="button" class="secundario" id="btn-fechar-poltronas">Fechar</button>
+    </div>
+  </dialog>
 
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
@@ -74,10 +83,118 @@
           <td>${ROTULOS[o.tipo] || o.tipo}</td>
           <td>${o.poltronas.length}</td>
           <td><span class="selo ${o.ativo ? "livre" : "bloqueada"}">${o.ativo ? "Ativo" : "Inativo"}</span></td>
+          <td>
+            <button class="secundario" data-editar="${o.id}">Editar</button>
+            <button class="secundario" data-poltronas="${o.id}">Categorias</button>
+            ${o.ativo
+              ? `<button class="perigo" data-desativar="${o.id}">Desativar</button>`
+              : `<button class="secundario" data-ativar="${o.id}">Reativar</button>`}
+          </td>
         </tr>`
         )
         .join("");
+
+      corpo.querySelectorAll("button[data-poltronas]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirDialogPoltronas(lista.find((o) => o.id == btn.dataset.poltronas)));
+      });
+
+      corpo.querySelectorAll("button[data-editar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const item = lista.find((o) => o.id == btn.dataset.editar);
+          const novaIdent = prompt("Identificação (placa/nº):", item.identificacao);
+          if (novaIdent === null) return;
+          try {
+            await api("PATCH", `/onibus/${item.id}`, { identificacao: novaIdent.trim() });
+            mostrarAlerta("Ônibus atualizado.", "sucesso");
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/onibus/${btn.dataset.desativar}/desativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-ativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/onibus/${btn.dataset.ativar}/ativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
     }
+
+    let onibusAtualId = null;
+
+    function renderizarMapaPoltronas(onibus) {
+      const porFileira = {};
+      onibus.poltronas.forEach((p) => {
+        porFileira[p.fileira] = porFileira[p.fileira] || [];
+        porFileira[p.fileira].push(p);
+      });
+
+      const container = document.getElementById("mapa-poltronas-onibus");
+      container.innerHTML = Object.keys(porFileira)
+        .sort((a, b) => a - b)
+        .map((fileira) => {
+          const assentos = porFileira[fileira].sort((a, b) => a.coluna - b.coluna);
+          const celulas = [];
+          assentos.forEach((p) => {
+            if (p.coluna === 3) celulas.push('<div class="poltrona corredor"></div>');
+            const destaque = p.multiplicador_preco != 1 ? "selecionada" : "livre";
+            celulas.push(
+              `<div class="poltrona ${destaque}" data-id="${p.id}" title="${p.categoria} · ${Number(p.multiplicador_preco).toFixed(2)}x">${p.numero}</div>`
+            );
+          });
+          return `<div class="fileira-poltronas">${celulas.join("")}</div>`;
+        })
+        .join("");
+
+      container.querySelectorAll(".poltrona[data-id]").forEach((el) => {
+        el.addEventListener("click", async () => {
+          const poltrona = onibus.poltronas.find((p) => p.id == el.dataset.id);
+          const categoria = prompt("Categoria (ex: padrao, executiva, leito):", poltrona.categoria);
+          if (categoria === null) return;
+          const multiplicador = prompt("Multiplicador de preço (1 = preço normal, 1.5 = 50% mais caro):", Number(poltrona.multiplicador_preco).toFixed(2));
+          if (multiplicador === null) return;
+          try {
+            await api("PATCH", `/onibus/${onibus.id}/poltronas/${poltrona.id}`, {
+              categoria: categoria.trim() || "padrao",
+              multiplicador_preco: parseFloat(multiplicador),
+            });
+            poltrona.categoria = categoria.trim() || "padrao";
+            poltrona.multiplicador_preco = parseFloat(multiplicador);
+            renderizarMapaPoltronas(onibus);
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    function abrirDialogPoltronas(onibus) {
+      onibusAtualId = onibus.id;
+      document.getElementById("titulo-dialog-poltronas").textContent = `Categorias de poltronas — ${onibus.identificacao}`;
+      renderizarMapaPoltronas(onibus);
+      document.getElementById("dialog-poltronas").showModal();
+    }
+
+    document.getElementById("btn-fechar-poltronas").addEventListener("click", () => {
+      document.getElementById("dialog-poltronas").close();
+      carregar();
+    });
 
     if (auth) {
       montarTopo("topo");

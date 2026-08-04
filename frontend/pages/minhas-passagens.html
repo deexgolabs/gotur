@@ -54,6 +54,7 @@
             <div style="margin-bottom:8px"><span class="selo ${p.status}">${p.status === "confirmada" ? "Confirmada" : "Cancelada"}</span></div>
             <div style="font-weight:700;margin-bottom:8px">R$ ${Number(p.preco).toFixed(2)}</div>
             ${p.status === "confirmada" ? `<button class="secundario" data-qrcode="${p.localizador}" style="margin-right:8px">Ver QR Code</button>` : ""}
+            ${p.status === "confirmada" ? `<button class="secundario" data-bilhete="${p.localizador}" style="margin-right:8px">Bilhete PDF</button>` : ""}
             ${p.status === "confirmada" ? `<button class="perigo" data-viagem="${p.viagem_id}" data-id="${p.id}">Cancelar</button>` : ""}
           </div>
         </div>`
@@ -75,6 +76,12 @@
 
       document.querySelectorAll("button[data-qrcode]").forEach((btn) => {
         btn.addEventListener("click", () => abrirQrCode(btn.dataset.qrcode));
+      });
+
+      document.querySelectorAll("button[data-bilhete]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          abrirArquivoAutenticado(`/passagens/${btn.dataset.bilhete}/bilhete.pdf`, "bilhete").catch((e) => mostrarAlerta(e.message));
+        });
       });
     }
 

@@ -1,20 +1,20 @@
 """Cria um super admin inicial e uma empresa demo com admin, ônibus, rota e viagem.
 
-Uso: python seed.py
+Uso: alembic upgrade head && python seed.py
 """
 from datetime import datetime, timedelta
 
 from app.core.security import hash_senha
-from app.database import Base, SessionLocal, engine
+from app.database import SessionLocal
 from app.models.empresa import Empresa
-from app.models.enums import StatusPoltrona, TipoOnibus, UserRole
+from app.models.enums import TipoOnibus, UserRole
 from app.models.onibus import Onibus, PoltronaOnibus
+from app.models.parada import Parada
 from app.models.poltrona_viagem import PoltronaViagem
 from app.models.rota import Rota
 from app.models.usuario import Usuario
 from app.models.viagem import Viagem
 
-Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 
 try:
@@ -77,7 +77,11 @@ try:
         rota = Rota(tenant_id=empresa.id, origem="São Paulo", destino="Rio de Janeiro")
         db.add(rota)
         db.flush()
-        print("Rota demo criada: São Paulo -> Rio de Janeiro")
+        # Rota com parada intermediária, para exercitar venda por trecho.
+        db.add(Parada(rota_id=rota.id, nome="São Paulo", ordem=0, peso_proximo=2))
+        db.add(Parada(rota_id=rota.id, nome="Volta Redonda", ordem=1, peso_proximo=1))
+        db.add(Parada(rota_id=rota.id, nome="Rio de Janeiro", ordem=2, peso_proximo=None))
+        print("Rota demo criada: São Paulo -> Volta Redonda -> Rio de Janeiro")
 
     db.flush()
     if not db.query(Viagem).filter(Viagem.tenant_id == empresa.id).first():
@@ -86,7 +90,7 @@ try:
         db.add(viagem)
         db.flush()
         for p in db.query(PoltronaOnibus).filter(PoltronaOnibus.onibus_id == onibus.id).all():
-            db.add(PoltronaViagem(viagem_id=viagem.id, poltrona_onibus_id=p.id, status=StatusPoltrona.LIVRE))
+            db.add(PoltronaViagem(viagem_id=viagem.id, poltrona_onibus_id=p.id))
         print("Viagem demo criada para amanhã às 08:00")
 
     db.commit()

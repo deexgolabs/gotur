@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     # Gateway de pagamento (Fase 5, ver app/services/pagamento_provider.py).
     gateway_api_key: str | None = None
 
+    # WhatsApp (Fase 5, ver app/services/whatsapp_service.py). Sem isso
+    # configurado, o envio é apenas logado (no-op) — não bloqueia a venda.
+    # Pensado para uma API HTTP simples (Z-API, Meta Cloud API, etc): um
+    # POST para `whatsapp_api_url` com o token de autenticação.
+    whatsapp_api_url: str | None = None
+    whatsapp_api_token: str | None = None
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origem.strip() for origem in self.cors_origins.split(",") if origem.strip()]

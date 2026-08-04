@@ -45,6 +45,10 @@
           <input id="cad-documento" required />
         </div>
         <div style="margin-bottom:14px">
+          <label for="cad-telefone">Telefone (WhatsApp, opcional)</label>
+          <input id="cad-telefone" type="tel" placeholder="(00) 00000-0000" />
+        </div>
+        <div style="margin-bottom:14px">
           <label for="cad-senha">Senha</label>
           <input id="cad-senha" type="password" required minlength="6" />
         </div>
@@ -111,6 +115,7 @@
           nome: document.getElementById("cad-nome").value.trim(),
           email: document.getElementById("cad-email").value.trim(),
           documento: document.getElementById("cad-documento").value.trim(),
+          telefone: document.getElementById("cad-telefone").value.trim() || null,
           senha: document.getElementById("cad-senha").value,
         });
         salvarAuth(dados);

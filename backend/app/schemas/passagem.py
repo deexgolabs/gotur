@@ -10,6 +10,8 @@ class VenderPassagemRequest(BaseModel):
     cliente_nome: str
     cliente_documento: str
     forma_pagamento: FormaPagamento
+    parada_origem_id: int | None = None
+    parada_destino_id: int | None = None
 
 
 class PassagemOut(BaseModel):
@@ -24,6 +26,10 @@ class PassagemOut(BaseModel):
     status: StatusPassagem
     localizador: str
     criado_em: datetime
+    reembolsado_em: datetime | None = None
+    valor_reembolsado: float | None = None
+    origem_trecho: str | None = None
+    destino_trecho: str | None = None
 
 
 class PassagemDetalheOut(PassagemOut):

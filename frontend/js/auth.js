@@ -43,6 +43,7 @@ function linksPorPapel(role) {
       { href: "/pages/viagens.html", label: "Viagens" },
       { href: "/pages/checkin.html", label: "Check-in" },
       { href: "/pages/relatorios.html", label: "Relatórios" },
+      { href: "/pages/auditoria.html", label: "Auditoria" },
     ];
   }
   if (role === "funcionario") {
@@ -71,6 +72,7 @@ function montarTopo(containerId) {
   const linksHtml = links.map((l) => `<a href="${l.href}">${l.label}</a>`).join("");
   const nomeHtml = auth
     ? `<span style="margin-left:18px;opacity:.85;font-size:.88rem">${auth.nome} · ${ROTULOS_PAPEL[auth.role] || auth.role}</span>
+       <a href="/pages/conta.html">Minha conta</a>
        <a href="#" id="link-sair">Sair</a>`
     : "";
 

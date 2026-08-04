@@ -14,3 +14,4 @@ class Rota(Base):
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     empresa = relationship("Empresa", back_populates="rotas")
+    paradas = relationship("Parada", back_populates="rota", order_by="Parada.ordem", cascade="all, delete-orphan")

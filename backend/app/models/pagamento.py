@@ -21,4 +21,8 @@ class Pagamento(Base):
     gateway_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    valor_reembolsado: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    motivo_reembolso: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    reembolsado_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     passagem = relationship("Passagem", back_populates="pagamento")
