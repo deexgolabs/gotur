@@ -63,23 +63,39 @@ function linksPorPapel(role) {
   return base;
 }
 
+const ICONE_MENU = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
+const ICONE_FECHAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>`;
+
 function montarTopo(containerId) {
   const auth = obterAuth();
   const container = document.getElementById(containerId);
   if (!container) return;
 
   const links = auth ? linksPorPapel(auth.role) : [];
-  const linksHtml = links.map((l) => `<a href="${l.href}">${l.label}</a>`).join("");
-  const nomeHtml = auth
-    ? `<span style="margin-left:18px;opacity:.85;font-size:.88rem">${auth.nome} · ${ROTULOS_PAPEL[auth.role] || auth.role}</span>
-       <a href="/pages/conta.html">Minha conta</a>
-       <a href="#" id="link-sair">Sair</a>`
+  const caminhoAtual = window.location.pathname;
+  const linksHtml = links
+    .map((l) => `<a href="${l.href}" class="link-nav${caminhoAtual === l.href ? " ativo" : ""}">${l.label}</a>`)
+    .join("");
+
+  const usuarioHtml = auth
+    ? `<div class="nav-usuario">
+         <span class="nav-nome">${auth.nome} · ${ROTULOS_PAPEL[auth.role] || auth.role}</span>
+         <a href="/pages/conta.html" class="link-nav${caminhoAtual === "/pages/conta.html" ? " ativo" : ""}">Minha conta</a>
+         <a href="#" id="link-sair" class="link-nav">Sair</a>
+       </div>`
     : "";
 
   container.innerHTML = `
     <header class="topo">
-      <div class="marca">Go<span style="color:#4fd1a5">Tur</span></div>
-      <nav>${linksHtml}${nomeHtml}</nav>
+      <div class="topo-linha">
+        <div class="marca">Go<span style="color:#4fd1a5">Tur</span></div>
+        <button type="button" class="btn-menu-mobile" id="btn-menu-mobile" aria-label="Abrir menu" aria-expanded="false">${ICONE_MENU}</button>
+      </div>
+      <nav id="nav-principal">
+        ${linksHtml}
+        ${links.length ? '<div class="nav-separador"></div>' : ""}
+        ${usuarioHtml}
+      </nav>
     </header>
   `;
 
@@ -88,6 +104,24 @@ function montarTopo(containerId) {
     linkSair.addEventListener("click", (ev) => {
       ev.preventDefault();
       sair();
+    });
+  }
+
+  const btnMenu = document.getElementById("btn-menu-mobile");
+  const nav = document.getElementById("nav-principal");
+  if (btnMenu && nav) {
+    btnMenu.addEventListener("click", () => {
+      const abrindo = !nav.classList.contains("aberto");
+      nav.classList.toggle("aberto", abrindo);
+      btnMenu.setAttribute("aria-expanded", String(abrindo));
+      btnMenu.innerHTML = abrindo ? ICONE_FECHAR : ICONE_MENU;
+    });
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 860 && nav.classList.contains("aberto")) {
+        nav.classList.remove("aberto");
+        btnMenu.setAttribute("aria-expanded", "false");
+        btnMenu.innerHTML = ICONE_MENU;
+      }
     });
   }
 }
