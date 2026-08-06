@@ -4,9 +4,11 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, require_roles
 from app.core.security import hash_senha, verificar_senha
 from app.database import get_db
+from app.models.empresa import Empresa
 from app.models.enums import UserRole
 from app.models.usuario import Usuario
 from app.schemas.usuario import AtualizarPerfilRequest, FuncionarioCreate, TrocarSenhaRequest, UsuarioOut
+from app.services.limites_plano import verificar_limite_funcionarios
 
 router = APIRouter(prefix="/usuarios", tags=["usuarios"])
 
@@ -21,6 +23,9 @@ def criar_funcionario(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Papel inválido para este cadastro")
     if db.query(Usuario).filter(Usuario.email == dados.email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail já cadastrado")
+
+    empresa = db.get(Empresa, usuario_atual.tenant_id)
+    verificar_limite_funcionarios(db, empresa)
 
     funcionario = Usuario(
         tenant_id=usuario_atual.tenant_id,

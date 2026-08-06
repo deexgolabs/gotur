@@ -30,6 +30,12 @@
             <label for="email">E-mail de contato</label>
             <input id="email" type="email" />
           </div>
+          <div>
+            <label for="plano">Plano</label>
+            <select id="plano">
+              <option value="">Sem plano (trial livre)</option>
+            </select>
+          </div>
         </div>
         <div class="linha-acoes">
           <button type="submit">Cadastrar empresa</button>
@@ -41,7 +47,7 @@
     <div class="cartao">
       <table>
         <thead>
-          <tr><th>Nome</th><th>CNPJ</th><th>Contato</th><th>Status</th><th>Admin da empresa</th></tr>
+          <tr><th>Nome</th><th>CNPJ</th><th>Plano</th><th>Assinatura</th><th>Status</th><th></th></tr>
         </thead>
         <tbody id="corpo-tabela"></tbody>
       </table>
@@ -71,14 +77,52 @@
     </form>
   </dialog>
 
+  <dialog id="dialog-faturas" style="border:none;border-radius:8px;padding:24px;max-width:520px;width:100%">
+    <h2 style="margin-top:0" id="titulo-dialog-faturas">Faturas</h2>
+    <div class="linha-acoes" style="margin-bottom:14px">
+      <button type="button" id="btn-gerar-fatura">Gerar nova fatura</button>
+    </div>
+    <table>
+      <thead><tr><th>Vencimento</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+      <tbody id="corpo-faturas"></tbody>
+    </table>
+    <p class="vazio escondido" id="vazio-faturas">Nenhuma fatura gerada ainda.</p>
+    <div class="linha-acoes" style="margin-top:14px">
+      <button type="button" class="secundario" id="btn-fechar-faturas">Fechar</button>
+    </div>
+  </dialog>
+
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script>
     const auth = exigirPapel("super_admin");
     let empresaSelecionada = null;
+    const ROTULOS_ASSINATURA = {
+      trial: "Trial",
+      ativa: "Ativa",
+      inadimplente: "Inadimplente",
+      suspensa: "Suspensa",
+      cancelada: "Cancelada",
+    };
+    const SELO_ASSINATURA = {
+      trial: "hold",
+      ativa: "livre",
+      inadimplente: "bloqueada",
+      suspensa: "vendida",
+      cancelada: "vendida",
+    };
 
     function mostrarAlerta(mensagem, tipo = "erro") {
       document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+    }
+
+    let planosCache = [];
+
+    async function carregarPlanos() {
+      planosCache = await api("GET", "/planos");
+      const opcoes = planosCache.map((p) => `<option value="${p.id}">${p.nome} (R$ ${Number(p.preco_mensal).toFixed(2)}/mês)</option>`).join("");
+      document.getElementById("plano").innerHTML = `<option value="">Sem plano (trial livre)</option>${opcoes}`;
     }
 
     async function carregarEmpresas() {
@@ -91,34 +135,138 @@
         <tr>
           <td>${e.nome}</td>
           <td>${e.cnpj}</td>
-          <td>${e.email_contato || "-"}</td>
-          <td><span class="selo ${e.ativo ? "livre" : "bloqueada"}">${e.ativo ? "Ativa" : "Inativa"}</span></td>
-          <td><button class="secundario" data-id="${e.id}" data-nome="${e.nome}">Criar admin</button></td>
+          <td>${e.plano ? e.plano.nome : "—"}</td>
+          <td><span class="selo ${SELO_ASSINATURA[e.status_assinatura]}">${ROTULOS_ASSINATURA[e.status_assinatura]}</span></td>
+          <td><span class="selo ${e.ativo ? "livre" : "bloqueada"}">${e.ativo ? "Ativa" : "Desativada"}</span></td>
+          <td>
+            <button class="secundario" data-admin="${e.id}" data-nome="${e.nome}">Criar admin</button>
+            <button class="secundario" data-plano="${e.id}">Trocar plano</button>
+            <button class="secundario" data-faturas="${e.id}" data-nome-fatura="${e.nome}">Faturas</button>
+            ${e.ativo ? `<button class="perigo" data-desativar="${e.id}">Desativar</button>` : `<button class="secundario" data-ativar="${e.id}">Reativar</button>`}
+          </td>
         </tr>`
         )
         .join("");
 
-      corpo.querySelectorAll("button[data-id]").forEach((btn) => {
+      corpo.querySelectorAll("button[data-admin]").forEach((btn) => {
         btn.addEventListener("click", () => {
-          empresaSelecionada = btn.dataset.id;
+          empresaSelecionada = btn.dataset.admin;
           document.getElementById("dialog-admin").querySelector("h2").textContent = `Criar administrador — ${btn.dataset.nome}`;
           document.getElementById("dialog-admin").showModal();
         });
       });
+
+      corpo.querySelectorAll("button[data-plano]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!planosCache.length) {
+            mostrarAlerta("Cadastre um plano primeiro (menu Planos).");
+            return;
+          }
+          const opcoes = planosCache.map((p) => `${p.id} - ${p.nome} (R$ ${Number(p.preco_mensal).toFixed(2)})`).join("\n");
+          const escolha = prompt(`Digite o ID do plano:\n${opcoes}`);
+          if (!escolha) return;
+          try {
+            await api("PATCH", `/empresas/${btn.dataset.plano}/plano`, { plano_id: parseInt(escolha, 10) });
+            mostrarAlerta("Plano atualizado.", "sucesso");
+            carregarEmpresas();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/empresas/${btn.dataset.desativar}/desativar`);
+            carregarEmpresas();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-ativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/empresas/${btn.dataset.ativar}/ativar`);
+            carregarEmpresas();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-faturas]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirFaturas(btn.dataset.faturas, btn.dataset.nomeFatura));
+      });
     }
+
+    async function abrirFaturas(empresaId, nomeEmpresa) {
+      empresaSelecionada = empresaId;
+      document.getElementById("titulo-dialog-faturas").textContent = `Faturas — ${nomeEmpresa}`;
+      document.getElementById("dialog-faturas").showModal();
+      await carregarFaturas();
+    }
+
+    async function carregarFaturas() {
+      const faturas = await api("GET", `/empresas/${empresaSelecionada}/faturas`);
+      const corpo = document.getElementById("corpo-faturas");
+      document.getElementById("vazio-faturas").classList.toggle("escondido", faturas.length > 0);
+      corpo.innerHTML = faturas
+        .map(
+          (f) => `
+        <tr>
+          <td>${new Date(f.vencimento).toLocaleDateString("pt-BR")}</td>
+          <td>R$ ${Number(f.valor).toFixed(2)}</td>
+          <td><span class="selo ${f.status === "paga" ? "livre" : f.status === "pendente" ? "hold" : "bloqueada"}">${f.status}</span></td>
+          <td>${f.status === "pendente" ? `<button class="secundario" data-pagar="${f.id}">Marcar como paga</button>` : ""}</td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-pagar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("POST", `/faturas/${btn.dataset.pagar}/pagar`);
+            mostrarAlerta("Fatura marcada como paga.", "sucesso");
+            await Promise.all([carregarFaturas(), carregarEmpresas()]);
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    document.getElementById("btn-gerar-fatura").addEventListener("click", async () => {
+      try {
+        await api("POST", `/empresas/${empresaSelecionada}/faturas`);
+        mostrarAlerta("Fatura gerada.", "sucesso");
+        carregarFaturas();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("btn-fechar-faturas").addEventListener("click", () => {
+      document.getElementById("dialog-faturas").close();
+    });
 
     if (auth) {
       montarTopo("topo");
+      carregarPlanos().catch((e) => mostrarAlerta(e.message));
       carregarEmpresas().catch((e) => mostrarAlerta(e.message));
     }
 
     document.getElementById("form-empresa").addEventListener("submit", async (ev) => {
       ev.preventDefault();
       try {
+        const planoId = document.getElementById("plano").value;
         await api("POST", "/empresas", {
           nome: document.getElementById("nome").value.trim(),
           cnpj: document.getElementById("cnpj").value.trim(),
           email_contato: document.getElementById("email").value.trim() || null,
+          plano_id: planoId ? parseInt(planoId, 10) : null,
         });
         ev.target.reset();
         mostrarAlerta("Empresa cadastrada com sucesso.", "sucesso");

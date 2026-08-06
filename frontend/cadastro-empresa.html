@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Cadastre sua viação</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="tela-login">
+    <div class="caixa-login" style="max-width:460px">
+      <div class="marca">Go<span>Tur</span></div>
+      <p class="lema">Cadastre sua viação e comece a vender passagens hoje.</p>
+
+      <div id="alerta"></div>
+
+      <form id="form-cadastro">
+        <h2 style="font-size:1rem;margin:0 0 10px">Dados da empresa</h2>
+        <div style="margin-bottom:14px">
+          <label for="empresa-nome">Nome da viação</label>
+          <input id="empresa-nome" required />
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="cnpj">CNPJ</label>
+          <input id="cnpj" required />
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="empresa-email">E-mail de contato</label>
+          <input id="empresa-email" type="email" />
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="plano">Plano</label>
+          <select id="plano" required></select>
+        </div>
+
+        <h2 style="font-size:1rem;margin:18px 0 10px">Seu acesso (administrador)</h2>
+        <div style="margin-bottom:14px">
+          <label for="admin-nome">Seu nome</label>
+          <input id="admin-nome" required />
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="admin-email">Seu e-mail</label>
+          <input id="admin-email" type="email" required />
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="admin-senha">Senha</label>
+          <input id="admin-senha" type="password" required minlength="6" />
+        </div>
+
+        <button type="submit" style="width:100%">Criar minha conta</button>
+      </form>
+
+      <p class="rodape-form">Já tem conta? <a href="/index.html">Entrar</a></p>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    async function carregarPlanos() {
+      const planos = await api("GET", "/planos/publicos");
+      document.getElementById("plano").innerHTML = planos
+        .map((p) => {
+          const limites = [
+            p.max_onibus ? `${p.max_onibus} ônibus` : "ônibus ilimitados",
+            p.max_funcionarios ? `${p.max_funcionarios} funcionários` : "funcionários ilimitados",
+          ].join(", ");
+          return `<option value="${p.id}">${p.nome} — R$ ${Number(p.preco_mensal).toFixed(2)}/mês (${limites})</option>`;
+        })
+        .join("");
+    }
+
+    carregarPlanos().catch((e) => mostrarAlerta(e.message));
+
+    document.getElementById("form-cadastro").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      mostrarAlerta("");
+      try {
+        const dados = await api("POST", "/auth/registrar-empresa", {
+          empresa_nome: document.getElementById("empresa-nome").value.trim(),
+          cnpj: document.getElementById("cnpj").value.trim(),
+          empresa_email: document.getElementById("empresa-email").value.trim() || null,
+          plano_id: parseInt(document.getElementById("plano").value, 10),
+          admin_nome: document.getElementById("admin-nome").value.trim(),
+          admin_email: document.getElementById("admin-email").value.trim(),
+          admin_senha: document.getElementById("admin-senha").value,
+        });
+        salvarAuth(dados);
+        window.location.href = "/pages/dashboard.html";
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

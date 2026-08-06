@@ -32,7 +32,12 @@ function sair() {
 function linksPorPapel(role) {
   const base = [{ href: "/pages/dashboard.html", label: "Início" }];
   if (role === "super_admin") {
-    return [...base, { href: "/pages/empresas.html", label: "Empresas" }];
+    return [
+      ...base,
+      { href: "/pages/empresas.html", label: "Empresas" },
+      { href: "/pages/planos.html", label: "Planos" },
+      { href: "/pages/plataforma.html", label: "Plataforma" },
+    ];
   }
   if (role === "admin_empresa") {
     return [
@@ -44,6 +49,7 @@ function linksPorPapel(role) {
       { href: "/pages/checkin.html", label: "Check-in" },
       { href: "/pages/relatorios.html", label: "Relatórios" },
       { href: "/pages/auditoria.html", label: "Auditoria" },
+      { href: "/pages/minhas-faturas.html", label: "Faturas" },
     ];
   }
   if (role === "funcionario") {

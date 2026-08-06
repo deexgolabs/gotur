@@ -3,10 +3,12 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import require_roles
 from app.database import get_db
+from app.models.empresa import Empresa
 from app.models.enums import UserRole
 from app.models.onibus import Onibus, PoltronaOnibus
 from app.models.usuario import Usuario
 from app.schemas.onibus import OnibusCreate, OnibusOut, OnibusUpdate, PoltronaOnibusOut, PoltronaOnibusUpdate
+from app.services.limites_plano import verificar_limite_onibus
 
 router = APIRouter(prefix="/onibus", tags=["onibus"])
 
@@ -32,6 +34,9 @@ def criar_onibus(
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
+    empresa = db.get(Empresa, usuario_atual.tenant_id)
+    verificar_limite_onibus(db, empresa)
+
     if dados.poltronas:
         layout = [p.model_dump() for p in dados.poltronas]
     else:

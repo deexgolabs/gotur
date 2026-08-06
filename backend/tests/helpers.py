@@ -88,6 +88,19 @@ def criar_rota_com_paradas(db: Session, empresa_id: int, nomes_pesos: list[tuple
     return rota
 
 
+def criar_super_admin(db: Session, sufixo: str) -> dict:
+    admin = Usuario(
+        tenant_id=None,
+        nome=f"Super {sufixo}",
+        email=f"super{sufixo}@teste.com",
+        senha_hash=hash_senha("senha123"),
+        role=UserRole.SUPER_ADMIN,
+    )
+    db.add(admin)
+    db.commit()
+    return {"email": admin.email, "senha": "senha123"}
+
+
 def login(client, email: str, senha: str) -> str:
     resposta = client.post("/api/auth/login", json={"email": email, "senha": senha})
     assert resposta.status_code == 200, resposta.text

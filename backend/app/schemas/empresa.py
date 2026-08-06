@@ -2,11 +2,24 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models.enums import StatusAssinatura
+from app.schemas.plano import PlanoOut
+
 
 class EmpresaCreate(BaseModel):
     nome: str
     cnpj: str
     email_contato: str | None = None
+    plano_id: int | None = None
+
+
+class EmpresaUpdate(BaseModel):
+    nome: str | None = None
+    email_contato: str | None = None
+
+
+class TrocarPlanoRequest(BaseModel):
+    plano_id: int
 
 
 class EmpresaOut(BaseModel):
@@ -18,3 +31,6 @@ class EmpresaOut(BaseModel):
     email_contato: str | None
     ativo: bool
     criado_em: datetime
+    plano_id: int | None
+    status_assinatura: StatusAssinatura
+    plano: PlanoOut | None = None

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Planos</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Planos</h1>
+    <p class="subtitulo">Planos de assinatura da plataforma, oferecidos às viações.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Novo plano</h2>
+      <form id="form-plano">
+        <div class="grid-form">
+          <div>
+            <label for="nome">Nome</label>
+            <input id="nome" required placeholder="Ex: Básico" />
+          </div>
+          <div>
+            <label for="preco">Preço mensal (R$)</label>
+            <input id="preco" type="number" min="0" step="0.01" required />
+          </div>
+          <div>
+            <label for="max-onibus">Limite de ônibus</label>
+            <input id="max-onibus" type="number" min="0" placeholder="Vazio = ilimitado" />
+          </div>
+          <div>
+            <label for="max-funcionarios">Limite de funcionários</label>
+            <input id="max-funcionarios" type="number" min="0" placeholder="Vazio = ilimitado" />
+          </div>
+          <div>
+            <label for="max-viagens">Limite de viagens/mês</label>
+            <input id="max-viagens" type="number" min="0" placeholder="Vazio = ilimitado" />
+          </div>
+          <div>
+            <label for="descricao">Descrição</label>
+            <input id="descricao" placeholder="Opcional" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Cadastrar plano</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Planos cadastrados</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Nome</th><th>Preço/mês</th><th>Ônibus</th><th>Funcionários</th><th>Viagens/mês</th><th>Status</th><th></th></tr></thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhum plano cadastrado ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("super_admin");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+    }
+
+    function fmtLimite(v) {
+      return v === null || v === undefined ? "Ilimitado" : v;
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/planos");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (p) => `
+        <tr>
+          <td>${p.nome}</td>
+          <td>R$ ${Number(p.preco_mensal).toFixed(2)}</td>
+          <td>${fmtLimite(p.max_onibus)}</td>
+          <td>${fmtLimite(p.max_funcionarios)}</td>
+          <td>${fmtLimite(p.max_viagens_mes)}</td>
+          <td><span class="selo ${p.ativo ? "livre" : "bloqueada"}">${p.ativo ? "Ativo" : "Inativo"}</span></td>
+          <td>
+            <button class="secundario" data-editar="${p.id}">Editar preço</button>
+            ${p.ativo ? `<button class="perigo" data-desativar="${p.id}">Desativar</button>` : `<button class="secundario" data-ativar="${p.id}">Reativar</button>`}
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-editar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const plano = lista.find((p) => p.id == btn.dataset.editar);
+          const novoPreco = prompt("Novo preço mensal (R$):", Number(plano.preco_mensal).toFixed(2));
+          if (novoPreco === null) return;
+          try {
+            await api("PATCH", `/planos/${plano.id}`, { preco_mensal: parseFloat(novoPreco) });
+            mostrarAlerta("Plano atualizado.", "sucesso");
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/planos/${btn.dataset.desativar}/desativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-ativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/planos/${btn.dataset.ativar}/ativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-plano").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const lerInt = (id) => {
+          const v = document.getElementById(id).value.trim();
+          return v === "" ? null : parseInt(v, 10);
+        };
+        await api("POST", "/planos", {
+          nome: document.getElementById("nome").value.trim(),
+          preco_mensal: parseFloat(document.getElementById("preco").value),
+          max_onibus: lerInt("max-onibus"),
+          max_funcionarios: lerInt("max-funcionarios"),
+          max_viagens_mes: lerInt("max-viagens"),
+          descricao: document.getElementById("descricao").value.trim() || null,
+        });
+        ev.target.reset();
+        mostrarAlerta("Plano cadastrado com sucesso.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

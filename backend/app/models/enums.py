@@ -40,3 +40,21 @@ class FormaPagamento(str, enum.Enum):
     CARTAO = "cartao"
     PIX = "pix"
     OUTRO = "outro"
+
+
+class StatusAssinatura(str, enum.Enum):
+    """Situação da assinatura da empresa na plataforma (não confundir com
+    `Empresa.ativo`, que é um desligamento manual pelo super admin)."""
+
+    TRIAL = "trial"
+    ATIVA = "ativa"
+    INADIMPLENTE = "inadimplente"
+    SUSPENSA = "suspensa"
+    CANCELADA = "cancelada"
+
+
+class StatusFatura(str, enum.Enum):
+    PENDENTE = "pendente"
+    PAGA = "paga"
+    FALHOU = "falhou"
+    CANCELADA = "cancelada"

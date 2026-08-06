@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Plataforma</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Visão geral da plataforma</h1>
+    <p class="subtitulo">Números de todas as empresas cadastradas no GoTur.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartoes-resumo" id="cartoes-metricas"></div>
+
+    <h2>Empresas perto do limite do plano</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Empresa</th><th>Recurso</th><th>Uso atual</th><th>Limite do plano</th></tr></thead>
+        <tbody id="corpo-limites"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio-limites">Nenhuma empresa perto do limite do plano.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("super_admin");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    async function carregar() {
+      const m = await api("GET", "/plataforma/metricas");
+
+      document.getElementById("cartoes-metricas").innerHTML = `
+        <div class="cartao-resumo"><div class="titulo">R$ ${m.mrr.toFixed(2)}</div><div class="desc">Receita mensal recorrente (MRR)</div></div>
+        <div class="cartao-resumo"><div class="titulo">${m.total_empresas}</div><div class="desc">Empresas cadastradas</div></div>
+        <div class="cartao-resumo"><div class="titulo">${m.empresas_ativas}</div><div class="desc">Assinaturas ativas</div></div>
+        <div class="cartao-resumo"><div class="titulo">${m.empresas_trial}</div><div class="desc">Em trial</div></div>
+        <div class="cartao-resumo"><div class="titulo">${m.empresas_inadimplentes}</div><div class="desc">Inadimplentes</div></div>
+        <div class="cartao-resumo"><div class="titulo">${m.empresas_suspensas}</div><div class="desc">Suspensas</div></div>
+      `;
+
+      const corpo = document.getElementById("corpo-limites");
+      document.getElementById("vazio-limites").classList.toggle("escondido", m.empresas_perto_do_limite.length > 0);
+      corpo.innerHTML = m.empresas_perto_do_limite
+        .map(
+          (e) => `
+        <tr>
+          <td>${e.empresa_nome}</td>
+          <td>${e.recurso}</td>
+          <td>${e.atual}</td>
+          <td>${e.limite}</td>
+        </tr>`
+        )
+        .join("");
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+  </script>
+</body>
+</html>

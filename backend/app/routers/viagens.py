@@ -15,6 +15,7 @@ from app.models.rota import Rota
 from app.models.usuario import Usuario
 from app.models.viagem import Viagem
 from app.schemas.viagem import ViagemBuscaOut, ViagemCreate, ViagemOut, ViagemUpdate
+from app.services.limites_plano import verificar_limite_viagens_mes
 from app.services.trecho import (
     buscar_paradas_da_rota,
     calcular_preco_trecho,
@@ -37,6 +38,9 @@ def criar_viagem(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rota não encontrada")
     if not onibus or onibus.tenant_id != usuario_atual.tenant_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ônibus não encontrado")
+
+    empresa = db.get(Empresa, usuario_atual.tenant_id)
+    verificar_limite_viagens_mes(db, empresa)
 
     viagem = Viagem(
         tenant_id=usuario_atual.tenant_id,

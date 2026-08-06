@@ -22,3 +22,14 @@ class RegistroCliente(BaseModel):
     senha: str
     documento: str
     telefone: str | None = None
+
+
+class RegistroEmpresa(BaseModel):
+    empresa_nome: str
+    cnpj: str
+    empresa_email: EmailStr | None = None
+    plano_id: int
+    admin_nome: str
+    admin_email: EmailStr
+    admin_senha: str
+    admin_telefone: str | None = None
