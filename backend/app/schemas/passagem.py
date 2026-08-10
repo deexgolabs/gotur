@@ -38,3 +38,5 @@ class PassagemDetalheOut(PassagemOut):
     data_hora_partida: datetime
     numero_poltrona: str
     empresa_nome: str
+    pode_avaliar: bool = False
+    nota_avaliacao: int | None = None

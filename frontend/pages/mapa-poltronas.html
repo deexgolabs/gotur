@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GoTur — Mapa de poltronas</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#08427a" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 </head>
 <body>
   <div id="topo"></div>
@@ -72,6 +75,7 @@
             <button type="button" class="secundario" id="btn-liberar">Liberar poltrona</button>
           </div>
         </form>
+        <div id="area-pix" class="escondido"></div>
       </div>
     </div>
 
@@ -87,6 +91,8 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script src="/js/pagamento-pix.js"></script>
   <script>
     const auth = exigirPapel("admin_empresa", "funcionario");
     const params = new URLSearchParams(window.location.search);
@@ -232,7 +238,7 @@
       ev.preventDefault();
       if (!poltronaSelecionadaId) return;
       try {
-        const passagem = await api("POST", `/viagens/${viagemId}/passagens`, {
+        const resposta = await api("POST", `/viagens/${viagemId}/passagens`, {
           poltrona_viagem_id: poltronaSelecionadaId,
           cliente_nome: document.getElementById("cliente-nome").value.trim(),
           cliente_documento: document.getElementById("cliente-documento").value.trim(),
@@ -240,7 +246,27 @@
           parada_origem_id: trechoOrigemId,
           parada_destino_id: trechoDestinoId,
         });
-        mostrarAlerta(`Passagem vendida! Localizador: ${passagem.localizador}`, "sucesso");
+
+        if (resposta.pedido_pagamento) {
+          document.getElementById("form-venda").classList.add("escondido");
+          const areaPix = document.getElementById("area-pix");
+          areaPix.classList.remove("escondido");
+          renderizarPagamentoPix(areaPix, resposta.pedido_pagamento, {
+            aoConfirmar: async (passagem) => {
+              mostrarAlerta(
+                passagem ? `Pagamento confirmado! Localizador: ${passagem.localizador}` : "Pagamento confirmado!",
+                "sucesso"
+              );
+              document.getElementById("form-venda").classList.remove("escondido");
+              areaPix.classList.add("escondido");
+              esconderFormularioVenda();
+              await Promise.all([carregarMapa(), carregarPassagens()]);
+            },
+          });
+          return;
+        }
+
+        mostrarAlerta(`Passagem vendida! Localizador: ${resposta.passagem.localizador}`, "sucesso");
         esconderFormularioVenda();
         await Promise.all([carregarMapa(), carregarPassagens()]);
       } catch (erro) {

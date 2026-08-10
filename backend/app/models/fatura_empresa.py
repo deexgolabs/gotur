@@ -23,6 +23,8 @@ class FaturaEmpresa(Base):
     vencimento: Mapped[date] = mapped_column(Date, nullable=False)
     pago_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     gateway_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    pix_copia_cola: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    pix_expira_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     empresa = relationship("Empresa", back_populates="faturas")

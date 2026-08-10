@@ -333,6 +333,71 @@ th {
   display: none !important;
 }
 
+.pix-caixa {
+  background: var(--branco);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 20px;
+}
+
+.pix-caixa h3 {
+  margin-top: 0;
+}
+
+.pix-codigo {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+  font-family: monospace;
+  font-size: 0.8rem;
+  padding: 9px 11px;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background: #f9fafb;
+  margin-bottom: 10px;
+}
+
+.pix-tempo {
+  font-size: 0.9rem;
+  color: var(--cinza);
+  margin: 10px 0;
+}
+
+.pix-tempo.expirando {
+  color: var(--vermelho);
+  font-weight: 600;
+}
+
+.estrelas {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.estrela {
+  background: none;
+  border: none;
+  padding: 2px;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--borda);
+  cursor: pointer;
+}
+
+.estrela:hover,
+.estrela.ativa {
+  color: var(--amarelo);
+}
+
+.estrela:disabled {
+  cursor: default;
+}
+
+.avaliacao-nota {
+  color: var(--amarelo);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
 .tela-login {
   min-height: 100vh;
   display: flex;

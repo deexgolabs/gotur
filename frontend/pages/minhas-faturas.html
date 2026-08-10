@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GoTur — Minhas faturas</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#08427a" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 </head>
 <body>
   <div id="topo"></div>
@@ -16,10 +19,13 @@
 
     <div id="lista"></div>
     <p class="vazio escondido" id="vazio">Nenhuma fatura ainda.</p>
+    <div id="area-pix" class="escondido" style="max-width:420px"></div>
   </main>
 
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script src="/js/pagamento-pix.js"></script>
   <script>
     const auth = exigirPapel("admin_empresa");
     const ROTULOS = { pendente: "Pendente", paga: "Paga", falhou: "Falhou", cancelada: "Cancelada" };
@@ -44,22 +50,46 @@
           <div style="text-align:right">
             <div style="margin-bottom:8px"><span class="selo ${SELOS[f.status]}">${ROTULOS[f.status]}</span></div>
             <div style="font-weight:700;margin-bottom:8px">R$ ${Number(f.valor).toFixed(2)}</div>
-            ${f.status === "pendente" ? `<button data-pagar="${f.id}">Pagar agora</button>` : ""}
+            ${f.status === "pendente" && f.pix_copia_cola ? `<button data-continuar="${f.id}">Continuar pagamento Pix</button>` : ""}
+            ${f.status === "pendente" && !f.pix_copia_cola ? `<button data-pagar="${f.id}">Pagar via Pix</button>` : ""}
           </div>
         </div>`
         )
         .join("");
 
-      document.querySelectorAll("button[data-pagar]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          try {
-            await api("POST", `/faturas/${btn.dataset.pagar}/pagar`);
-            mostrarAlerta("Pagamento registrado. Obrigado!", "sucesso");
+      async function iniciarPagamento(faturaId) {
+        try {
+          const fatura = await api("POST", `/faturas/${faturaId}/pagar`);
+          if (fatura.status === "paga") {
+            mostrarAlerta("Pagamento confirmado. Obrigado!", "sucesso");
             carregar();
-          } catch (erro) {
-            mostrarAlerta(erro.message);
+            return;
           }
-        });
+          const areaPix = document.getElementById("area-pix");
+          areaPix.classList.remove("escondido");
+          areaPix.scrollIntoView({ behavior: "smooth", block: "center" });
+          const pedidoNormalizado = {
+            id: fatura.id,
+            valor: fatura.valor,
+            pix_copia_cola: fatura.pix_copia_cola,
+            expira_em: fatura.pix_expira_em,
+          };
+          renderizarPagamentoPix(areaPix, pedidoNormalizado, {
+            endpointConfirmar: `/faturas/${faturaId}/confirmar-simulado`,
+            semPolling: true,
+            aoConfirmar: () => {
+              areaPix.classList.add("escondido");
+              mostrarAlerta("Pagamento confirmado. Obrigado!", "sucesso");
+              carregar();
+            },
+          });
+        } catch (erro) {
+          mostrarAlerta(erro.message);
+        }
+      }
+
+      document.querySelectorAll("button[data-pagar], button[data-continuar]").forEach((btn) => {
+        btn.addEventListener("click", () => iniciarPagamento(btn.dataset.pagar || btn.dataset.continuar));
       });
     }
 

@@ -5,14 +5,19 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import get_current_user, require_staff
 from app.database import get_db
-from app.models.enums import StatusPassagem, StatusPoltrona, TipoOcupacao, UserRole
+from app.models.avaliacao import Avaliacao
+from app.models.enums import FormaPagamento, StatusPassagem, StatusPoltrona, TipoOcupacao, UserRole
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
 from app.models.pagamento import Pagamento
+from app.models.parada import Parada
 from app.models.passagem import Passagem
+from app.models.pedido_pagamento import PedidoPagamento
 from app.models.poltrona_viagem import PoltronaViagem
 from app.models.usuario import Usuario
 from app.models.viagem import Viagem
+from app.schemas.avaliacao import AvaliacaoOut, AvaliarRequest
 from app.schemas.passagem import PassagemDetalheOut, PassagemOut, VenderPassagemRequest
+from app.schemas.pedido_pagamento import CompraPassagemResponse, PedidoPagamentoOut
 from app.schemas.reembolso import ReembolsarRequest, ReembolsoOut
 from app.services.auditoria import registrar as registrar_auditoria
 from app.services.codigo import gerar_localizador
@@ -31,7 +36,107 @@ router = APIRouter(prefix="/viagens/{viagem_id}/passagens", tags=["passagens"])
 meu_router = APIRouter(prefix="/passagens", tags=["passagens"])
 
 
-@router.post("", response_model=PassagemOut, status_code=status.HTTP_201_CREATED)
+def _gerar_localizador_unico(db: Session) -> str:
+    localizador = gerar_localizador()
+    while db.query(Passagem).filter(Passagem.localizador == localizador).first():
+        localizador = gerar_localizador()
+    return localizador
+
+
+def _criar_passagem_confirmada(
+    db: Session,
+    *,
+    viagem: Viagem,
+    poltrona: PoltronaViagem,
+    parada_origem: Parada,
+    parada_destino: Parada,
+    localizador: str,
+    cliente_nome: str,
+    cliente_documento: str,
+    cliente_usuario_id: int | None,
+    vendido_por_usuario_id: int | None,
+    preco_final: float,
+    forma_pagamento: FormaPagamento,
+    gateway_ref: str | None,
+    hold_para_remover: OcupacaoPoltrona | None,
+    usuario_para_notificar: Usuario | None,
+) -> Passagem:
+    passagem = Passagem(
+        tenant_id=viagem.tenant_id,
+        viagem_id=viagem.id,
+        poltrona_viagem_id=poltrona.id,
+        parada_origem_id=parada_origem.id,
+        parada_destino_id=parada_destino.id,
+        cliente_usuario_id=cliente_usuario_id,
+        cliente_nome=cliente_nome,
+        cliente_documento=cliente_documento,
+        vendido_por_usuario_id=vendido_por_usuario_id,
+        preco=preco_final,
+        status=StatusPassagem.CONFIRMADA,
+        localizador=localizador,
+    )
+    db.add(passagem)
+    db.flush()
+
+    db.add(
+        Pagamento(
+            passagem_id=passagem.id,
+            forma_pagamento=forma_pagamento,
+            valor=preco_final,
+            gateway_ref=gateway_ref,
+        )
+    )
+
+    if hold_para_remover is not None:
+        db.delete(hold_para_remover)
+    db.add(
+        OcupacaoPoltrona(
+            poltrona_viagem_id=poltrona.id,
+            tipo=TipoOcupacao.VENDA,
+            parada_origem_ordem=parada_origem.ordem,
+            parada_destino_ordem=parada_destino.ordem,
+            passagem_id=passagem.id,
+        )
+    )
+
+    registrar_auditoria(
+        db,
+        usuario=usuario_para_notificar,
+        acao="venda_passagem",
+        entidade_tipo="passagem",
+        entidade_id=passagem.id,
+        detalhes=f"Localizador {localizador}, poltrona {poltrona.poltrona_onibus.numero}, trecho {parada_origem.nome}->{parada_destino.nome}, R$ {preco_final}",
+        tenant_id=viagem.tenant_id,
+    )
+
+    db.commit()
+    db.refresh(passagem)
+
+    if usuario_para_notificar and usuario_para_notificar.role == UserRole.CLIENTE:
+        enviar_confirmacao_compra(
+            destinatario_email=usuario_para_notificar.email,
+            cliente_nome=passagem.cliente_nome,
+            localizador=passagem.localizador,
+            origem=parada_origem.nome,
+            destino=parada_destino.nome,
+            data_hora_partida=viagem.data_hora_partida,
+            numero_poltrona=poltrona.poltrona_onibus.numero,
+            preco=float(passagem.preco),
+        )
+        enviar_confirmacao_compra_whatsapp(
+            telefone=usuario_para_notificar.telefone,
+            cliente_nome=passagem.cliente_nome,
+            localizador=passagem.localizador,
+            origem=parada_origem.nome,
+            destino=parada_destino.nome,
+            data_hora_partida=viagem.data_hora_partida,
+            numero_poltrona=poltrona.poltrona_onibus.numero,
+        )
+
+    return passagem
+
+
+@router.post("", response_model=CompraPassagemResponse, status_code=status.HTTP_201_CREATED)
 def vender_passagem(
     viagem_id: int,
     dados: VenderPassagemRequest,
@@ -65,95 +170,76 @@ def vender_passagem(
     if not pode_confirmar:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Poltrona não está disponível para venda neste trecho")
 
-    localizador = gerar_localizador()
-    while db.query(Passagem).filter(Passagem.localizador == localizador).first():
-        localizador = gerar_localizador()
-
     preco_final = round(
         calcular_preco_trecho(paradas, parada_origem.ordem, parada_destino.ordem, viagem.preco)
         * float(poltrona.poltrona_onibus.multiplicador_preco),
         2,
     )
 
-    passagem = Passagem(
-        tenant_id=viagem.tenant_id,
-        viagem_id=viagem_id,
-        poltrona_viagem_id=poltrona.id,
-        parada_origem_id=parada_origem.id,
-        parada_destino_id=parada_destino.id,
-        cliente_usuario_id=usuario_atual.id if usuario_atual.role == UserRole.CLIENTE else None,
-        cliente_nome=dados.cliente_nome,
-        cliente_documento=dados.cliente_documento,
-        vendido_por_usuario_id=usuario_atual.id if is_staff else None,
-        preco=preco_final,
-        status=StatusPassagem.CONFIRMADA,
-        localizador=localizador,
-    )
-    db.add(passagem)
-    db.flush()
+    hold_existente = conflito if (conflito and conflito.tipo == TipoOcupacao.HOLD) else None
 
     resultado_cobranca = obter_provider().cobrar(
         forma_pagamento=dados.forma_pagamento,
         valor=preco_final,
-        referencia_pedido=localizador,
+        referencia_pedido=f"viagem-{viagem_id}-poltrona-{poltrona.id}",
     )
-    db.add(
-        Pagamento(
-            passagem_id=passagem.id,
+
+    if resultado_cobranca.status == "pendente":
+        # Pix ainda não caiu: segura o assento até a confirmação (simulada
+        # no v1, webhook do gateway real no futuro) em vez de vender agora.
+        if hold_existente is not None:
+            hold_existente.expira_em = resultado_cobranca.pix_expira_em
+            if hold_existente.usuario_id is None:
+                hold_existente.usuario_id = usuario_atual.id
+        else:
+            db.add(
+                OcupacaoPoltrona(
+                    poltrona_viagem_id=poltrona.id,
+                    tipo=TipoOcupacao.HOLD,
+                    parada_origem_ordem=parada_origem.ordem,
+                    parada_destino_ordem=parada_destino.ordem,
+                    usuario_id=usuario_atual.id,
+                    expira_em=resultado_cobranca.pix_expira_em,
+                )
+            )
+
+        pedido = PedidoPagamento(
+            tenant_id=viagem.tenant_id,
+            viagem_id=viagem_id,
+            poltrona_viagem_id=poltrona.id,
+            parada_origem_id=parada_origem.id,
+            parada_destino_id=parada_destino.id,
+            usuario_id=usuario_atual.id,
+            cliente_nome=dados.cliente_nome,
+            cliente_documento=dados.cliente_documento,
             forma_pagamento=dados.forma_pagamento,
             valor=preco_final,
-            gateway_ref=resultado_cobranca.gateway_ref,
+            pix_copia_cola=resultado_cobranca.pix_copia_cola,
+            expira_em=resultado_cobranca.pix_expira_em,
         )
-    )
+        db.add(pedido)
+        db.commit()
+        db.refresh(pedido)
+        return CompraPassagemResponse(pedido_pagamento=PedidoPagamentoOut.model_validate(pedido))
 
-    # Libera o hold (se houver) que ocupava esse trecho e registra a venda no razão de ocupação.
-    if conflito and conflito.tipo == TipoOcupacao.HOLD:
-        db.delete(conflito)
-    db.add(
-        OcupacaoPoltrona(
-            poltrona_viagem_id=poltrona.id,
-            tipo=TipoOcupacao.VENDA,
-            parada_origem_ordem=parada_origem.ordem,
-            parada_destino_ordem=parada_destino.ordem,
-            passagem_id=passagem.id,
-        )
-    )
-
-    registrar_auditoria(
+    passagem = _criar_passagem_confirmada(
         db,
-        usuario=usuario_atual,
-        acao="venda_passagem",
-        entidade_tipo="passagem",
-        entidade_id=passagem.id,
-        detalhes=f"Localizador {localizador}, poltrona {poltrona.poltrona_onibus.numero}, trecho {parada_origem.nome}->{parada_destino.nome}, R$ {preco_final}",
-        tenant_id=viagem.tenant_id,
+        viagem=viagem,
+        poltrona=poltrona,
+        parada_origem=parada_origem,
+        parada_destino=parada_destino,
+        localizador=_gerar_localizador_unico(db),
+        cliente_nome=dados.cliente_nome,
+        cliente_documento=dados.cliente_documento,
+        cliente_usuario_id=usuario_atual.id if usuario_atual.role == UserRole.CLIENTE else None,
+        vendido_por_usuario_id=usuario_atual.id if is_staff else None,
+        preco_final=preco_final,
+        forma_pagamento=dados.forma_pagamento,
+        gateway_ref=resultado_cobranca.gateway_ref,
+        hold_para_remover=hold_existente,
+        usuario_para_notificar=usuario_atual,
     )
-
-    db.commit()
-    db.refresh(passagem)
-
-    if usuario_atual.role == UserRole.CLIENTE:
-        enviar_confirmacao_compra(
-            destinatario_email=usuario_atual.email,
-            cliente_nome=passagem.cliente_nome,
-            localizador=passagem.localizador,
-            origem=parada_origem.nome,
-            destino=parada_destino.nome,
-            data_hora_partida=viagem.data_hora_partida,
-            numero_poltrona=poltrona.poltrona_onibus.numero,
-            preco=float(passagem.preco),
-        )
-        enviar_confirmacao_compra_whatsapp(
-            telefone=usuario_atual.telefone,
-            cliente_nome=passagem.cliente_nome,
-            localizador=passagem.localizador,
-            origem=parada_origem.nome,
-            destino=parada_destino.nome,
-            data_hora_partida=viagem.data_hora_partida,
-            numero_poltrona=poltrona.poltrona_onibus.numero,
-        )
-
-    return passagem
+    return CompraPassagemResponse(passagem=passagem)
 
 
 @router.post("/{passagem_id}/cancelar", response_model=PassagemOut)
@@ -291,8 +377,20 @@ def minhas_passagens(
         .all()
     )
 
+    avaliacoes_por_passagem = {
+        a.passagem_id: a
+        for a in db.query(Avaliacao).filter(Avaliacao.passagem_id.in_([p.id for p in passagens])).all()
+    }
+    agora = datetime.now(timezone.utc)
+
     resultado = []
     for p in passagens:
+        avaliacao = avaliacoes_por_passagem.get(p.id)
+        data_partida = p.viagem.data_hora_partida
+        if data_partida.tzinfo is None:
+            data_partida = data_partida.replace(tzinfo=timezone.utc)
+        pode_avaliar = p.status == StatusPassagem.CONFIRMADA and data_partida < agora and avaliacao is None
+
         resultado.append(
             PassagemDetalheOut(
                 id=p.id,
@@ -313,6 +411,52 @@ def minhas_passagens(
                 data_hora_partida=p.viagem.data_hora_partida,
                 numero_poltrona=p.poltrona_viagem.poltrona_onibus.numero,
                 empresa_nome=p.viagem.onibus.empresa.nome if p.viagem.onibus.empresa else "",
+                pode_avaliar=pode_avaliar,
+                nota_avaliacao=avaliacao.nota if avaliacao else None,
             )
         )
     return resultado
+
+
+@meu_router.post("/{passagem_id}/avaliar", response_model=AvaliacaoOut, status_code=status.HTTP_201_CREATED)
+def avaliar_passagem(
+    passagem_id: int,
+    dados: AvaliarRequest,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    passagem = db.get(Passagem, passagem_id)
+    if not passagem or passagem.cliente_usuario_id != usuario_atual.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Passagem não encontrada")
+    if passagem.status != StatusPassagem.CONFIRMADA:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Só é possível avaliar uma passagem confirmada")
+
+    viagem = db.get(Viagem, passagem.viagem_id)
+    data_partida = viagem.data_hora_partida
+    if data_partida.tzinfo is None:
+        data_partida = data_partida.replace(tzinfo=timezone.utc)
+    if data_partida >= datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A viagem ainda não aconteceu")
+
+    if db.query(Avaliacao).filter(Avaliacao.passagem_id == passagem_id).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Esta passagem já foi avaliada")
+
+    avaliacao = Avaliacao(
+        tenant_id=passagem.tenant_id,
+        passagem_id=passagem_id,
+        nota=dados.nota,
+        comentario=dados.comentario,
+    )
+    db.add(avaliacao)
+    db.commit()
+    db.refresh(avaliacao)
+    return AvaliacaoOut(
+        id=avaliacao.id,
+        passagem_id=avaliacao.passagem_id,
+        nota=avaliacao.nota,
+        comentario=avaliacao.comentario,
+        criado_em=avaliacao.criado_em,
+        cliente_nome=passagem.cliente_nome,
+        origem=passagem.origem_trecho,
+        destino=passagem.destino_trecho,
+    )

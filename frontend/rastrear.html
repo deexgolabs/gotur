@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GoTur — Acompanhar fretamento</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#08427a" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     #mapa { height: 420px; border-radius: 8px; border: 1px solid var(--borda); }
@@ -29,6 +32,8 @@
       <div id="mapa"></div>
       <p class="rodape-form" id="sem-posicao">Ainda não há posição registrada para este fretamento.</p>
     </div>
+
+    <div id="area-avaliacao" class="cartao escondido" style="margin-top:20px"></div>
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -83,6 +88,69 @@
         else marcador = L.marker(ultimo).addTo(mapa);
         mapa.fitBounds(linha.getBounds(), { maxZoom: 15, padding: [20, 20] });
       }
+
+      renderizarAvaliacao(dados);
+    }
+
+    let avaliacaoRenderizada = false;
+
+    function renderizarAvaliacao(dados) {
+      const area = document.getElementById("area-avaliacao");
+      if (dados.status !== "concluido") {
+        area.classList.add("escondido");
+        return;
+      }
+      area.classList.remove("escondido");
+
+      if (dados.ja_avaliado) {
+        area.innerHTML = `<p style="margin:0">Obrigado por avaliar este fretamento!</p>`;
+        avaliacaoRenderizada = false;
+        return;
+      }
+      if (avaliacaoRenderizada) return; // não sobrescreve o formulário em uso durante o polling
+      avaliacaoRenderizada = true;
+
+      area.innerHTML = `
+        <h3 style="margin-top:0">Como foi o fretamento?</h3>
+        <div class="estrelas" id="estrelas-fretamento">
+          ${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="estrela" data-nota="${n}">★</button>`).join("")}
+        </div>
+        <textarea id="comentario-fretamento" rows="2" placeholder="Comentário (opcional)" style="width:100%;margin-top:10px;padding:9px 11px;border:1px solid var(--borda);border-radius:6px;font-family:inherit"></textarea>
+        <div class="linha-acoes"><button type="button" id="btn-enviar-avaliacao-fretamento">Enviar avaliação</button></div>
+      `;
+
+      let notaEscolhida = 0;
+      document.querySelectorAll("#estrelas-fretamento .estrela").forEach((estrela) => {
+        estrela.addEventListener("click", () => {
+          notaEscolhida = parseInt(estrela.dataset.nota, 10);
+          document.querySelectorAll("#estrelas-fretamento .estrela").forEach((e) => {
+            e.classList.toggle("ativa", parseInt(e.dataset.nota, 10) <= notaEscolhida);
+          });
+        });
+      });
+
+      document.getElementById("btn-enviar-avaliacao-fretamento").addEventListener("click", async () => {
+        if (!notaEscolhida) {
+          mostrarAlerta("Escolha uma nota de 1 a 5 estrelas.");
+          return;
+        }
+        const comentario = document.getElementById("comentario-fretamento").value.trim();
+        try {
+          const resposta = await fetch(`/api/fretamentos/rastrear/${codigo}/avaliar`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nota: notaEscolhida, comentario: comentario || null }),
+          });
+          if (!resposta.ok) {
+            const erro = await resposta.json().catch(() => ({}));
+            throw new Error(erro.detail || "Não foi possível enviar a avaliação.");
+          }
+          dados.ja_avaliado = true;
+          renderizarAvaliacao(dados);
+        } catch (erro) {
+          mostrarAlerta(erro.message);
+        }
+      });
     }
 
     if (!codigo) {

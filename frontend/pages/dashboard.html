@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GoTur — Início</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#08427a" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 </head>
 <body>
   <div id="topo"></div>
@@ -16,6 +19,7 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
   <script>
     const auth = exigirLogin();
     if (auth) {
@@ -36,12 +40,14 @@
           { href: "/pages/fretamentos.html", titulo: "Fretamentos", desc: "Aluguel de ônibus com preço por km e rastreio ao vivo" },
           { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem" },
           { href: "/pages/relatorios.html", titulo: "Relatórios", desc: "Ocupação, vendas e desempenho da equipe" },
+          { href: "/pages/avaliacoes.html", titulo: "Avaliações", desc: "O que os clientes acharam das viagens e fretamentos" },
           { href: "/pages/minhas-faturas.html", titulo: "Faturas", desc: "Cobranças da assinatura do GoTur" },
         ],
         funcionario: [
           { href: "/pages/viagens.html", titulo: "Viagens", desc: "Venda passagens e gerencie o mapa de poltronas" },
           { href: "/pages/fretamentos.html", titulo: "Fretamentos", desc: "Gerencie fretamentos e compartilhe localização" },
           { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem" },
+          { href: "/pages/avaliacoes.html", titulo: "Avaliações", desc: "O que os clientes acharam das viagens e fretamentos" },
         ],
         cliente: [
           { href: "/pages/busca.html", titulo: "Buscar viagem", desc: "Encontre passagens disponíveis" },

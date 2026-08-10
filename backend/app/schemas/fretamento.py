@@ -89,3 +89,4 @@ class RastreioPublicoOut(BaseModel):
     distancia_percorrida_km: float
     ultima_posicao: PosicaoOut | None
     trajeto: list[PosicaoOut]
+    ja_avaliado: bool = False

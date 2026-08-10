@@ -88,7 +88,12 @@ def test_gerar_fatura_pagar_e_reativar_assinatura(client, db):
     headers = auth_header(token)
     pagar = client.post(f"/api/faturas/{fatura_id}/pagar", headers=headers)
     assert pagar.status_code == 200
-    assert pagar.json()["status"] == "paga"
+    assert pagar.json()["status"] == "pendente"
+    assert pagar.json()["pix_copia_cola"]
+
+    confirmar = client.post(f"/api/faturas/{fatura_id}/confirmar-simulado", headers=headers)
+    assert confirmar.status_code == 200
+    assert confirmar.json()["status"] == "paga"
 
 
 def test_empresa_suspensa_bloqueia_operacao_mas_nao_o_pagamento_da_fatura(client, db):
@@ -129,6 +134,11 @@ def test_empresa_suspensa_bloqueia_operacao_mas_nao_o_pagamento_da_fatura(client
 
     pagar = client.post(f"/api/faturas/{fatura.id}/pagar", headers=headers)
     assert pagar.status_code == 200
+    assert pagar.json()["status"] == "pendente"
+
+    confirmar = client.post(f"/api/faturas/{fatura.id}/confirmar-simulado", headers=headers)
+    assert confirmar.status_code == 200
+    assert confirmar.json()["status"] == "paga"
 
     liberado = client.post(
         "/api/rotas",

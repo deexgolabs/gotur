@@ -12,12 +12,14 @@ from app.config import settings
 from app.routers import (
     auditoria,
     auth,
+    avaliacoes,
     checkin,
     empresas,
     faturas,
     fretamentos,
     onibus,
     passagens,
+    pedidos_pagamento,
     planos,
     plataforma,
     poltronas,
@@ -52,6 +54,7 @@ for router in (
     poltronas.router,
     passagens.router,
     passagens.meu_router,
+    pedidos_pagamento.router,
     relatorios.router,
     checkin.router,
     auditoria.router,
@@ -59,6 +62,7 @@ for router in (
     faturas.router,
     plataforma.router,
     fretamentos.router,
+    avaliacoes.router,
 ):
     api.include_router(router)
 

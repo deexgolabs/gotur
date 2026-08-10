@@ -38,7 +38,7 @@ def _vender(client, headers, viagem_id, poltrona_id, origem_id, destino_id, nome
             "poltrona_viagem_id": poltrona_id,
             "cliente_nome": nome,
             "cliente_documento": "000.000.000-00",
-            "forma_pagamento": "pix",
+            "forma_pagamento": "cartao",
             "parada_origem_id": origem_id,
             "parada_destino_id": destino_id,
         },
@@ -58,11 +58,11 @@ def test_mesma_poltrona_vendida_em_dois_trechos_diferentes(client, db):
     # peso total = 2 + 1 = 3; preco viagem = 90
     r_ab = _vender(client, headers, viagem_id, poltrona_id, paradas["A"], paradas["B"], "Passageiro AB")
     assert r_ab.status_code == 201, r_ab.text
-    assert r_ab.json()["preco"] == 60.0  # (2/3) * 90
+    assert r_ab.json()["passagem"]["preco"] == 60.0  # (2/3) * 90
 
     r_bc = _vender(client, headers, viagem_id, poltrona_id, paradas["B"], paradas["C"], "Passageiro BC")
     assert r_bc.status_code == 201, r_bc.text
-    assert r_bc.json()["preco"] == 30.0  # (1/3) * 90
+    assert r_bc.json()["passagem"]["preco"] == 30.0  # (1/3) * 90
 
 
 def test_overselling_do_mesmo_trecho_e_bloqueado(client, db):
@@ -91,7 +91,7 @@ def test_cancelamento_libera_so_o_trecho_cancelado(client, db):
     mapa = client.get(f"/api/viagens/{viagem_id}/poltronas", headers=headers).json()
     poltrona_id = mapa[0]["poltrona_viagem_id"]
 
-    passagem_ab = _vender(client, headers, viagem_id, poltrona_id, paradas["A"], paradas["B"]).json()
+    passagem_ab = _vender(client, headers, viagem_id, poltrona_id, paradas["A"], paradas["B"]).json()["passagem"]
     _vender(client, headers, viagem_id, poltrona_id, paradas["B"], paradas["C"])
 
     cancelar = client.post(

@@ -49,6 +49,7 @@ function linksPorPapel(role) {
       { href: "/pages/fretamentos.html", label: "Fretamentos" },
       { href: "/pages/checkin.html", label: "Check-in" },
       { href: "/pages/relatorios.html", label: "Relatórios" },
+      { href: "/pages/avaliacoes.html", label: "Avaliações" },
       { href: "/pages/auditoria.html", label: "Auditoria" },
       { href: "/pages/minhas-faturas.html", label: "Faturas" },
       { href: "/pages/configuracoes.html", label: "Configurações" },
@@ -60,6 +61,7 @@ function linksPorPapel(role) {
       { href: "/pages/viagens.html", label: "Viagens" },
       { href: "/pages/fretamentos.html", label: "Fretamentos" },
       { href: "/pages/checkin.html", label: "Check-in" },
+      { href: "/pages/avaliacoes.html", label: "Avaliações" },
     ];
   }
   if (role === "cliente") {
@@ -102,6 +104,7 @@ function montarTopo(containerId) {
       </div>
       <nav id="nav-principal">
         ${linksHtml}
+        <button type="button" id="btn-instalar-pwa" class="link-nav escondido" style="background:none;border:1px solid currentColor;padding:5px 10px;width:auto">Instalar app</button>
         ${links.length ? '<div class="nav-separador"></div>' : ""}
         ${usuarioHtml}
       </nav>
@@ -114,6 +117,15 @@ function montarTopo(containerId) {
       ev.preventDefault();
       sair();
     });
+  }
+
+  const btnInstalar = document.getElementById("btn-instalar-pwa");
+  if (btnInstalar && typeof pwaInstalavelAgora === "function") {
+    const mostrarSeInstalavel = () => btnInstalar.classList.toggle("escondido", !pwaInstalavelAgora());
+    mostrarSeInstalavel();
+    document.addEventListener("gotur-pwa-instalavel", mostrarSeInstalavel);
+    document.addEventListener("gotur-pwa-instalada", () => btnInstalar.classList.add("escondido"));
+    btnInstalar.addEventListener("click", () => instalarPwaGoTur());
   }
 
   const btnMenu = document.getElementById("btn-menu-mobile");

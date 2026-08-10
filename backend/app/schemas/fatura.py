@@ -18,3 +18,5 @@ class FaturaOut(BaseModel):
     vencimento: date
     pago_em: datetime | None
     criado_em: datetime
+    pix_copia_cola: str | None = None
+    pix_expira_em: datetime | None = None

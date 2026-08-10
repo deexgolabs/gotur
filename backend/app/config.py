@@ -37,7 +37,14 @@ class Settings(BaseSettings):
     smtp_remetente: str = "naoresponda@gotur.com"
 
     # Gateway de pagamento (Fase 5, ver app/services/pagamento_provider.py).
+    # Sem GOTUR_GATEWAY_API_KEY definido, roda em modo simulado: Pix gera um
+    # código copia-e-cola de mentira e fica pendente até alguém confirmar
+    # (tela "já paguei" ou o endpoint de confirmação simulada) — é o
+    # comportamento de um gateway real (Mercado Pago, Stripe, Asaas etc.)
+    # sem precisar de conta/chave real. Configurando a chave, a cobrança
+    # passa a ser feita de verdade via MercadoPagoProvider.
     gateway_api_key: str | None = None
+    pix_expiracao_minutos: int = 15
 
     # WhatsApp (Fase 5, ver app/services/whatsapp_service.py). Sem isso
     # configurado, o envio é apenas logado (no-op) — não bloqueia a venda.

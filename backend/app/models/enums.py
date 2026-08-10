@@ -66,3 +66,14 @@ class StatusFretamento(str, enum.Enum):
     EM_ANDAMENTO = "em_andamento"
     CONCLUIDO = "concluido"
     CANCELADO = "cancelado"
+
+
+class StatusPedidoPagamento(str, enum.Enum):
+    """Status de uma cobrança Pix pendente de confirmação (compra do
+    cliente que ainda não caiu na conta). Cartão, dinheiro e outros meios
+    são aprovados na hora e nunca passam por aqui."""
+
+    PENDENTE = "pendente"
+    CONFIRMADO = "confirmado"
+    EXPIRADO = "expirado"
+    CANCELADO = "cancelado"

@@ -11,10 +11,10 @@ def _vender_e_cancelar(client, headers, viagem_id):
             "poltrona_viagem_id": poltrona_id,
             "cliente_nome": "Fulano",
             "cliente_documento": "000.000.000-00",
-            "forma_pagamento": "pix",
+            "forma_pagamento": "cartao",
         },
         headers=headers,
-    ).json()
+    ).json()["passagem"]
 
     client.post(f"/api/viagens/{viagem_id}/passagens/{venda['id']}/cancelar", headers=headers)
     return venda["id"]
@@ -56,10 +56,10 @@ def test_nao_reembolsa_passagem_ainda_confirmada(client, db):
             "poltrona_viagem_id": poltrona_id,
             "cliente_nome": "Fulano",
             "cliente_documento": "000.000.000-00",
-            "forma_pagamento": "pix",
+            "forma_pagamento": "cartao",
         },
         headers=headers,
-    ).json()
+    ).json()["passagem"]
 
     resposta = client.post(
         f"/api/viagens/{empresa['viagem_id']}/passagens/{venda['id']}/reembolsar",

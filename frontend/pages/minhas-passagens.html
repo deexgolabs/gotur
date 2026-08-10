@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GoTur — Minhas passagens</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#08427a" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 </head>
 <body>
   <div id="topo"></div>
@@ -27,6 +30,7 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
   <script>
     const auth = exigirPapel("cliente");
 
@@ -56,8 +60,22 @@
             ${p.status === "confirmada" ? `<button class="secundario" data-qrcode="${p.localizador}" style="margin-right:8px">Ver QR Code</button>` : ""}
             ${p.status === "confirmada" ? `<button class="secundario" data-bilhete="${p.localizador}" style="margin-right:8px">Bilhete PDF</button>` : ""}
             ${p.status === "confirmada" ? `<button class="perigo" data-viagem="${p.viagem_id}" data-id="${p.id}">Cancelar</button>` : ""}
+            ${p.nota_avaliacao ? `<div class="avaliacao-nota" style="margin-top:8px">${"★".repeat(p.nota_avaliacao)}${"☆".repeat(5 - p.nota_avaliacao)}</div>` : ""}
+            ${p.pode_avaliar ? `<button class="secundario" data-avaliar="${p.id}" style="margin-top:8px">Avaliar viagem</button>` : ""}
           </div>
-        </div>`
+        </div>
+        ${p.pode_avaliar ? `
+        <div class="cartao escondido" id="form-avaliar-${p.id}" style="margin-top:-14px">
+          <label>Sua nota</label>
+          <div class="estrelas" data-estrelas="${p.id}">
+            ${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="estrela" data-nota="${n}">★</button>`).join("")}
+          </div>
+          <label for="comentario-${p.id}" style="margin-top:10px">Comentário (opcional)</label>
+          <textarea id="comentario-${p.id}" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--borda);border-radius:6px;font-family:inherit"></textarea>
+          <div class="linha-acoes">
+            <button type="button" data-enviar-avaliacao="${p.id}">Enviar avaliação</button>
+          </div>
+        </div>` : ""}`
         )
         .join("");
 
@@ -81,6 +99,45 @@
       document.querySelectorAll("button[data-bilhete]").forEach((btn) => {
         btn.addEventListener("click", () => {
           abrirArquivoAutenticado(`/passagens/${btn.dataset.bilhete}/bilhete.pdf`, "bilhete").catch((e) => mostrarAlerta(e.message));
+        });
+      });
+
+      document.querySelectorAll("button[data-avaliar]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.getElementById(`form-avaliar-${btn.dataset.avaliar}`).classList.toggle("escondido");
+        });
+      });
+
+      document.querySelectorAll(".estrelas").forEach((grupo) => {
+        let notaEscolhida = 0;
+        grupo.querySelectorAll(".estrela").forEach((estrela) => {
+          estrela.addEventListener("click", () => {
+            notaEscolhida = parseInt(estrela.dataset.nota, 10);
+            grupo.dataset.notaEscolhida = notaEscolhida;
+            grupo.querySelectorAll(".estrela").forEach((e) => {
+              e.classList.toggle("ativa", parseInt(e.dataset.nota, 10) <= notaEscolhida);
+            });
+          });
+        });
+      });
+
+      document.querySelectorAll("button[data-enviar-avaliacao]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const passagemId = btn.dataset.enviarAvaliacao;
+          const grupo = document.querySelector(`.estrelas[data-estrelas="${passagemId}"]`);
+          const nota = parseInt(grupo.dataset.notaEscolhida || "0", 10);
+          if (!nota) {
+            mostrarAlerta("Escolha uma nota de 1 a 5 estrelas.");
+            return;
+          }
+          const comentario = document.getElementById(`comentario-${passagemId}`).value.trim();
+          try {
+            await api("POST", `/passagens/${passagemId}/avaliar`, { nota, comentario: comentario || null });
+            mostrarAlerta("Obrigado pela avaliação!", "sucesso");
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
         });
       });
     }

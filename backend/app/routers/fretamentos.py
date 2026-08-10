@@ -3,11 +3,13 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import require_roles, require_staff
 from app.database import get_db
+from app.models.avaliacao import Avaliacao
 from app.models.empresa import Empresa
-from app.models.enums import UserRole
+from app.models.enums import StatusFretamento, UserRole
 from app.models.fretamento import Fretamento, PosicaoFretamento
 from app.models.onibus import Onibus
 from app.models.usuario import Usuario
+from app.schemas.avaliacao import AvaliacaoOut, AvaliarRequest
 from app.schemas.fretamento import (
     FretamentoCreate,
     FretamentoOut,
@@ -256,4 +258,38 @@ def rastrear_publico(codigo: str, db: Session = Depends(get_db)):
         distancia_percorrida_km=distancia_percorrida_km(pontos),
         ultima_posicao=PosicaoOut.model_validate(ultima) if ultima else None,
         trajeto=[PosicaoOut.model_validate(p) for p in fretamento.posicoes],
+        ja_avaliado=db.query(Avaliacao).filter(Avaliacao.fretamento_id == fretamento.id).first() is not None,
+    )
+
+
+@router.post("/rastrear/{codigo}/avaliar", response_model=AvaliacaoOut, status_code=status.HTTP_201_CREATED)
+def avaliar_fretamento_publico(codigo: str, dados: AvaliarRequest, db: Session = Depends(get_db)):
+    """Sem autenticação, igual ao rastreio — o cliente que contratou o
+    fretamento nem sempre tem conta no GoTur."""
+    fretamento = db.query(Fretamento).filter(Fretamento.codigo_rastreio == codigo.upper()).first()
+    if not fretamento:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Código de rastreio não encontrado")
+    if fretamento.status != StatusFretamento.CONCLUIDO:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="O fretamento ainda não foi concluído")
+    if db.query(Avaliacao).filter(Avaliacao.fretamento_id == fretamento.id).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este fretamento já foi avaliado")
+
+    avaliacao = Avaliacao(
+        tenant_id=fretamento.tenant_id,
+        fretamento_id=fretamento.id,
+        nota=dados.nota,
+        comentario=dados.comentario,
+    )
+    db.add(avaliacao)
+    db.commit()
+    db.refresh(avaliacao)
+    return AvaliacaoOut(
+        id=avaliacao.id,
+        fretamento_id=avaliacao.fretamento_id,
+        nota=avaliacao.nota,
+        comentario=avaliacao.comentario,
+        criado_em=avaliacao.criado_em,
+        cliente_nome=fretamento.cliente_nome,
+        origem=fretamento.origem,
+        destino=fretamento.destino,
     )

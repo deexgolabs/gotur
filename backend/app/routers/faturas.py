@@ -12,7 +12,7 @@ from app.models.usuario import Usuario
 from app.schemas.fatura import FaturaOut
 from app.services.assinatura import atualizar_situacao_assinaturas
 from app.services.auditoria import registrar as registrar_auditoria
-from app.services.pagamento_provider import obter_provider
+from app.services.pagamento_provider import modo_simulado, obter_provider
 
 router = APIRouter(tags=["faturas"])
 
@@ -31,6 +31,8 @@ def _para_out(fatura: FaturaEmpresa) -> FaturaOut:
         vencimento=fatura.vencimento,
         pago_em=fatura.pago_em,
         criado_em=fatura.criado_em,
+        pix_copia_cola=fatura.pix_copia_cola,
+        pix_expira_em=fatura.pix_expira_em,
     )
 
 
@@ -104,36 +106,18 @@ def minhas_faturas(
     return [_para_out(f) for f in faturas]
 
 
-@router.post("/faturas/{fatura_id}/pagar", response_model=FaturaOut)
-def pagar_fatura(
-    fatura_id: int,
-    db: Session = Depends(get_db),
-    usuario_atual: Usuario = Depends(get_current_user),
-):
-    """Marca a fatura como paga. Super admin pode pagar qualquer fatura
-    (ex: recebeu por fora); admin da empresa só a da própria empresa
-    (autoatendimento — reaproveita o provedor de pagamento já usado para as
-    passagens)."""
-    fatura = db.get(FaturaEmpresa, fatura_id)
-    if not fatura:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fatura não encontrada")
-
+def _pode_mexer_na_fatura(usuario_atual: Usuario, fatura: FaturaEmpresa) -> bool:
     eh_super_admin = usuario_atual.role == UserRole.SUPER_ADMIN
     eh_admin_da_propria_empresa = usuario_atual.role == UserRole.ADMIN_EMPRESA and usuario_atual.tenant_id == fatura.empresa_id
-    if not eh_super_admin and not eh_admin_da_propria_empresa:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
-    if fatura.status == StatusFatura.PAGA:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Fatura já paga")
+    return eh_super_admin or eh_admin_da_propria_empresa
 
-    resultado_cobranca = obter_provider().cobrar(
-        forma_pagamento=FormaPagamento.PIX,
-        valor=float(fatura.valor),
-        referencia_pedido=f"fatura-{fatura.id}",
-    )
 
+def _marcar_fatura_paga(db: Session, fatura: FaturaEmpresa, usuario_atual: Usuario, gateway_ref: str | None) -> None:
     fatura.status = StatusFatura.PAGA
     fatura.pago_em = datetime.now(timezone.utc)
-    fatura.gateway_ref = resultado_cobranca.gateway_ref
+    fatura.gateway_ref = gateway_ref
+    fatura.pix_copia_cola = None
+    fatura.pix_expira_em = None
 
     empresa = db.get(Empresa, fatura.empresa_id)
     if empresa and empresa.status_assinatura in (StatusAssinatura.INADIMPLENTE, StatusAssinatura.SUSPENSA, StatusAssinatura.TRIAL):
@@ -149,6 +133,73 @@ def pagar_fatura(
         tenant_id=fatura.empresa_id,
     )
 
+
+@router.post("/faturas/{fatura_id}/pagar", response_model=FaturaOut)
+def pagar_fatura(
+    fatura_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    """Inicia o pagamento da fatura via Pix. Super admin pode pagar
+    qualquer fatura (ex: recebeu por fora); admin da empresa só a da
+    própria empresa (autoatendimento — reaproveita o provedor de pagamento
+    já usado para as passagens). Em modo simulado, gera um código Pix
+    pendente que precisa ser confirmado em `/faturas/{id}/confirmar-simulado`
+    (com um gateway real, quem confirma é o próprio webhook do gateway)."""
+    fatura = db.get(FaturaEmpresa, fatura_id)
+    if not fatura:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fatura não encontrada")
+    if not _pode_mexer_na_fatura(usuario_atual, fatura):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
+    if fatura.status == StatusFatura.PAGA:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Fatura já paga")
+
+    resultado_cobranca = obter_provider().cobrar(
+        forma_pagamento=FormaPagamento.PIX,
+        valor=float(fatura.valor),
+        referencia_pedido=f"fatura-{fatura.id}",
+    )
+
+    if resultado_cobranca.status == "pendente":
+        fatura.pix_copia_cola = resultado_cobranca.pix_copia_cola
+        fatura.pix_expira_em = resultado_cobranca.pix_expira_em
+        db.commit()
+        db.refresh(fatura)
+        return _para_out(fatura)
+
+    _marcar_fatura_paga(db, fatura, usuario_atual, resultado_cobranca.gateway_ref)
+    db.commit()
+    db.refresh(fatura)
+    return _para_out(fatura)
+
+
+@router.post("/faturas/{fatura_id}/confirmar-simulado", response_model=FaturaOut)
+def confirmar_pagamento_fatura_simulado(
+    fatura_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    """Simula o webhook que um gateway real chamaria quando o Pix da
+    fatura cai na conta. Só existe em modo simulado."""
+    if not modo_simulado():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Confirmação manual desabilitada: um gateway de pagamento real está configurado.",
+        )
+
+    fatura = db.get(FaturaEmpresa, fatura_id)
+    if not fatura:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fatura não encontrada")
+    if not _pode_mexer_na_fatura(usuario_atual, fatura):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
+    if fatura.status == StatusFatura.PAGA:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Fatura já paga")
+    if not fatura.pix_copia_cola:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Nenhum Pix pendente para esta fatura")
+    if fatura.pix_expira_em and fatura.pix_expira_em < datetime.utcnow():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Pix expirado, gere um novo pagamento")
+
+    _marcar_fatura_paga(db, fatura, usuario_atual, f"SIMULADO-fatura-{fatura.id}")
     db.commit()
     db.refresh(fatura)
     return _para_out(fatura)

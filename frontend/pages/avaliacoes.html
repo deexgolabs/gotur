@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Avaliações</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#08427a" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Avaliações</h1>
+    <p class="subtitulo">O que os clientes acharam das viagens e fretamentos.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartoes-resumo" id="cartoes-resumo" style="margin-bottom:20px"></div>
+
+    <div id="lista"></div>
+    <p class="vazio escondido" id="vazio">Nenhuma avaliação ainda.</p>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa", "funcionario");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    function estrelas(nota) {
+      return "★".repeat(nota) + "☆".repeat(5 - nota);
+    }
+
+    async function carregar() {
+      const resumo = await api("GET", "/avaliacoes");
+
+      document.getElementById("cartoes-resumo").innerHTML = `
+        <div class="cartao-resumo"><div class="titulo">${resumo.media !== null ? resumo.media.toFixed(1) : "—"}</div><div class="desc">Nota média</div></div>
+        <div class="cartao-resumo"><div class="titulo">${resumo.total}</div><div class="desc">Total de avaliações</div></div>
+      `;
+
+      document.getElementById("vazio").classList.toggle("escondido", resumo.avaliacoes.length > 0);
+      document.getElementById("lista").innerHTML = resumo.avaliacoes
+        .map(
+          (a) => `
+        <div class="cartao">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+            <div>
+              <div class="avaliacao-nota">${estrelas(a.nota)}</div>
+              <div style="font-weight:700;margin-top:4px">${a.cliente_nome || ""}</div>
+              <div style="color:var(--cinza);font-size:.9rem">${a.origem || ""} → ${a.destino || ""} · ${a.fretamento_id ? "Fretamento" : "Viagem"}</div>
+              ${a.comentario ? `<p style="margin:8px 0 0">${a.comentario}</p>` : ""}
+            </div>
+            <div style="color:var(--cinza);font-size:.85rem;white-space:nowrap">${new Date(a.criado_em).toLocaleDateString("pt-BR")}</div>
+          </div>
+        </div>`
+        )
+        .join("");
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+  </script>
+</body>
+</html>
