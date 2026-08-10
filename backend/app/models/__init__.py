@@ -1,6 +1,7 @@
 from app.models.auditoria import RegistroAuditoria
 from app.models.empresa import Empresa
 from app.models.fatura_empresa import FaturaEmpresa
+from app.models.fretamento import Fretamento, PosicaoFretamento
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
 from app.models.onibus import Onibus, PoltronaOnibus
 from app.models.pagamento import Pagamento
@@ -27,4 +28,6 @@ __all__ = [
     "OcupacaoPoltrona",
     "Passagem",
     "Pagamento",
+    "Fretamento",
+    "PosicaoFretamento",
 ]

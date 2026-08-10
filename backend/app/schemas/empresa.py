@@ -6,6 +6,8 @@ from app.models.enums import StatusAssinatura
 from app.schemas.plano import PlanoOut
 
 
+
+
 class EmpresaCreate(BaseModel):
     nome: str
     cnpj: str
@@ -16,6 +18,10 @@ class EmpresaCreate(BaseModel):
 class EmpresaUpdate(BaseModel):
     nome: str | None = None
     email_contato: str | None = None
+
+
+class ConfiguracaoFretamentoRequest(BaseModel):
+    preco_km_fretamento: float | None = None
 
 
 class TrocarPlanoRequest(BaseModel):
@@ -34,3 +40,4 @@ class EmpresaOut(BaseModel):
     plano_id: int | None
     status_assinatura: StatusAssinatura
     plano: PlanoOut | None = None
+    preco_km_fretamento: float | None = None

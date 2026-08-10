@@ -58,3 +58,11 @@ class StatusFatura(str, enum.Enum):
     PAGA = "paga"
     FALHOU = "falhou"
     CANCELADA = "cancelada"
+
+
+class StatusFretamento(str, enum.Enum):
+    ORCAMENTO = "orcamento"
+    CONFIRMADO = "confirmado"
+    EM_ANDAMENTO = "em_andamento"
+    CONCLUIDO = "concluido"
+    CANCELADO = "cancelado"

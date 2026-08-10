@@ -46,16 +46,19 @@ function linksPorPapel(role) {
       { href: "/pages/onibus.html", label: "Ônibus" },
       { href: "/pages/rotas.html", label: "Rotas" },
       { href: "/pages/viagens.html", label: "Viagens" },
+      { href: "/pages/fretamentos.html", label: "Fretamentos" },
       { href: "/pages/checkin.html", label: "Check-in" },
       { href: "/pages/relatorios.html", label: "Relatórios" },
       { href: "/pages/auditoria.html", label: "Auditoria" },
       { href: "/pages/minhas-faturas.html", label: "Faturas" },
+      { href: "/pages/configuracoes.html", label: "Configurações" },
     ];
   }
   if (role === "funcionario") {
     return [
       ...base,
       { href: "/pages/viagens.html", label: "Viagens" },
+      { href: "/pages/fretamentos.html", label: "Fretamentos" },
       { href: "/pages/checkin.html", label: "Check-in" },
     ];
   }

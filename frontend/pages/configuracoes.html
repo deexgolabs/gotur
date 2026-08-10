@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Configurações</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Configurações</h1>
+    <p class="subtitulo">Preferências da sua empresa.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Fretamento</h2>
+      <form id="form-fretamento">
+        <div class="grid-form">
+          <div>
+            <label for="preco-km">Preço padrão por km (R$)</label>
+            <input id="preco-km" type="number" min="0" step="0.01" placeholder="Ex: 4.50" />
+          </div>
+        </div>
+        <p class="rodape-form" style="text-align:left">Usado como valor sugerido ao criar um novo fretamento — pode ser sobrescrito em cada contrato.</p>
+        <div class="linha-acoes">
+          <button type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      api("GET", "/empresas/minha")
+        .then((empresa) => {
+          if (empresa.preco_km_fretamento != null) {
+            document.getElementById("preco-km").value = empresa.preco_km_fretamento;
+          }
+        })
+        .catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-fretamento").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const valor = document.getElementById("preco-km").value.trim();
+        await api("PATCH", "/empresas/minha/fretamento", {
+          preco_km_fretamento: valor === "" ? null : parseFloat(valor),
+        });
+        mostrarAlerta("Configuração salva.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

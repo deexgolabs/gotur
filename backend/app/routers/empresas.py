@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.deps import require_roles
+from app.core.deps import get_current_user, require_roles
 from app.core.security import hash_senha
 from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.enums import StatusAssinatura, UserRole
 from app.models.plano import Plano
 from app.models.usuario import Usuario
-from app.schemas.empresa import EmpresaCreate, EmpresaOut, EmpresaUpdate, TrocarPlanoRequest
+from app.schemas.empresa import ConfiguracaoFretamentoRequest, EmpresaCreate, EmpresaOut, EmpresaUpdate, TrocarPlanoRequest
 from app.schemas.usuario import FuncionarioCreate, UsuarioOut
 from app.services.assinatura import atualizar_situacao_assinaturas
 from app.services.auditoria import registrar as registrar_auditoria
@@ -126,6 +126,30 @@ def trocar_plano(
         tenant_id=empresa.id,
     )
 
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
+@router.get("/minha", response_model=EmpresaOut)
+def minha_empresa(
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    return _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
+
+
+@router.patch("/minha/fretamento", response_model=EmpresaOut)
+def configurar_preco_fretamento(
+    dados: ConfiguracaoFretamentoRequest,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """Preço padrão por km cobrado em fretamentos — usado como valor
+    sugerido quando o atendente não informa um valor específico ao criar o
+    fretamento."""
+    empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
+    empresa.preco_km_fretamento = dados.preco_km_fretamento
     db.commit()
     db.refresh(empresa)
     return empresa

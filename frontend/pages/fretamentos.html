@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Fretamentos</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Fretamentos</h1>
+    <p class="subtitulo">Aluguel de ônibus para clientes/eventos, fora da venda de passagem avulsa.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao escondido" id="cartao-novo">
+      <h2 style="margin-top:0">Novo fretamento</h2>
+      <form id="form-fretamento">
+        <div class="grid-form">
+          <div>
+            <label for="cliente-nome">Cliente / contratante</label>
+            <input id="cliente-nome" required />
+          </div>
+          <div>
+            <label for="cliente-documento">CPF/CNPJ</label>
+            <input id="cliente-documento" />
+          </div>
+          <div>
+            <label for="cliente-contato">Contato (telefone/e-mail)</label>
+            <input id="cliente-contato" />
+          </div>
+          <div>
+            <label for="origem">Origem</label>
+            <input id="origem" required />
+          </div>
+          <div>
+            <label for="destino">Destino</label>
+            <input id="destino" required />
+          </div>
+          <div>
+            <label for="saida">Data/hora de saída</label>
+            <input id="saida" type="datetime-local" required />
+          </div>
+          <div>
+            <label for="retorno">Data/hora de retorno (previsto)</label>
+            <input id="retorno" type="datetime-local" />
+          </div>
+          <div>
+            <label for="onibus">Ônibus</label>
+            <select id="onibus"><option value="">Não definido ainda</option></select>
+          </div>
+          <div>
+            <label for="motorista">Motorista</label>
+            <input id="motorista" placeholder="Nome do motorista" />
+          </div>
+          <div>
+            <label for="distancia">Distância prevista (km)</label>
+            <input id="distancia" type="number" min="0" step="0.1" />
+          </div>
+          <div>
+            <label for="valor-km">Preço por km (R$)</label>
+            <input id="valor-km" type="number" min="0" step="0.01" placeholder="Usa o padrão da empresa se vazio" />
+          </div>
+          <div>
+            <label for="valor-total">Valor total (R$)</label>
+            <input id="valor-total" type="number" min="0" step="0.01" placeholder="Calculado automaticamente" />
+          </div>
+        </div>
+        <div>
+          <label for="observacoes">Observações</label>
+          <input id="observacoes" />
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Cadastrar fretamento</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Fretamentos cadastrados</h2>
+    <div class="cartao">
+      <table>
+        <thead>
+          <tr><th>Cliente</th><th>Trajeto</th><th>Saída</th><th>Ônibus</th><th>Km previsto</th><th>Km percorrido</th><th>Valor</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhum fretamento cadastrado ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa", "funcionario");
+    const ehAdmin = auth && auth.role === "admin_empresa";
+
+    const ROTULOS_STATUS = {
+      orcamento: "Orçamento",
+      confirmado: "Confirmado",
+      em_andamento: "Em andamento",
+      concluido: "Concluído",
+      cancelado: "Cancelado",
+    };
+    const SELO_STATUS = {
+      orcamento: "hold",
+      confirmado: "livre",
+      em_andamento: "confirmada",
+      concluido: "livre",
+      cancelado: "bloqueada",
+    };
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+    }
+
+    function formatarDataHora(iso) {
+      return iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "-";
+    }
+
+    async function carregarOnibus() {
+      const lista = await api("GET", "/onibus");
+      document.getElementById("onibus").innerHTML =
+        `<option value="">Não definido ainda</option>` + lista.map((o) => `<option value="${o.id}">${o.identificacao}</option>`).join("");
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/fretamentos");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (f) => `
+        <tr>
+          <td>${f.cliente_nome}</td>
+          <td>${f.origem} → ${f.destino}</td>
+          <td>${formatarDataHora(f.data_hora_saida)}</td>
+          <td>${f.onibus_identificacao || "-"}</td>
+          <td>${f.distancia_km != null ? f.distancia_km.toFixed(1) : "-"}</td>
+          <td>${f.distancia_percorrida_km.toFixed(1)}</td>
+          <td>${f.valor_total != null ? "R$ " + f.valor_total.toFixed(2) : "-"}</td>
+          <td><span class="selo ${SELO_STATUS[f.status]}">${ROTULOS_STATUS[f.status]}</span></td>
+          <td>
+            <a href="/pages/mapa-fretamento.html?id=${f.id}"><button class="secundario">Mapa</button></a>
+            <button class="secundario" data-status="${f.id}">Status</button>
+            <button class="secundario" data-copiar="${f.codigo_rastreio}">Copiar link p/ cliente</button>
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-status]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const opcoes = Object.entries(ROTULOS_STATUS).map(([v, l]) => `${v} - ${l}`).join("\n");
+          const escolha = prompt(`Novo status:\n${opcoes}`);
+          if (!escolha) return;
+          const valor = escolha.trim().split(" ")[0];
+          if (!ROTULOS_STATUS[valor]) {
+            mostrarAlerta("Status inválido.");
+            return;
+          }
+          try {
+            await api("PATCH", `/fretamentos/${btn.dataset.status}/status`, { status: valor });
+            mostrarAlerta("Status atualizado.", "sucesso");
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-copiar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const link = `${window.location.origin}/rastrear.html?codigo=${btn.dataset.copiar}`;
+          try {
+            await navigator.clipboard.writeText(link);
+            mostrarAlerta("Link copiado! Envie para o cliente acompanhar o trajeto.", "sucesso");
+          } catch {
+            prompt("Copie o link abaixo:", link);
+          }
+        });
+      });
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      if (ehAdmin) document.getElementById("cartao-novo").classList.remove("escondido");
+      carregarOnibus().catch((e) => mostrarAlerta(e.message));
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-fretamento").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const lerNum = (id) => {
+          const v = document.getElementById(id).value.trim();
+          return v === "" ? null : parseFloat(v);
+        };
+        const saida = document.getElementById("saida").value;
+        const retorno = document.getElementById("retorno").value;
+        await api("POST", "/fretamentos", {
+          cliente_nome: document.getElementById("cliente-nome").value.trim(),
+          cliente_documento: document.getElementById("cliente-documento").value.trim() || null,
+          cliente_contato: document.getElementById("cliente-contato").value.trim() || null,
+          origem: document.getElementById("origem").value.trim(),
+          destino: document.getElementById("destino").value.trim(),
+          data_hora_saida: new Date(saida).toISOString(),
+          data_hora_retorno_prevista: retorno ? new Date(retorno).toISOString() : null,
+          onibus_id: document.getElementById("onibus").value ? parseInt(document.getElementById("onibus").value, 10) : null,
+          motorista_nome: document.getElementById("motorista").value.trim() || null,
+          distancia_km: lerNum("distancia"),
+          valor_por_km: lerNum("valor-km"),
+          valor_total: lerNum("valor-total"),
+          observacoes: document.getElementById("observacoes").value.trim() || null,
+        });
+        ev.target.reset();
+        mostrarAlerta("Fretamento cadastrado com sucesso.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +20,8 @@ class Empresa(Base):
 
     plano_id: Mapped[int | None] = mapped_column(ForeignKey("planos.id"), nullable=True)
     status_assinatura: Mapped[StatusAssinatura] = mapped_column(SAEnum(StatusAssinatura), default=StatusAssinatura.TRIAL)
+
+    preco_km_fretamento: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
 
     usuarios = relationship("Usuario", back_populates="empresa")
     onibus = relationship("Onibus", back_populates="empresa")

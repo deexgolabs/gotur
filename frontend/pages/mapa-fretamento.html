@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Mapa do fretamento</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #mapa { height: 420px; border-radius: 8px; border: 1px solid var(--borda); }
+  </style>
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1 id="titulo">Mapa do fretamento</h1>
+    <p class="subtitulo" id="subtitulo"></p>
+
+    <div id="alerta"></div>
+
+    <div class="cartoes-resumo" id="cartoes-resumo" style="margin-bottom:20px"></div>
+
+    <div class="cartao">
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:400">
+        <input type="checkbox" id="compartilhar" style="width:auto" />
+        Estou no ônibus — compartilhar minha localização (atualiza a cada 20s)
+      </label>
+      <p class="rodape-form escondido" id="aviso-permissao" style="text-align:left">O navegador vai pedir permissão de localização. Aceite para começar a compartilhar.</p>
+      <div id="mapa"></div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa", "funcionario");
+    const params = new URLSearchParams(window.location.search);
+    const fretamentoId = params.get("id");
+    if (!fretamentoId) window.location.href = "/pages/fretamentos.html";
+
+    const ROTULOS_STATUS = {
+      orcamento: "Orçamento",
+      confirmado: "Confirmado",
+      em_andamento: "Em andamento",
+      concluido: "Concluído",
+      cancelado: "Cancelado",
+    };
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+    }
+
+    let mapa, marcador, linha, intervaloCompartilhar, intervaloAtualizar;
+
+    function iniciarMapa() {
+      mapa = L.map("mapa").setView([-14.235, -51.9253], 4); // centro do Brasil, zoom afastado
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap",
+        maxZoom: 19,
+      }).addTo(mapa);
+      linha = L.polyline([], { color: "#0b5fa5", weight: 4 }).addTo(mapa);
+    }
+
+    function atualizarMapa(trajeto) {
+      if (!trajeto.length) return;
+      const pontos = trajeto.map((p) => [p.latitude, p.longitude]);
+      linha.setLatLngs(pontos);
+
+      const ultimo = pontos[pontos.length - 1];
+      if (marcador) marcador.setLatLng(ultimo);
+      else marcador = L.marker(ultimo).addTo(mapa);
+
+      mapa.fitBounds(linha.getBounds(), { maxZoom: 15, padding: [20, 20] });
+    }
+
+    async function carregar() {
+      const [fretamento, trajeto] = await Promise.all([
+        api("GET", `/fretamentos/${fretamentoId}`),
+        api("GET", `/fretamentos/${fretamentoId}/posicoes`),
+      ]);
+
+      document.getElementById("titulo").textContent = `Fretamento — ${fretamento.cliente_nome}`;
+      document.getElementById("subtitulo").textContent = `${fretamento.origem} → ${fretamento.destino}`;
+      document.getElementById("cartoes-resumo").innerHTML = `
+        <div class="cartao-resumo"><div class="titulo">${ROTULOS_STATUS[fretamento.status]}</div><div class="desc">Status</div></div>
+        <div class="cartao-resumo"><div class="titulo">${fretamento.distancia_percorrida_km.toFixed(1)} km</div><div class="desc">Distância percorrida</div></div>
+        <div class="cartao-resumo"><div class="titulo">${fretamento.distancia_km != null ? fretamento.distancia_km.toFixed(1) + " km" : "—"}</div><div class="desc">Distância prevista</div></div>
+        <div class="cartao-resumo"><div class="titulo">${fretamento.onibus_identificacao || "—"}</div><div class="desc">Ônibus</div></div>
+      `;
+
+      atualizarMapa(trajeto);
+    }
+
+    document.getElementById("compartilhar").addEventListener("change", (ev) => {
+      if (ev.target.checked) {
+        document.getElementById("aviso-permissao").classList.remove("escondido");
+        enviarPosicaoAtual();
+        intervaloCompartilhar = setInterval(enviarPosicaoAtual, 20000);
+      } else {
+        clearInterval(intervaloCompartilhar);
+        document.getElementById("aviso-permissao").classList.add("escondido");
+      }
+    });
+
+    function enviarPosicaoAtual() {
+      if (!navigator.geolocation) {
+        mostrarAlerta("Seu navegador não suporta geolocalização.");
+        document.getElementById("compartilhar").checked = false;
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        async (posicao) => {
+          try {
+            await api("POST", `/fretamentos/${fretamentoId}/posicoes`, {
+              latitude: posicao.coords.latitude,
+              longitude: posicao.coords.longitude,
+            });
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        },
+        (erro) => {
+          mostrarAlerta("Não foi possível obter sua localização: " + erro.message);
+          document.getElementById("compartilhar").checked = false;
+        },
+        { enableHighAccuracy: true, timeout: 15000 }
+      );
+    }
+
+    if (auth && fretamentoId) {
+      montarTopo("topo");
+      iniciarMapa();
+      carregar().catch((e) => mostrarAlerta(e.message));
+      intervaloAtualizar = setInterval(() => {
+        if (!document.getElementById("compartilhar").checked) carregar().catch(() => {});
+      }, 15000);
+    }
+  </script>
+</body>
+</html>
