@@ -133,16 +133,19 @@ def buscar_viagens(
     origem: str,
     destino: str,
     data: date,
+    tenant_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     """Busca pública (cliente não precisa estar logado) de viagens
     disponíveis. Casa `origem`/`destino` contra qualquer par de paradas da
     rota (na ordem certa), não só as pontas — permite comprar um trecho de
-    uma viagem mais longa."""
+    uma viagem mais longa. `tenant_id` é opcional: usado pela loja
+    white-label (/loja/{slug}) pra restringir a busca só às viagens
+    daquela empresa; sem ele, busca em todas (portal genérico)."""
     inicio = datetime.combine(data, time.min)
     fim = datetime.combine(data, time.max)
 
-    viagens = (
+    query = (
         db.query(Viagem)
         .join(Rota, Viagem.rota_id == Rota.id)
         .join(Empresa, Viagem.tenant_id == Empresa.id)
@@ -151,7 +154,12 @@ def buscar_viagens(
             Viagem.ativo.is_(True),
             Empresa.ativo.is_(True),
         )
-        .options(joinedload(Viagem.rota).joinedload(Rota.paradas), joinedload(Viagem.onibus))
+    )
+    if tenant_id is not None:
+        query = query.filter(Viagem.tenant_id == tenant_id)
+
+    viagens = (
+        query.options(joinedload(Viagem.rota).joinedload(Rota.paradas), joinedload(Viagem.onibus))
         .order_by(Viagem.data_hora_partida)
         .all()
     )

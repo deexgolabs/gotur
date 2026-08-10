@@ -17,6 +17,7 @@ from app.routers import (
     empresas,
     faturas,
     fretamentos,
+    loja,
     onibus,
     passagens,
     pedidos_pagamento,
@@ -67,6 +68,15 @@ for router in (
     api.include_router(router)
 
 app.mount("/api", api)
+
+MEDIA_DIR = Path(settings.media_dir)
+MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
+
+# Rotas de página da loja white-label (/loja/{slug}...) precisam ser
+# registradas antes do mount estático abaixo, senão o StaticFiles (montado
+# em "/") intercepta a requisição primeiro e devolve 404 genérico.
+app.include_router(loja.router)
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 if FRONTEND_DIR.exists():

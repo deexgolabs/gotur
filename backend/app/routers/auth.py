@@ -8,6 +8,7 @@ from app.models.enums import UserRole
 from app.models.plano import Plano
 from app.models.usuario import Usuario
 from app.schemas.auth import LoginRequest, RegistroCliente, RegistroEmpresa, TokenResponse
+from app.services.slug import gerar_slug_unico
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -48,6 +49,7 @@ def registrar_empresa(dados: RegistroEmpresa, db: Session = Depends(get_db)):
     )
     db.add(empresa)
     db.flush()
+    empresa.slug = gerar_slug_unico(db, dados.empresa_nome)
 
     admin = Usuario(
         tenant_id=empresa.id,

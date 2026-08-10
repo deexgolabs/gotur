@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     whatsapp_api_url: str | None = None
     whatsapp_api_token: str | None = None
 
+    # White-label: logos enviados pelas empresas (ver app/routers/empresas.py
+    # e app/routers/loja.py). Fica fora do controle de versão.
+    media_dir: str = str(BACKEND_DIR / "media")
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origem.strip() for origem in self.cors_origins.split(",") if origem.strip()]

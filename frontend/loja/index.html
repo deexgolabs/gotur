@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/loja.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="manifest" id="link-manifest" />
+  <meta name="theme-color" id="meta-theme-color" content="#0b5fa5" />
+  <link rel="apple-touch-icon" id="link-apple-icon" />
+  <script>
+    (function () {
+      var slug = location.pathname.replace(/\/+$/, "").split("/")[2];
+      window.__LOJA_SLUG__ = slug;
+      document.getElementById("link-manifest").setAttribute("href", "/loja/" + slug + "/manifest.json");
+    })();
+  </script>
+</head>
+<body>
+  <p id="tela-carregando" style="text-align:center;padding:60px 20px;color:var(--cinza)">Carregando...</p>
+
+  <div id="app" class="escondido">
+    <header class="loja-header">
+      <img id="loja-logo" alt="Logo" class="escondido" />
+      <div class="nome-empresa" id="loja-nome"></div>
+    </header>
+
+    <main class="loja-main">
+      <div id="alerta"></div>
+
+      <section class="loja-vista ativa" id="vista-buscar">
+        <div class="loja-titulo-vista">Para onde vamos?</div>
+        <form class="loja-card loja-form" id="form-busca">
+          <label for="busca-origem">Origem</label>
+          <input id="busca-origem" required placeholder="Ex: São Paulo" />
+          <label for="busca-destino">Destino</label>
+          <input id="busca-destino" required placeholder="Ex: Campinas" />
+          <label for="busca-data">Data</label>
+          <input id="busca-data" type="date" required />
+          <button type="submit">Buscar viagens</button>
+        </form>
+        <div id="resultados-busca"></div>
+      </section>
+
+      <section class="loja-vista" id="vista-compra">
+        <button type="button" class="loja-voltar" id="btn-voltar-busca">&larr; Voltar pra busca</button>
+        <div class="loja-titulo-vista" id="compra-titulo"></div>
+        <div id="alerta-compra"></div>
+        <div class="loja-card loja-poltronas">
+          <div class="mapa-onibus" id="mapa-onibus"></div>
+          <div class="legenda">
+            <span><i class="i-livre"></i>Livre</span>
+            <span><i class="i-selecionada"></i>Selecionada</span>
+            <span><i class="i-hold"></i>Indisponível</span>
+            <span><i class="i-vendida"></i>Vendida</span>
+          </div>
+        </div>
+        <div class="loja-card escondido" id="card-form-compra">
+          <div style="font-weight:700;margin-bottom:10px">Poltrona <span id="compra-numero-selecionada"></span> — <span id="compra-preco-selecionada"></span></div>
+          <form class="loja-form" id="form-compra-loja">
+            <label for="compra-nome">Nome do passageiro</label>
+            <input id="compra-nome" required />
+            <label for="compra-documento">CPF</label>
+            <input id="compra-documento" required />
+            <label for="compra-forma">Forma de pagamento</label>
+            <select id="compra-forma">
+              <option value="pix">Pix</option>
+              <option value="cartao">Cartão</option>
+              <option value="dinheiro">Dinheiro</option>
+            </select>
+            <button type="submit">Confirmar compra</button>
+          </form>
+          <div id="area-pix-loja" class="escondido"></div>
+        </div>
+      </section>
+
+      <section class="loja-vista" id="vista-minhas">
+        <div class="loja-titulo-vista">Minhas viagens</div>
+        <div id="minhas-conteudo"></div>
+      </section>
+
+      <section class="loja-vista" id="vista-fretamento">
+        <div class="loja-titulo-vista">Fretamento</div>
+        <div class="loja-abas">
+          <button type="button" class="loja-aba ativa" data-aba-fretamento="solicitar">Solicitar orçamento</button>
+          <button type="button" class="loja-aba" data-aba-fretamento="acompanhar">Acompanhar</button>
+        </div>
+
+        <div id="fretamento-solicitar">
+          <form class="loja-card loja-form" id="form-fretamento">
+            <label for="fret-nome">Seu nome</label>
+            <input id="fret-nome" required />
+            <label for="fret-contato">Telefone/e-mail para contato</label>
+            <input id="fret-contato" required />
+            <label for="fret-origem">Origem</label>
+            <input id="fret-origem" required />
+            <label for="fret-destino">Destino</label>
+            <input id="fret-destino" required />
+            <label for="fret-data">Data/hora de saída</label>
+            <input id="fret-data" type="datetime-local" required />
+            <label for="fret-obs">Observações (opcional)</label>
+            <textarea id="fret-obs" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--borda);border-radius:6px;font-family:inherit;margin-bottom:12px"></textarea>
+            <button type="submit">Enviar solicitação</button>
+          </form>
+        </div>
+
+        <div id="fretamento-acompanhar" class="escondido">
+          <div class="loja-card loja-form">
+            <label for="fret-codigo">Código de rastreio</label>
+            <input id="fret-codigo" placeholder="Ex: AB12CD34EF" style="text-transform:uppercase" />
+            <button type="button" id="btn-rastrear-fretamento">Acompanhar</button>
+          </div>
+          <div id="fretamento-resultado"></div>
+        </div>
+      </section>
+
+      <section class="loja-vista" id="vista-conta">
+        <div class="loja-titulo-vista">Conta</div>
+        <div id="conta-conteudo"></div>
+      </section>
+    </main>
+
+    <nav class="loja-bottom-nav">
+      <button type="button" class="loja-nav-item ativo" data-vista="buscar">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Buscar
+      </button>
+      <button type="button" class="loja-nav-item" data-vista="minhas">
+        <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="2 2"/></svg>
+        Minhas viagens
+      </button>
+      <button type="button" class="loja-nav-item" data-vista="fretamento">
+        <svg viewBox="0 0 24 24"><rect x="3" y="7" width="14" height="10" rx="2"/><path d="M17 10h3l2 3v4h-5"/><circle cx="7" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>
+        Fretamento
+      </button>
+      <button type="button" class="loja-nav-item" data-vista="conta">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+        Conta
+      </button>
+    </nav>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/pagamento-pix.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/loja.js"></script>
+</body>
+</html>

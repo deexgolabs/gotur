@@ -18,6 +18,41 @@
     <div id="alerta"></div>
 
     <div class="cartao">
+      <h2 style="margin-top:0">App da sua empresa (white-label)</h2>
+      <p class="rodape-form" style="text-align:left;margin-top:-8px">
+        Sua própria loja, com sua cor e seu logo, pra você divulgar pros seus clientes. Eles compram passagem,
+        pedem orçamento de fretamento e acompanham tudo por lá — instalável como app no celular.
+      </p>
+
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+        <img id="preview-logo" src="/icons/icon-192.png" alt="Logo" style="width:64px;height:64px;border-radius:14px;object-fit:cover;background:var(--cinza-claro);border:1px solid var(--borda)" />
+        <div>
+          <input type="file" id="input-logo" accept="image/png,image/jpeg,image/webp" style="display:none" />
+          <button type="button" class="secundario" id="btn-escolher-logo">Enviar logo</button>
+          <p class="rodape-form" style="text-align:left;margin:6px 0 0">PNG, JPEG ou WEBP, até 3 MB.</p>
+        </div>
+      </div>
+
+      <form id="form-marca">
+        <div class="grid-form">
+          <div>
+            <label for="cor-primaria">Cor principal</label>
+            <input id="cor-primaria" type="color" value="#0b5fa5" style="height:40px;padding:4px" />
+          </div>
+          <div>
+            <label for="slug-loja">Link da sua loja</label>
+            <input id="slug-loja" placeholder="minha-viacao" />
+          </div>
+        </div>
+        <p class="rodape-form" style="text-align:left" id="preview-link"></p>
+        <div class="linha-acoes">
+          <button type="submit">Salvar marca</button>
+          <button type="button" class="secundario" id="btn-copiar-link">Copiar link da loja</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="cartao">
       <h2 style="margin-top:0">Fretamento</h2>
       <form id="form-fretamento">
         <div class="grid-form">
@@ -45,16 +80,37 @@
       if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
     }
 
+    function linkDaLoja(slug) {
+      return `${window.location.origin}/loja/${slug}`;
+    }
+
+    function atualizarPreviewLink() {
+      const slug = document.getElementById("slug-loja").value.trim();
+      document.getElementById("preview-link").textContent = slug ? `Sua loja: ${linkDaLoja(slug)}` : "";
+    }
+
+    async function carregarEmpresa() {
+      const empresa = await api("GET", "/empresas/minha");
+      if (empresa.preco_km_fretamento != null) {
+        document.getElementById("preco-km").value = empresa.preco_km_fretamento;
+      }
+      if (empresa.slug) {
+        document.getElementById("slug-loja").value = empresa.slug;
+      }
+      if (empresa.cor_primaria) {
+        document.getElementById("cor-primaria").value = empresa.cor_primaria;
+      }
+      document.getElementById("preview-logo").src = empresa.logo_url || "/icons/icon-192.png";
+      atualizarPreviewLink();
+      return empresa;
+    }
+
     if (auth) {
       montarTopo("topo");
-      api("GET", "/empresas/minha")
-        .then((empresa) => {
-          if (empresa.preco_km_fretamento != null) {
-            document.getElementById("preco-km").value = empresa.preco_km_fretamento;
-          }
-        })
-        .catch((e) => mostrarAlerta(e.message));
+      carregarEmpresa().catch((e) => mostrarAlerta(e.message));
     }
+
+    document.getElementById("slug-loja").addEventListener("input", atualizarPreviewLink);
 
     document.getElementById("form-fretamento").addEventListener("submit", async (ev) => {
       ev.preventDefault();
@@ -66,6 +122,63 @@
         mostrarAlerta("Configuração salva.", "sucesso");
       } catch (erro) {
         mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("btn-escolher-logo").addEventListener("click", () => {
+      document.getElementById("input-logo").click();
+    });
+
+    document.getElementById("input-logo").addEventListener("change", async (ev) => {
+      const arquivo = ev.target.files[0];
+      if (!arquivo) return;
+      try {
+        const authAtual = obterAuth();
+        const formData = new FormData();
+        formData.append("arquivo", arquivo);
+        const resposta = await fetch("/api/empresas/minha/logo", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authAtual.access_token}` },
+          body: formData,
+        });
+        if (!resposta.ok) {
+          const erro = await resposta.json().catch(() => ({}));
+          throw new Error(erro.detail || "Não foi possível enviar o logo.");
+        }
+        const empresa = await resposta.json();
+        document.getElementById("preview-logo").src = empresa.logo_url;
+        mostrarAlerta("Logo atualizado!", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("form-marca").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const empresa = await api("PATCH", "/empresas/minha/marca", {
+          slug: document.getElementById("slug-loja").value.trim(),
+          cor_primaria: document.getElementById("cor-primaria").value,
+        });
+        document.getElementById("slug-loja").value = empresa.slug;
+        atualizarPreviewLink();
+        mostrarAlerta("Marca salva! Sua loja já está no ar.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("btn-copiar-link").addEventListener("click", async () => {
+      const slug = document.getElementById("slug-loja").value.trim();
+      if (!slug) {
+        mostrarAlerta("Salve um link antes de copiar.");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(linkDaLoja(slug));
+        mostrarAlerta("Link copiado!", "sucesso");
+      } catch (erro) {
+        mostrarAlerta("Não foi possível copiar automaticamente. Copie o link acima.");
       }
     });
   </script>

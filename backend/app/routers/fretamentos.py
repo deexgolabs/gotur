@@ -18,6 +18,7 @@ from app.schemas.fretamento import (
     PosicaoCreate,
     PosicaoOut,
     RastreioPublicoOut,
+    SolicitarOrcamentoFretamentoRequest,
 )
 from app.services.auditoria import registrar as registrar_auditoria
 from app.services.codigo import gerar_localizador
@@ -113,6 +114,44 @@ def criar_fretamento(
     db.commit()
     db.refresh(fretamento)
     return _para_out(fretamento)
+
+
+@router.post("/loja/{slug}/solicitar", response_model=RastreioPublicoOut, status_code=status.HTTP_201_CREATED)
+def solicitar_orcamento_fretamento(slug: str, dados: SolicitarOrcamentoFretamentoRequest, db: Session = Depends(get_db)):
+    """Sem autenticação — formulário "Solicitar fretamento" da loja
+    white-label. Cria um orçamento (status ORCAMENTO) pra empresa dona do
+    slug; a equipe assume o atendimento depois em Fretamentos."""
+    empresa = db.query(Empresa).filter(Empresa.slug == slug, Empresa.ativo.is_(True)).first()
+    if not empresa:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loja não encontrada")
+
+    fretamento = Fretamento(
+        tenant_id=empresa.id,
+        codigo_rastreio=_gerar_codigo_rastreio(db),
+        cliente_nome=dados.cliente_nome,
+        cliente_contato=dados.cliente_contato,
+        origem=dados.origem,
+        destino=dados.destino,
+        data_hora_saida=dados.data_hora_saida,
+        data_hora_retorno_prevista=dados.data_hora_retorno_prevista,
+        observacoes=dados.observacoes,
+    )
+    db.add(fretamento)
+    db.commit()
+    db.refresh(fretamento)
+
+    return RastreioPublicoOut(
+        codigo_rastreio=fretamento.codigo_rastreio,
+        cliente_nome=fretamento.cliente_nome,
+        origem=fretamento.origem,
+        destino=fretamento.destino,
+        data_hora_saida=fretamento.data_hora_saida,
+        status=fretamento.status,
+        distancia_percorrida_km=0.0,
+        ultima_posicao=None,
+        trajeto=[],
+        ja_avaliado=False,
+    )
 
 
 @router.get("", response_model=list[FretamentoOut])

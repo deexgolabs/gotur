@@ -24,6 +24,11 @@ class ConfiguracaoFretamentoRequest(BaseModel):
     preco_km_fretamento: float | None = None
 
 
+class ConfiguracaoMarcaRequest(BaseModel):
+    slug: str | None = None
+    cor_primaria: str | None = None
+
+
 class TrocarPlanoRequest(BaseModel):
     plano_id: int
 
@@ -41,3 +46,14 @@ class EmpresaOut(BaseModel):
     status_assinatura: StatusAssinatura
     plano: PlanoOut | None = None
     preco_km_fretamento: float | None = None
+    slug: str | None = None
+    cor_primaria: str | None = None
+    logo_url: str | None = None
+
+
+class LojaInfoOut(BaseModel):
+    id: int
+    nome: str
+    slug: str
+    cor_primaria: str
+    logo_url: str | None = None

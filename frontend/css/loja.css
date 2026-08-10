@@ -1,0 +1,177 @@
+body {
+  padding-bottom: 78px;
+  background: var(--cinza-claro);
+}
+
+.loja-header {
+  background: var(--azul-escuro);
+  color: #fff;
+  padding: 18px 20px 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.loja-header img {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #fff;
+}
+
+.loja-header .nome-empresa {
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+.loja-main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.loja-vista {
+  display: none;
+}
+
+.loja-vista.ativa {
+  display: block;
+}
+
+.loja-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--borda);
+}
+
+.loja-card-viagem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.loja-card-viagem:active {
+  transform: scale(0.98);
+}
+
+.loja-card-viagem .trecho {
+  font-weight: 700;
+  font-size: 1.02rem;
+}
+
+.loja-card-viagem .info {
+  color: var(--cinza);
+  font-size: 0.85rem;
+  margin-top: 3px;
+}
+
+.loja-card-viagem .preco {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--azul);
+  white-space: nowrap;
+}
+
+.loja-form input,
+.loja-form select {
+  margin-bottom: 12px;
+}
+
+.loja-titulo-vista {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 4px 0 16px;
+}
+
+.loja-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid var(--borda);
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  z-index: 50;
+}
+
+.loja-nav-item {
+  background: none;
+  border: none;
+  color: var(--cinza);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 14px;
+  cursor: pointer;
+}
+
+.loja-nav-item svg {
+  width: 22px;
+  height: 22px;
+  stroke: var(--cinza);
+  fill: none;
+  stroke-width: 2;
+}
+
+.loja-nav-item.ativo {
+  color: var(--azul);
+}
+
+.loja-nav-item.ativo svg {
+  stroke: var(--azul);
+}
+
+.loja-selo-vazio {
+  text-align: center;
+  color: var(--cinza);
+  padding: 40px 20px;
+}
+
+.loja-abas {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.loja-aba {
+  flex: 1;
+  background: #fff;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  padding: 9px;
+  font-weight: 600;
+  color: var(--cinza);
+  cursor: pointer;
+}
+
+.loja-aba.ativa {
+  background: var(--azul);
+  color: #fff;
+  border-color: var(--azul);
+}
+
+.loja-poltronas .mapa-onibus {
+  margin-bottom: 12px;
+}
+
+.loja-voltar {
+  background: none;
+  border: none;
+  color: var(--azul);
+  font-weight: 600;
+  padding: 0;
+  margin-bottom: 12px;
+  cursor: pointer;
+}

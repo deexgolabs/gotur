@@ -21,6 +21,20 @@ class FretamentoCreate(BaseModel):
     observacoes: str | None = None
 
 
+class SolicitarOrcamentoFretamentoRequest(BaseModel):
+    """Formulário público da loja white-label — só os dados que o próprio
+    cliente sabe informar. Preço, ônibus e motorista ficam por conta da
+    empresa depois, ao transformar o orçamento em fretamento confirmado."""
+
+    cliente_nome: str
+    cliente_contato: str
+    origem: str
+    destino: str
+    data_hora_saida: datetime
+    data_hora_retorno_prevista: datetime | None = None
+    observacoes: str | None = None
+
+
 class FretamentoUpdate(BaseModel):
     cliente_nome: str | None = None
     cliente_documento: str | None = None

@@ -360,10 +360,14 @@ def listar_passagens_da_viagem(
 
 @meu_router.get("/minhas", response_model=list[PassagemDetalheOut])
 def minhas_passagens(
+    tenant_id: int | None = None,
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(get_current_user),
 ):
-    passagens = (
+    """`tenant_id` é opcional: usado pela loja white-label (/loja/{slug})
+    pra mostrar só as passagens compradas naquela empresa; sem ele, mostra
+    todas (portal genérico do cliente)."""
+    query = (
         db.query(Passagem)
         .options(
             joinedload(Passagem.viagem).joinedload(Viagem.onibus),
@@ -373,9 +377,10 @@ def minhas_passagens(
             joinedload(Passagem.pagamento),
         )
         .filter(Passagem.cliente_usuario_id == usuario_atual.id)
-        .order_by(Passagem.criado_em.desc())
-        .all()
     )
+    if tenant_id is not None:
+        query = query.filter(Passagem.tenant_id == tenant_id)
+    passagens = query.order_by(Passagem.criado_em.desc()).all()
 
     avaliacoes_por_passagem = {
         a.passagem_id: a

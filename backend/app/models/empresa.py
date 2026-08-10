@@ -23,8 +23,22 @@ class Empresa(Base):
 
     preco_km_fretamento: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
 
+    # White-label: cada empresa pode ter sua própria "loja" em /loja/{slug},
+    # com nome/cor/logo próprios (ver app/routers/loja.py). `slug` é único
+    # quando definido, mas fica nulo até o admin configurar em
+    # Configurações — SQLite permite múltiplos NULLs num índice único.
+    slug: Mapped[str | None] = mapped_column(String(80), unique=True, nullable=True)
+    cor_primaria: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    logo_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     usuarios = relationship("Usuario", back_populates="empresa")
     onibus = relationship("Onibus", back_populates="empresa")
     rotas = relationship("Rota", back_populates="empresa")
     plano = relationship("Plano", back_populates="empresas")
     faturas = relationship("FaturaEmpresa", back_populates="empresa", cascade="all, delete-orphan")
+
+    @property
+    def logo_url(self) -> str | None:
+        if not self.logo_filename:
+            return None
+        return f"/media/empresas/{self.id}/logo.png?v={self.logo_filename}"
