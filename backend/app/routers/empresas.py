@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.deps import get_current_user, require_roles
+from app.core.deps import get_current_user, require_roles, require_staff
 from app.core.security import hash_senha
 from app.database import get_db
 from app.models.empresa import Empresa
@@ -147,12 +147,14 @@ def trocar_plano(
 @router.get("/minha", response_model=EmpresaOut)
 def minha_empresa(
     db: Session = Depends(get_db),
-    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+    usuario_atual: Usuario = Depends(require_staff),
 ):
+    """Staff (funcionário, admin ou super admin) — funcionário precisa do
+    slug pra montar o link da loja na tela de Fretamentos, por exemplo."""
     empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
     if not empresa.slug:
         # Empresas criadas antes do white-label ainda não têm slug —
-        # gera um automaticamente na primeira vez que o admin acessa.
+        # gera um automaticamente na primeira vez que alguém acessa.
         empresa.slug = gerar_slug_unico(db, empresa.nome, empresa_id_ignorar=empresa.id)
         db.commit()
         db.refresh(empresa)

@@ -294,15 +294,22 @@ async function carregarMinhasViagens() {
 
 // ---------- Fretamento ----------
 
+function trocarAbaFretamento(nome) {
+  document.querySelectorAll("[data-aba-fretamento]").forEach((b) => b.classList.toggle("ativa", b.dataset.abaFretamento === nome));
+  document.getElementById("fretamento-solicitar").classList.toggle("escondido", nome !== "solicitar");
+  document.getElementById("fretamento-acompanhar").classList.toggle("escondido", nome !== "acompanhar");
+}
+
+function abrirAcompanharFretamento(codigo) {
+  trocarVista("fretamento");
+  trocarAbaFretamento("acompanhar");
+  document.getElementById("fret-codigo").value = codigo;
+  rastrearFretamentoLoja();
+}
+
 function configurarFretamento() {
   document.querySelectorAll("[data-aba-fretamento]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll("[data-aba-fretamento]").forEach((b) => b.classList.remove("ativa"));
-      btn.classList.add("ativa");
-      const solicitar = btn.dataset.abaFretamento === "solicitar";
-      document.getElementById("fretamento-solicitar").classList.toggle("escondido", !solicitar);
-      document.getElementById("fretamento-acompanhar").classList.toggle("escondido", solicitar);
-    });
+    btn.addEventListener("click", () => trocarAbaFretamento(btn.dataset.abaFretamento));
   });
 
   document.getElementById("form-fretamento").addEventListener("submit", async (ev) => {
@@ -325,8 +332,9 @@ function configurarFretamento() {
         throw new Error(erro.detail || "Não foi possível enviar a solicitação.");
       }
       const dados = await resposta.json();
-      mostrarAlerta(`Solicitação enviada! Guarde o código ${dados.codigo_rastreio} pra acompanhar.`, "sucesso");
       document.getElementById("form-fretamento").reset();
+      mostrarAlerta("Solicitação enviada! Acompanhe o andamento a qualquer momento por aqui.", "sucesso");
+      abrirAcompanharFretamento(dados.codigo_rastreio);
     } catch (erro) {
       mostrarAlerta(erro.message);
     }
@@ -346,6 +354,8 @@ async function rastrearFretamentoLoja() {
       return r.json();
     });
 
+    history.replaceState(null, "", `/loja/${SLUG}?codigo=${codigo}`);
+
     const ROTULOS = { orcamento: "Orçamento", confirmado: "Confirmado", em_andamento: "Em andamento", concluido: "Concluído", cancelado: "Cancelado" };
     resultado.innerHTML = `
       <div class="loja-card">
@@ -353,7 +363,18 @@ async function rastrearFretamentoLoja() {
         <div class="info">Saída: ${new Date(dados.data_hora_saida).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</div>
         <div style="margin-top:8px"><span class="selo hold">${ROTULOS[dados.status] || dados.status}</span></div>
         ${dados.status === "em_andamento" ? '<div id="mapa-fretamento-loja" style="height:260px;border-radius:10px;margin-top:12px"></div>' : ""}
+        <button type="button" class="secundario" id="btn-copiar-link-fretamento" style="margin-top:12px;width:100%">Copiar link pra acompanhar</button>
       </div>`;
+
+    document.getElementById("btn-copiar-link-fretamento").addEventListener("click", async () => {
+      const link = `${window.location.origin}/loja/${SLUG}?codigo=${codigo}`;
+      try {
+        await navigator.clipboard.writeText(link);
+        mostrarAlerta("Link copiado! Envie pra quem quiser acompanhar.", "sucesso");
+      } catch (e) {
+        mostrarAlerta(`Copie manualmente: ${link}`);
+      }
+    });
 
     if (dados.status === "em_andamento" && dados.trajeto.length) {
       if (!mapaFretamento) {
@@ -533,6 +554,13 @@ async function iniciar() {
   configurarCompra();
   configurarFretamento();
   configurarConta();
+
+  // Link direto de acompanhamento (ex: compartilhado por WhatsApp), no
+  // formato /loja/{slug}?codigo=XXXX — abre já na aba de rastreio.
+  const codigoNaUrl = new URLSearchParams(window.location.search).get("codigo");
+  if (codigoNaUrl) {
+    abrirAcompanharFretamento(codigoNaUrl.toUpperCase());
+  }
 }
 
 iniciar();

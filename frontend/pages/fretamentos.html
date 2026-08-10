@@ -98,6 +98,7 @@
   <script>
     const auth = exigirPapel("admin_empresa", "funcionario");
     const ehAdmin = auth && auth.role === "admin_empresa";
+    let empresaSlug = null;
 
     const ROTULOS_STATUS = {
       orcamento: "Orçamento",
@@ -176,7 +177,9 @@
 
       corpo.querySelectorAll("button[data-copiar]").forEach((btn) => {
         btn.addEventListener("click", async () => {
-          const link = `${window.location.origin}/rastrear.html?codigo=${btn.dataset.copiar}`;
+          const link = empresaSlug
+            ? `${window.location.origin}/loja/${empresaSlug}?codigo=${btn.dataset.copiar}`
+            : `${window.location.origin}/rastrear.html?codigo=${btn.dataset.copiar}`;
           try {
             await navigator.clipboard.writeText(link);
             mostrarAlerta("Link copiado! Envie para o cliente acompanhar o trajeto.", "sucesso");
@@ -190,6 +193,9 @@
     if (auth) {
       montarTopo("topo");
       if (ehAdmin) document.getElementById("cartao-novo").classList.remove("escondido");
+      api("GET", "/empresas/minha")
+        .then((empresa) => (empresaSlug = empresa.slug))
+        .catch(() => {});
       carregarOnibus().catch((e) => mostrarAlerta(e.message));
       carregar().catch((e) => mostrarAlerta(e.message));
     }
