@@ -56,6 +56,23 @@ def _buscar_cupom_da_empresa(db: Session, cupom_id: int, usuario_atual: Usuario)
     return cupom
 
 
+@router.get("/minhas", response_model=list[CupomOut])
+def meus_cupons_de_fidelidade(
+    tenant_id: int | None = None,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.CLIENTE)),
+):
+    """Cupons pessoais que o cliente ganhou pelo programa de fidelidade —
+    não inclui cupons gerais (esses o cliente já vê/usa direto pelo
+    código, sem precisar listar). `tenant_id` opcional: usado pela loja
+    white-label pra mostrar só os cupons daquela empresa; sem ele, mostra
+    de todas (portal genérico do cliente), igual /passagens/minhas."""
+    query = db.query(Cupom).filter(Cupom.cliente_usuario_id == usuario_atual.id, Cupom.ativo.is_(True))
+    if tenant_id is not None:
+        query = query.filter(Cupom.tenant_id == tenant_id)
+    return query.order_by(Cupom.criado_em.desc()).all()
+
+
 @router.patch("/{cupom_id}", response_model=CupomOut)
 def editar_cupom(
     cupom_id: int,

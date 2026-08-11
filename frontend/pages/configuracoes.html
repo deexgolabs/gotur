@@ -85,6 +85,32 @@
     </div>
 
     <div class="cartao">
+      <h2 style="margin-top:0">Programa de fidelidade</h2>
+      <p class="rodape-form" style="text-align:left;margin-top:-8px">
+        A cada X passagens confirmadas de um cliente com conta, o sistema gera sozinho um cupom pessoal de desconto pra próxima compra dele.
+      </p>
+      <form id="form-fidelidade">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:12px">
+          <input type="checkbox" id="fidelidade-ativa" style="width:auto" />
+          Ativar programa de fidelidade
+        </label>
+        <div class="grid-form">
+          <div>
+            <label for="fidelidade-passagens">Passagens necessárias</label>
+            <input id="fidelidade-passagens" type="number" min="1" step="1" placeholder="Ex: 5" />
+          </div>
+          <div>
+            <label for="fidelidade-desconto">Desconto do cupom (%)</label>
+            <input id="fidelidade-desconto" type="number" min="0" max="100" step="1" placeholder="Ex: 10" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Salvar fidelidade</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="cartao">
       <h2 style="margin-top:0">App da sua empresa (white-label)</h2>
       <p class="rodape-form" style="text-align:left;margin-top:-8px">
         Sua própria loja, com sua cor e seu logo, pra você divulgar pros seus clientes. Eles compram passagem,
@@ -175,6 +201,10 @@
       document.getElementById("preview-logo").src = empresa.logo_url || "/icons/icon-192.png";
       atualizarPreviewLink();
 
+      document.getElementById("fidelidade-ativa").checked = empresa.fidelidade_ativa;
+      document.getElementById("fidelidade-passagens").value = empresa.fidelidade_passagens_necessarias ?? "";
+      document.getElementById("fidelidade-desconto").value = empresa.fidelidade_desconto_percentual ?? "";
+
       const permitePassagens = empresa.plano ? empresa.plano.modulo_passagens : true;
       const permiteFretamento = empresa.plano ? empresa.plano.modulo_fretamento : true;
       const permiteFrete = empresa.plano ? empresa.plano.modulo_frete : true;
@@ -228,6 +258,22 @@
           texto_loja: document.getElementById("empresa-texto-loja").value.trim() || null,
         });
         mostrarAlerta("Textos da loja atualizados.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("form-fidelidade").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const passagens = document.getElementById("fidelidade-passagens").value.trim();
+        const desconto = document.getElementById("fidelidade-desconto").value.trim();
+        await api("PATCH", "/empresas/minha/fidelidade", {
+          fidelidade_ativa: document.getElementById("fidelidade-ativa").checked,
+          fidelidade_passagens_necessarias: passagens === "" ? null : parseInt(passagens, 10),
+          fidelidade_desconto_percentual: desconto === "" ? null : parseFloat(desconto),
+        });
+        mostrarAlerta("Programa de fidelidade atualizado.", "sucesso");
       } catch (erro) {
         mostrarAlerta(erro.message);
       }

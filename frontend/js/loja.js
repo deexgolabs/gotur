@@ -267,11 +267,34 @@ async function carregarMinhasViagens() {
   container.innerHTML = `<p class="loja-selo-vazio">Carregando...</p>`;
   try {
     const lista = await api("GET", `/passagens/minhas?tenant_id=${BRANDING.id}`);
+
+    let cuponsHtml = "";
+    try {
+      const cupons = await api("GET", `/cupons/minhas?tenant_id=${BRANDING.id}`);
+      if (cupons.length) {
+        cuponsHtml = `
+          <div class="loja-card" style="border-color:var(--verde)">
+            <div class="trecho" style="margin-bottom:6px">Seus cupons de fidelidade</div>
+            ${cupons
+              .map(
+                (c) => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
+                <span><strong>${c.codigo}</strong> — ${c.valor}% off</span>
+                <span class="selo ${c.usos_atuais < (c.max_usos || 1) ? "livre" : "bloqueada"}">${c.usos_atuais < (c.max_usos || 1) ? "Disponível" : "Usado"}</span>
+              </div>`
+              )
+              .join("")}
+          </div>`;
+      }
+    } catch (e) {
+      // sem cupons — segue sem mostrar nada
+    }
+
     if (!lista.length) {
-      container.innerHTML = `<p class="loja-selo-vazio">Você ainda não comprou nenhuma passagem aqui.</p>`;
+      container.innerHTML = cuponsHtml || `<p class="loja-selo-vazio">Você ainda não comprou nenhuma passagem aqui.</p>`;
       return;
     }
-    container.innerHTML = lista
+    container.innerHTML = cuponsHtml + lista
       .map(
         (p) => `
       <div class="loja-card">

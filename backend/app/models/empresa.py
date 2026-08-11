@@ -43,6 +43,13 @@ class Empresa(Base):
     passagens_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     frete_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Programa de fidelidade: a cada N passagens confirmadas de um mesmo
+    # cliente (com conta, cliente_usuario_id preenchido), gera automaticamente
+    # um cupom pessoal de desconto (ver app/services/fidelidade.py).
+    fidelidade_ativa: Mapped[bool] = mapped_column(Boolean, default=False)
+    fidelidade_passagens_necessarias: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fidelidade_desconto_percentual: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+
     usuarios = relationship("Usuario", back_populates="empresa")
     onibus = relationship("Onibus", back_populates="empresa")
     rotas = relationship("Rota", back_populates="empresa")

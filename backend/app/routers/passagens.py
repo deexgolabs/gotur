@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.deps import get_current_user, require_staff
 from app.database import get_db
 from app.models.avaliacao import Avaliacao
+from app.models.empresa import Empresa
 from app.models.enums import CategoriaPassageiro, FormaPagamento, StatusPassagem, StatusPoltrona, TipoDocumento, TipoOcupacao, UserRole
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
 from app.models.pagamento import Pagamento
@@ -23,6 +24,7 @@ from app.schemas.reembolso import ReembolsarRequest, ReembolsoOut
 from app.services.auditoria import registrar as registrar_auditoria
 from app.services.codigo import gerar_localizador
 from app.services.cupom import CupomInvalido, aplicar_cupom
+from app.services.fidelidade import verificar_e_gerar_cupom_fidelidade
 from app.services.nfse_provider import obter_nfse_provider
 from app.services.notificacoes import enviar_confirmacao_compra
 from app.services.pagamento_provider import obter_provider
@@ -146,6 +148,11 @@ def _criar_passagem_confirmada(
             numero_poltrona=poltrona.poltrona_onibus.numero,
         )
 
+    if passagem.cliente_usuario_id:
+        empresa = db.get(Empresa, viagem.tenant_id)
+        if empresa:
+            verificar_e_gerar_cupom_fidelidade(db, empresa, passagem.cliente_usuario_id)
+
     return passagem
 
 
@@ -177,6 +184,7 @@ def vender_passagem(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parceiro inválido para venda de passagem")
 
     is_staff = usuario_atual.role in (UserRole.FUNCIONARIO, UserRole.ADMIN_EMPRESA, UserRole.SUPER_ADMIN)
+    cliente_usuario_id = usuario_atual.id if usuario_atual.role == UserRole.CLIENTE else None
 
     liberar_holds_expirados(db, [poltrona.id])
     ocupacoes = db.query(OcupacaoPoltrona).filter(OcupacaoPoltrona.poltrona_viagem_id == poltrona.id).all()
@@ -197,7 +205,13 @@ def vender_passagem(
     codigo_cupom_aplicado = None
     if dados.codigo_cupom:
         try:
-            cupom, desconto = aplicar_cupom(db, tenant_id=viagem.tenant_id, codigo=dados.codigo_cupom, preco_base=preco_final)
+            cupom, desconto = aplicar_cupom(
+                db,
+                tenant_id=viagem.tenant_id,
+                codigo=dados.codigo_cupom,
+                preco_base=preco_final,
+                cliente_usuario_id=cliente_usuario_id,
+            )
         except CupomInvalido as erro:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(erro))
         preco_final = round(preco_final - desconto, 2)
@@ -266,7 +280,7 @@ def vender_passagem(
         cliente_telefone=dados.cliente_telefone,
         tipo_documento=dados.tipo_documento,
         categoria_passageiro=dados.categoria_passageiro,
-        cliente_usuario_id=usuario_atual.id if usuario_atual.role == UserRole.CLIENTE else None,
+        cliente_usuario_id=cliente_usuario_id,
         vendido_por_usuario_id=usuario_atual.id if is_staff else None,
         parceiro_id=dados.parceiro_id,
         preco_final=preco_final,

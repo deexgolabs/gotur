@@ -101,6 +101,25 @@ def criar_super_admin(db: Session, sufixo: str) -> dict:
     return {"email": admin.email, "senha": "senha123"}
 
 
+def criar_cliente(db: Session, sufixo: str) -> dict:
+    """Cria uma conta de cliente direto no banco — evita depender do
+    endpoint público /auth/registrar-cliente nos testes, que tem rate
+    limit global (5 chamadas/10min) compartilhado entre toda a sessão de
+    testes e estouraria com facilidade se vários arquivos registrarem
+    clientes."""
+    cliente = Usuario(
+        tenant_id=None,
+        nome=f"Cliente {sufixo}",
+        email=f"cliente{sufixo}@teste.com",
+        senha_hash=hash_senha("senha123"),
+        role=UserRole.CLIENTE,
+        documento="444.444.444-44",
+    )
+    db.add(cliente)
+    db.commit()
+    return {"email": cliente.email, "senha": "senha123"}
+
+
 def login(client, email: str, senha: str) -> str:
     resposta = client.post("/api/auth/login", json={"email": email, "senha": senha})
     assert resposta.status_code == 200, resposta.text

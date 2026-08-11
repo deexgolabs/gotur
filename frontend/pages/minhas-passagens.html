@@ -17,6 +17,8 @@
 
     <div id="alerta"></div>
 
+    <div id="cupons-fidelidade" class="escondido"></div>
+
     <div id="lista"></div>
     <p class="vazio escondido" id="vazio">Você ainda não comprou nenhuma passagem.</p>
   </main>
@@ -158,9 +160,34 @@
       }
     }
 
+    async function carregarCuponsFidelidade() {
+      try {
+        const cupons = await api("GET", "/cupons/minhas");
+        if (!cupons.length) return;
+        const container = document.getElementById("cupons-fidelidade");
+        container.classList.remove("escondido");
+        container.innerHTML = `
+          <div class="cartao" style="border-color:var(--verde)">
+            <h2 style="margin-top:0">Seus cupons de fidelidade</h2>
+            ${cupons
+              .map(
+                (c) => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--borda)">
+                <div><strong>${c.codigo}</strong> — ${c.valor}% de desconto na próxima compra</div>
+                <span class="selo ${c.usos_atuais < (c.max_usos || 1) ? "livre" : "bloqueada"}">${c.usos_atuais < (c.max_usos || 1) ? "Disponível" : "Usado"}</span>
+              </div>`
+              )
+              .join("")}
+          </div>`;
+      } catch (erro) {
+        // sem cupons ou papel sem acesso — não interrompe a página
+      }
+    }
+
     if (auth) {
       montarTopo("topo");
       carregar().catch((e) => mostrarAlerta(e.message));
+      carregarCuponsFidelidade();
     }
 
     document.getElementById("btn-fechar-qrcode").addEventListener("click", () => {

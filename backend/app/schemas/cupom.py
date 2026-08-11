@@ -31,6 +31,7 @@ class CupomOut(BaseModel):
     max_usos: int | None
     usos_atuais: int
     criado_em: datetime
+    cliente_usuario_id: int | None = None
 
 
 class AplicarCupomOut(BaseModel):

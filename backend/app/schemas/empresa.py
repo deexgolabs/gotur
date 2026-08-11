@@ -42,6 +42,12 @@ class ConfiguracaoModulosRequest(BaseModel):
     frete_ativo: bool | None = None
 
 
+class ConfiguracaoFidelidadeRequest(BaseModel):
+    fidelidade_ativa: bool | None = None
+    fidelidade_passagens_necessarias: int | None = None
+    fidelidade_desconto_percentual: float | None = None
+
+
 class TrocarPlanoRequest(BaseModel):
     plano_id: int
 
@@ -70,6 +76,9 @@ class EmpresaOut(BaseModel):
     fretamento_habilitado: bool = True
     passagens_habilitado: bool = True
     frete_habilitado: bool = True
+    fidelidade_ativa: bool = False
+    fidelidade_passagens_necessarias: int | None = None
+    fidelidade_desconto_percentual: float | None = None
 
 
 class LojaInfoOut(BaseModel):

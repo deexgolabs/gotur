@@ -27,4 +27,9 @@ class Cupom(Base):
     max_usos: Mapped[int | None] = mapped_column(Integer, nullable=True)
     usos_atuais: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Preenchido quando o cupom foi gerado pelo programa de fidelidade —
+    # só esse cliente pode usar (ver app/services/fidelidade.py e
+    # app/services/cupom.py). Nulo = cupom geral, qualquer cliente usa.
+    cliente_usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

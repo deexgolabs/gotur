@@ -10,7 +10,7 @@ class CupomInvalido(Exception):
     pass
 
 
-def buscar_cupom_valido(db: Session, *, tenant_id: int, codigo: str) -> Cupom:
+def buscar_cupom_valido(db: Session, *, tenant_id: int, codigo: str, cliente_usuario_id: int | None = None) -> Cupom:
     cupom = (
         db.query(Cupom)
         .filter(Cupom.tenant_id == tenant_id, Cupom.codigo == codigo.strip().upper())
@@ -24,6 +24,8 @@ def buscar_cupom_valido(db: Session, *, tenant_id: int, codigo: str) -> Cupom:
         raise CupomInvalido("Este cupom expirou")
     if cupom.max_usos is not None and cupom.usos_atuais >= cupom.max_usos:
         raise CupomInvalido("Este cupom já atingiu o limite de usos")
+    if cupom.cliente_usuario_id is not None and cupom.cliente_usuario_id != cliente_usuario_id:
+        raise CupomInvalido("Este cupom é pessoal e não pode ser usado nessa conta")
     return cupom
 
 
@@ -35,11 +37,13 @@ def calcular_desconto(cupom: Cupom, preco_base: float) -> float:
     return round(min(desconto, preco_base), 2)
 
 
-def aplicar_cupom(db: Session, *, tenant_id: int, codigo: str, preco_base: float) -> tuple[Cupom, float]:
+def aplicar_cupom(
+    db: Session, *, tenant_id: int, codigo: str, preco_base: float, cliente_usuario_id: int | None = None
+) -> tuple[Cupom, float]:
     """Valida o cupom, calcula o desconto e já incrementa `usos_atuais` —
     simplificação: o uso é contado na hora da compra (mesmo se for um Pix
     que depois expira sem confirmar), não fica esperando confirmação."""
-    cupom = buscar_cupom_valido(db, tenant_id=tenant_id, codigo=codigo)
+    cupom = buscar_cupom_valido(db, tenant_id=tenant_id, codigo=codigo, cliente_usuario_id=cliente_usuario_id)
     desconto = calcular_desconto(cupom, preco_base)
     cupom.usos_atuais += 1
     db.add(cupom)

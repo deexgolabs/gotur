@@ -10,6 +10,7 @@ from app.models.plano import Plano
 from app.models.usuario import Usuario
 from app.schemas.empresa import (
     ConfiguracaoEmpresaRequest,
+    ConfiguracaoFidelidadeRequest,
     ConfiguracaoFretamentoRequest,
     ConfiguracaoMarcaRequest,
     ConfiguracaoModulosRequest,
@@ -236,6 +237,24 @@ def configurar_modulos(
             detail="Pelo menos um módulo (passagens, fretamento ou frete) precisa ficar ligado.",
         )
 
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
+@router.patch("/minha/fidelidade", response_model=EmpresaOut)
+def configurar_fidelidade(
+    dados: ConfiguracaoFidelidadeRequest,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """A cada N passagens confirmadas de um cliente com conta, o sistema
+    gera sozinho um cupom pessoal de desconto pra ele (ver
+    app/services/fidelidade.py) — não precisa de nenhuma ação manual do
+    admin depois de configurar aqui."""
+    empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
+    for campo, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(empresa, campo, valor)
     db.commit()
     db.refresh(empresa)
     return empresa
