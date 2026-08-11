@@ -50,6 +50,7 @@ def criar_viagem(
         onibus_id=dados.onibus_id,
         data_hora_partida=dados.data_hora_partida,
         preco=dados.preco,
+        motorista_nome=dados.motorista_nome,
     )
     db.add(viagem)
     db.flush()

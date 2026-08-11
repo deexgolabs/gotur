@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -16,6 +16,7 @@ class Viagem(Base):
     data_hora_partida: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     preco: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    motorista_nome: Mapped[str | None] = mapped_column(String(150), nullable=True)
 
     rota = relationship("Rota")
     onibus = relationship("Onibus")

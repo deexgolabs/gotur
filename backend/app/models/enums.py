@@ -132,6 +132,16 @@ class StatusRepasse(str, enum.Enum):
     PAGO = "pago"
 
 
+class TipoViagemJornada(str, enum.Enum):
+    """A qual tipo de trajeto uma jornada de motorista (ver
+    app.models.jornada_motorista.JornadaMotorista) está vinculada — os três
+    tipos de trajeto que o GoTur controla hoje."""
+
+    VIAGEM = "viagem"
+    FRETAMENTO = "fretamento"
+    FRETE = "frete"
+
+
 class StatusPedidoPagamento(str, enum.Enum):
     """Status de uma cobrança Pix pendente de confirmação (compra do
     cliente que ainda não caiu na conta). Cartão, dinheiro e outros meios

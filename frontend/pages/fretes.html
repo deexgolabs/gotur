@@ -130,6 +130,7 @@
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/pwa.js"></script>
+  <script src="/js/jornada.js"></script>
   <script>
     const auth = exigirPapel("admin_empresa", "funcionario");
     const ehAdmin = auth && auth.role === "admin_empresa";
@@ -176,6 +177,7 @@
           <td>
             <a href="/pages/mapa-frete.html?id=${f.id}"><button class="secundario">Mapa</button></a>
             <button class="secundario" data-status="${f.id}">Status</button>
+            <button class="secundario" data-jornada="${f.id}" data-motorista="${f.motorista_nome || ""}">Jornada</button>
             <button class="secundario" data-copiar="${f.codigo_rastreio}">Copiar link p/ acompanhar</button>
           </td>
         </tr>`
@@ -200,6 +202,10 @@
             mostrarAlerta(erro.message);
           }
         });
+      });
+
+      corpo.querySelectorAll("button[data-jornada]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirDialogJornada("frete", parseInt(btn.dataset.jornada, 10), btn.dataset.motorista));
       });
 
       corpo.querySelectorAll("button[data-copiar]").forEach((btn) => {

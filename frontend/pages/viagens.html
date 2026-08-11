@@ -37,6 +37,10 @@
             <label for="preco">Preço (R$)</label>
             <input id="preco" type="number" min="0" step="0.01" required />
           </div>
+          <div>
+            <label for="motorista">Motorista (opcional)</label>
+            <input id="motorista" placeholder="Nome do motorista" />
+          </div>
         </div>
         <div class="linha-acoes">
           <button type="submit">Criar viagem</button>
@@ -47,7 +51,7 @@
     <h2>Próximas viagens</h2>
     <div class="cartao">
       <table>
-        <thead><tr><th>Rota</th><th>Data/Hora</th><th>Ônibus</th><th>Preço</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Rota</th><th>Data/Hora</th><th>Ônibus</th><th>Preço</th><th>Motorista</th><th>Status</th><th></th></tr></thead>
         <tbody id="corpo-tabela"></tbody>
       </table>
       <p class="vazio escondido" id="vazio">Nenhuma viagem cadastrada ainda.</p>
@@ -57,6 +61,7 @@
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/pwa.js"></script>
+  <script src="/js/jornada.js"></script>
   <script>
     const auth = exigirPapel("admin_empresa", "funcionario");
     const ehAdmin = auth && auth.role === "admin_empresa";
@@ -92,9 +97,11 @@
           <td>${formatarDataHora(v.data_hora_partida)}</td>
           <td>${v.onibus.identificacao}</td>
           <td>R$ ${Number(v.preco).toFixed(2)}</td>
+          <td>${v.motorista_nome || "—"}</td>
           <td><span class="selo ${v.ativo ? "livre" : "bloqueada"}">${v.ativo ? "Ativa" : "Cancelada"}</span></td>
           <td>
             <a href="/pages/mapa-poltronas.html?viagem_id=${v.id}"><button>Mapa de poltronas</button></a>
+            <button class="secundario" data-jornada="${v.id}" data-motorista="${v.motorista_nome || ""}">Jornada</button>
             ${ehAdmin ? `<button class="secundario" data-editar="${v.id}">Editar</button>` : ""}
             ${ehAdmin
               ? v.ativo
@@ -105,6 +112,10 @@
         </tr>`
         )
         .join("");
+
+      corpo.querySelectorAll("button[data-jornada]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirDialogJornada("viagem", parseInt(btn.dataset.jornada, 10), btn.dataset.motorista));
+      });
 
       if (!ehAdmin) return;
 
@@ -165,6 +176,7 @@
           onibus_id: parseInt(document.getElementById("onibus").value, 10),
           data_hora_partida: new Date(dataHora).toISOString(),
           preco: parseFloat(document.getElementById("preco").value),
+          motorista_nome: document.getElementById("motorista").value.trim() || null,
         });
         ev.target.reset();
         mostrarAlerta("Viagem criada com sucesso.", "sucesso");
