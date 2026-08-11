@@ -54,12 +54,13 @@ class Settings(BaseSettings):
     nfse_provider_url: str | None = None
     nfse_provider_token: str | None = None
 
-    # WhatsApp (Fase 5, ver app/services/whatsapp_service.py). Sem isso
-    # configurado, o envio é apenas logado (no-op) — não bloqueia a venda.
-    # Pensado para uma API HTTP simples (Z-API, Meta Cloud API, etc): um
-    # POST para `whatsapp_api_url` com o token de autenticação.
-    whatsapp_api_url: str | None = None
-    whatsapp_api_token: str | None = None
+    # WhatsApp via Evolution API (self-hosted, ver
+    # app/services/whatsapp_service.py). Sem isso configurado, o envio é
+    # apenas logado (no-op) — não bloqueia a venda. `evolution_instance` é
+    # o nome da instância/número conectado no seu servidor Evolution.
+    evolution_api_url: str | None = None
+    evolution_api_key: str | None = None
+    evolution_instance: str | None = None
 
     # White-label: logos enviados pelas empresas (ver app/routers/empresas.py
     # e app/routers/loja.py). Fica fora do controle de versão.

@@ -1,12 +1,16 @@
-"""Notificação por WhatsApp (Fase 5).
+"""Notificação por WhatsApp via Evolution API (self-hosted).
 
-Sem GOTUR_WHATSAPP_API_URL configurado, o envio é apenas registrado no log
-— não bloqueia a venda nem levanta erro. Para ativar de verdade, configure
-GOTUR_WHATSAPP_API_URL e GOTUR_WHATSAPP_API_TOKEN com as credenciais de um
-provedor real (ex: Z-API, Twilio, Meta Cloud API for WhatsApp).
+Sem GOTUR_EVOLUTION_API_URL configurado, o envio é apenas registrado no
+log — não bloqueia a venda nem levanta erro. Para ativar de verdade, suba
+uma instância da Evolution API (https://github.com/EvolutionAPI/evolution-api),
+conecte um número e configure:
 
-O formato exato do payload varia por provedor — ajuste `_montar_payload`
-para o provedor escolhido antes de ativar em produção.
+    GOTUR_EVOLUTION_API_URL=https://sua-evolution.exemplo.com
+    GOTUR_EVOLUTION_API_KEY=xxxx
+    GOTUR_EVOLUTION_INSTANCE=nome-da-instancia
+
+O envio usa o endpoint `POST {url}/message/sendText/{instance}` da
+Evolution API v2, autenticado pelo header `apikey`.
 """
 
 import json
@@ -20,18 +24,40 @@ from app.config import settings
 logger = logging.getLogger("gotur.whatsapp")
 
 
-def _montar_mensagem(cliente_nome: str, localizador: str, origem: str, destino: str, data_hora_partida: datetime, numero_poltrona: str) -> str:
-    return (
-        f"Olá, {cliente_nome}! Sua passagem GoTur está confirmada.\n"
-        f"Localizador: {localizador}\n"
-        f"{origem} -> {destino} em {data_hora_partida.strftime('%d/%m/%Y %H:%M')}\n"
-        f"Poltrona: {numero_poltrona}\n"
-        f"Boa viagem!"
+def _normalizar_numero(telefone: str) -> str:
+    """Evolution API espera só dígitos, com DDI — sem +, espaço, traço ou
+    parênteses. Assume Brasil (55) quando o número não vier com DDI."""
+    digitos = "".join(c for c in telefone if c.isdigit())
+    if len(digitos) <= 11:
+        digitos = f"55{digitos}"
+    return digitos
+
+
+def _enviar(telefone: str | None, mensagem: str) -> None:
+    if not telefone:
+        return
+
+    if not settings.evolution_api_url or not settings.evolution_instance:
+        logger.info("[WhatsApp não enviado - Evolution API não configurada] Para: %s\n%s", telefone, mensagem)
+        return
+
+    numero = _normalizar_numero(telefone)
+    url = f"{settings.evolution_api_url.rstrip('/')}/message/sendText/{settings.evolution_instance}"
+    corpo = json.dumps({"number": numero, "text": mensagem}).encode("utf-8")
+    requisicao = urllib.request.Request(
+        url,
+        data=corpo,
+        headers={
+            "Content-Type": "application/json",
+            "apikey": settings.evolution_api_key or "",
+        },
+        method="POST",
     )
-
-
-def _montar_payload(numero: str, mensagem: str) -> bytes:
-    return json.dumps({"phone": numero, "message": mensagem}).encode("utf-8")
+    try:
+        with urllib.request.urlopen(requisicao, timeout=10):
+            pass
+    except (urllib.error.URLError, urllib.error.HTTPError):
+        logger.exception("Falha ao enviar WhatsApp (Evolution API) para %s", telefone)
 
 
 def enviar_confirmacao_compra_whatsapp(
@@ -44,29 +70,14 @@ def enviar_confirmacao_compra_whatsapp(
     data_hora_partida: datetime,
     numero_poltrona: str,
 ) -> None:
-    if not telefone:
-        return
-
-    mensagem = _montar_mensagem(cliente_nome, localizador, origem, destino, data_hora_partida, numero_poltrona)
-
-    if not settings.whatsapp_api_url:
-        logger.info("[WhatsApp não enviado - provedor não configurado] Para: %s\n%s", telefone, mensagem)
-        return
-
-    requisicao = urllib.request.Request(
-        settings.whatsapp_api_url,
-        data=_montar_payload(telefone, mensagem),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {settings.whatsapp_api_token}" if settings.whatsapp_api_token else "",
-        },
-        method="POST",
+    mensagem = (
+        f"Olá, {cliente_nome}! Sua passagem GoTur está confirmada.\n"
+        f"Localizador: {localizador}\n"
+        f"{origem} -> {destino} em {data_hora_partida.strftime('%d/%m/%Y %H:%M')}\n"
+        f"Poltrona: {numero_poltrona}\n"
+        f"Boa viagem!"
     )
-    try:
-        with urllib.request.urlopen(requisicao, timeout=10):
-            pass
-    except (urllib.error.URLError, urllib.error.HTTPError):
-        logger.exception("Falha ao enviar WhatsApp de confirmação para %s", telefone)
+    _enviar(telefone, mensagem)
 
 
 ROTULOS_STATUS_FRETAMENTO = {
@@ -87,33 +98,12 @@ def enviar_atualizacao_status_fretamento_whatsapp(
     novo_status: str,
     link_acompanhar: str,
 ) -> None:
-    if not telefone:
-        return
-
     rotulo = ROTULOS_STATUS_FRETAMENTO.get(novo_status, novo_status)
     mensagem = (
         f"Olá, {cliente_nome}! O status do seu fretamento ({origem} -> {destino}) mudou para: {rotulo}.\n"
         f"Acompanhe por aqui: {link_acompanhar}"
     )
-
-    if not settings.whatsapp_api_url:
-        logger.info("[WhatsApp não enviado - provedor não configurado] Para: %s\n%s", telefone, mensagem)
-        return
-
-    requisicao = urllib.request.Request(
-        settings.whatsapp_api_url,
-        data=_montar_payload(telefone, mensagem),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {settings.whatsapp_api_token}" if settings.whatsapp_api_token else "",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(requisicao, timeout=10):
-            pass
-    except (urllib.error.URLError, urllib.error.HTTPError):
-        logger.exception("Falha ao enviar WhatsApp de atualização de fretamento para %s", telefone)
+    _enviar(telefone, mensagem)
 
 
 ROTULOS_STATUS_FRETE = {
@@ -134,33 +124,12 @@ def enviar_atualizacao_status_frete_whatsapp(
     novo_status: str,
     link_acompanhar: str,
 ) -> None:
-    if not telefone:
-        return
-
     rotulo = ROTULOS_STATUS_FRETE.get(novo_status, novo_status)
     mensagem = (
         f"Olá, {nome}! O status da sua encomenda ({origem} -> {destino}) mudou para: {rotulo}.\n"
         f"Acompanhe por aqui: {link_acompanhar}"
     )
-
-    if not settings.whatsapp_api_url:
-        logger.info("[WhatsApp não enviado - provedor não configurado] Para: %s\n%s", telefone, mensagem)
-        return
-
-    requisicao = urllib.request.Request(
-        settings.whatsapp_api_url,
-        data=_montar_payload(telefone, mensagem),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {settings.whatsapp_api_token}" if settings.whatsapp_api_token else "",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(requisicao, timeout=10):
-            pass
-    except (urllib.error.URLError, urllib.error.HTTPError):
-        logger.exception("Falha ao enviar WhatsApp de atualização de frete para %s", telefone)
+    _enviar(telefone, mensagem)
 
 
 def enviar_fatura_gerada_whatsapp(
@@ -171,30 +140,9 @@ def enviar_fatura_gerada_whatsapp(
     vencimento,
     link_pagamento: str,
 ) -> None:
-    if not telefone:
-        return
-
     mensagem = (
         f"Olá, {empresa_nome}! A fatura da sua assinatura do GoTur foi gerada: "
         f"R$ {valor:.2f}, vencimento {vencimento.strftime('%d/%m/%Y')}.\n"
         f"Pague por aqui: {link_pagamento}"
     )
-
-    if not settings.whatsapp_api_url:
-        logger.info("[WhatsApp não enviado - provedor não configurado] Para: %s\n%s", telefone, mensagem)
-        return
-
-    requisicao = urllib.request.Request(
-        settings.whatsapp_api_url,
-        data=_montar_payload(telefone, mensagem),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {settings.whatsapp_api_token}" if settings.whatsapp_api_token else "",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(requisicao, timeout=10):
-            pass
-    except (urllib.error.URLError, urllib.error.HTTPError):
-        logger.exception("Falha ao enviar WhatsApp de fatura gerada para %s", telefone)
+    _enviar(telefone, mensagem)
