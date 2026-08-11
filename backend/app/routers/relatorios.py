@@ -12,12 +12,13 @@ from app.models.frete import Frete
 from app.models.fretamento import Fretamento
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
 from app.models.pagamento import Pagamento
+from app.models.parceiro import Parceiro
 from app.models.passagem import Passagem
 from app.models.poltrona_viagem import PoltronaViagem
 from app.models.usuario import Usuario
 from app.models.viagem import Viagem
 from app.schemas.dre import DreOut
-from app.schemas.relatorio import OcupacaoViagemOut, VendasPorFuncionarioOut, VendasResumoOut
+from app.schemas.relatorio import OcupacaoViagemOut, VendasPorFuncionarioOut, VendasPorParceiroOut, VendasResumoOut
 from app.services.trecho import buscar_paradas_da_rota
 
 router = APIRouter(prefix="/relatorios", tags=["relatorios"])
@@ -144,6 +145,49 @@ def relatorio_por_funcionario(
         )
         for linha in linhas
     ]
+
+
+@router.get("/parceiros", response_model=list[VendasPorParceiroOut])
+def relatorio_por_parceiro(
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """Vendas trazidas por cada parceiro (agência/vendedor externo que
+    vende passagem ou despacha frete em nome da empresa) — separado da
+    venda direta, pra conciliação de comissão e visão de desempenho."""
+    parceiros = db.query(Parceiro).filter(Parceiro.tenant_id == usuario_atual.tenant_id).order_by(Parceiro.nome).all()
+
+    resultado = []
+    for parceiro in parceiros:
+        total_passagens, total_arrecadado_passagens = (
+            db.query(func.count(Passagem.id), func.coalesce(func.sum(Passagem.preco), 0))
+            .filter(Passagem.parceiro_id == parceiro.id, Passagem.status == StatusPassagem.CONFIRMADA)
+            .first()
+        )
+        total_fretes, total_arrecadado_fretes = (
+            db.query(func.count(Frete.id), func.coalesce(func.sum(Frete.valor_total), 0))
+            .filter(Frete.parceiro_id == parceiro.id, Frete.status != StatusFrete.CANCELADO)
+            .first()
+        )
+        total_arrecadado_passagens = round(float(total_arrecadado_passagens), 2)
+        total_arrecadado_fretes = round(float(total_arrecadado_fretes), 2)
+        comissao_pct = float(parceiro.comissao_percentual) if parceiro.comissao_percentual is not None else 0.0
+
+        resultado.append(
+            VendasPorParceiroOut(
+                parceiro_id=parceiro.id,
+                nome=parceiro.nome,
+                comissao_percentual=float(parceiro.comissao_percentual) if parceiro.comissao_percentual is not None else None,
+                total_passagens=total_passagens,
+                total_arrecadado_passagens=total_arrecadado_passagens,
+                total_fretes=total_fretes,
+                total_arrecadado_fretes=total_arrecadado_fretes,
+                comissao_estimada=round((total_arrecadado_passagens + total_arrecadado_fretes) * comissao_pct / 100, 2),
+            )
+        )
+
+    resultado.sort(key=lambda r: r.total_arrecadado_passagens + r.total_arrecadado_fretes, reverse=True)
+    return resultado
 
 
 @router.get("/dre", response_model=DreOut)

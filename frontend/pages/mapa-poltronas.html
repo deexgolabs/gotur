@@ -58,8 +58,31 @@
             <input id="cliente-nome" required />
           </div>
           <div style="margin-bottom:12px">
-            <label for="cliente-documento">CPF</label>
+            <label for="tipo-documento">Tipo de documento</label>
+            <select id="tipo-documento">
+              <option value="cpf">CPF</option>
+              <option value="rg">RG</option>
+              <option value="cnh">CNH</option>
+              <option value="passaporte">Passaporte</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+          <div style="margin-bottom:12px">
+            <label for="cliente-documento">Número do documento</label>
             <input id="cliente-documento" required />
+          </div>
+          <div style="margin-bottom:12px">
+            <label for="cliente-telefone">Telefone do passageiro (opcional)</label>
+            <input id="cliente-telefone" type="tel" placeholder="(00) 00000-0000" />
+          </div>
+          <div style="margin-bottom:12px">
+            <label for="categoria-passageiro">Categoria</label>
+            <select id="categoria-passageiro">
+              <option value="comum">Comum</option>
+              <option value="idoso">Idoso</option>
+              <option value="pcd">PCD</option>
+              <option value="crianca_colo">Criança de colo</option>
+            </select>
           </div>
           <div style="margin-bottom:12px">
             <label for="forma-pagamento">Forma de pagamento</label>
@@ -73,6 +96,12 @@
           <div style="margin-bottom:12px">
             <label for="codigo-cupom">Cupom de desconto (opcional)</label>
             <input id="codigo-cupom" placeholder="Ex: PROMO10" style="text-transform:uppercase" />
+          </div>
+          <div style="margin-bottom:12px">
+            <label for="parceiro-venda">Parceiro (opcional)</label>
+            <select id="parceiro-venda">
+              <option value="">Venda direta</option>
+            </select>
           </div>
           <div class="linha-acoes">
             <button type="submit">Confirmar venda</button>
@@ -246,10 +275,14 @@
           poltrona_viagem_id: poltronaSelecionadaId,
           cliente_nome: document.getElementById("cliente-nome").value.trim(),
           cliente_documento: document.getElementById("cliente-documento").value.trim(),
+          cliente_telefone: document.getElementById("cliente-telefone").value.trim() || null,
+          tipo_documento: document.getElementById("tipo-documento").value,
+          categoria_passageiro: document.getElementById("categoria-passageiro").value,
           forma_pagamento: document.getElementById("forma-pagamento").value,
           parada_origem_id: trechoOrigemId,
           parada_destino_id: trechoDestinoId,
           codigo_cupom: document.getElementById("codigo-cupom").value.trim() || null,
+          parceiro_id: document.getElementById("parceiro-venda").value ? parseInt(document.getElementById("parceiro-venda").value, 10) : null,
         });
 
         if (resposta.pedido_pagamento) {
@@ -361,11 +394,29 @@
       });
     }
 
+    async function carregarParceiros() {
+      try {
+        const lista = await api("GET", "/parceiros?apenas_ativos=true");
+        const select = document.getElementById("parceiro-venda");
+        lista
+          .filter((p) => p.vende_passagem)
+          .forEach((p) => {
+            const opcao = document.createElement("option");
+            opcao.value = p.id;
+            opcao.textContent = p.nome;
+            select.appendChild(opcao);
+          });
+      } catch (e) {
+        // sem permissão ou sem parceiros — mantém só "Venda direta"
+      }
+    }
+
     if (auth && viagemId) {
       montarTopo("topo");
       carregarParadas()
         .then(() => Promise.all([carregarMapa(), carregarPassagens()]))
         .catch((e) => mostrarAlerta(e.message));
+      carregarParceiros();
       intervaloAtualizacao = setInterval(() => {
         if (!poltronaSelecionadaId) carregarMapa().catch(() => {});
       }, 15000);

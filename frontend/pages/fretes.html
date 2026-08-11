@@ -86,6 +86,24 @@
             <label for="valor-total">Valor total (R$)</label>
             <input id="valor-total" type="number" min="0" step="0.01" placeholder="Calculado automaticamente" />
           </div>
+          <div>
+            <label for="peso">Peso (kg)</label>
+            <input id="peso" type="number" min="0" step="0.1" />
+          </div>
+          <div>
+            <label for="volumes">Quantidade de volumes</label>
+            <input id="volumes" type="number" min="0" step="1" />
+          </div>
+          <div>
+            <label for="valor-declarado">Valor declarado da mercadoria (R$)</label>
+            <input id="valor-declarado" type="number" min="0" step="0.01" />
+          </div>
+          <div>
+            <label for="parceiro-frete">Parceiro (opcional)</label>
+            <select id="parceiro-frete">
+              <option value="">Despacho direto</option>
+            </select>
+          </div>
         </div>
         <div>
           <label for="observacoes">Observações</label>
@@ -199,6 +217,23 @@
       });
     }
 
+    async function carregarParceiros() {
+      try {
+        const lista = await api("GET", "/parceiros?apenas_ativos=true");
+        const select = document.getElementById("parceiro-frete");
+        lista
+          .filter((p) => p.despacha_frete)
+          .forEach((p) => {
+            const opcao = document.createElement("option");
+            opcao.value = p.id;
+            opcao.textContent = p.nome;
+            select.appendChild(opcao);
+          });
+      } catch (e) {
+        // sem permissão (funcionário sem acesso a parceiros) ou sem parceiros
+      }
+    }
+
     if (auth) {
       montarTopo("topo");
       if (ehAdmin) document.getElementById("cartao-novo").classList.remove("escondido");
@@ -206,6 +241,7 @@
         .then((empresa) => (empresaSlug = empresa.slug))
         .catch(() => {});
       carregar().catch((e) => mostrarAlerta(e.message));
+      if (ehAdmin) carregarParceiros();
     }
 
     document.getElementById("form-frete").addEventListener("submit", async (ev) => {
@@ -233,6 +269,13 @@
           distancia_km: lerNum("distancia"),
           valor_por_km: lerNum("valor-km"),
           valor_total: lerNum("valor-total"),
+          peso_kg: lerNum("peso"),
+          quantidade_volumes: (() => {
+            const v = document.getElementById("volumes").value.trim();
+            return v === "" ? null : parseInt(v, 10);
+          })(),
+          valor_declarado: lerNum("valor-declarado"),
+          parceiro_id: document.getElementById("parceiro-frete").value ? parseInt(document.getElementById("parceiro-frete").value, 10) : null,
           observacoes: document.getElementById("observacoes").value.trim() || null,
         });
         ev.target.reset();

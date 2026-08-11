@@ -77,6 +77,12 @@
             <label for="valor-total">Valor total (R$)</label>
             <input id="valor-total" type="number" min="0" step="0.01" placeholder="Calculado automaticamente" />
           </div>
+          <div>
+            <label for="parceiro-fretamento">Parceiro (opcional)</label>
+            <select id="parceiro-fretamento">
+              <option value="">Venda direta</option>
+            </select>
+          </div>
         </div>
         <div>
           <label for="observacoes">Observações</label>
@@ -198,6 +204,21 @@
       });
     }
 
+    async function carregarParceiros() {
+      try {
+        const lista = await api("GET", "/parceiros?apenas_ativos=true");
+        const select = document.getElementById("parceiro-fretamento");
+        lista.forEach((p) => {
+          const opcao = document.createElement("option");
+          opcao.value = p.id;
+          opcao.textContent = p.nome;
+          select.appendChild(opcao);
+        });
+      } catch (e) {
+        // sem permissão ou sem parceiros — mantém só "Venda direta"
+      }
+    }
+
     if (auth) {
       montarTopo("topo");
       if (ehAdmin) document.getElementById("cartao-novo").classList.remove("escondido");
@@ -206,6 +227,7 @@
         .catch(() => {});
       carregarOnibus().catch((e) => mostrarAlerta(e.message));
       carregar().catch((e) => mostrarAlerta(e.message));
+      if (ehAdmin) carregarParceiros();
     }
 
     document.getElementById("form-fretamento").addEventListener("submit", async (ev) => {
@@ -231,6 +253,7 @@
           distancia_km: lerNum("distancia"),
           valor_por_km: lerNum("valor-km"),
           valor_total: lerNum("valor-total"),
+          parceiro_id: document.getElementById("parceiro-fretamento").value ? parseInt(document.getElementById("parceiro-fretamento").value, 10) : null,
           observacoes: document.getElementById("observacoes").value.trim() || null,
         });
         ev.target.reset();

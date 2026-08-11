@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Minhas vendas</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#08427a" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1 id="titulo">Minhas vendas</h1>
+    <p class="subtitulo" id="subtitulo"></p>
+
+    <div id="alerta"></div>
+
+    <div class="cartoes-resumo" id="cartoes-resumo"></div>
+
+    <h2>Passagens vendidas</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Localizador</th><th>Passageiro</th><th>Preço</th><th>Status</th><th>Data</th></tr></thead>
+        <tbody id="corpo-passagens"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio-passagens">Nenhuma passagem vendida ainda.</p>
+    </div>
+
+    <h2>Fretes despachados</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Código</th><th>Remetente → Destinatário</th><th>Trajeto</th><th>Valor</th><th>Status</th></tr></thead>
+        <tbody id="corpo-fretes"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio-fretes">Nenhum frete despachado ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("parceiro");
+
+    const ROTULOS_STATUS_PASSAGEM = { confirmada: "Confirmada", cancelada: "Cancelada" };
+    const ROTULOS_STATUS_FRETE = {
+      solicitado: "Solicitado",
+      confirmado: "Confirmado",
+      em_transito: "Em trânsito",
+      entregue: "Entregue",
+      cancelado: "Cancelado",
+    };
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    function formatarDataHora(iso) {
+      return iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "-";
+    }
+
+    async function carregar() {
+      const [resumo, passagens, fretes] = await Promise.all([
+        api("GET", "/parceiros/minha/resumo"),
+        api("GET", "/parceiros/minha/passagens"),
+        api("GET", "/parceiros/minha/fretes"),
+      ]);
+
+      document.getElementById("subtitulo").textContent = `Vendas registradas em seu nome — ${resumo.parceiro_nome}`;
+
+      document.getElementById("cartoes-resumo").innerHTML = `
+        <div class="cartao-resumo"><div class="titulo">${resumo.total_passagens}</div><div class="desc">Passagens vendidas</div></div>
+        <div class="cartao-resumo"><div class="titulo">R$ ${resumo.total_arrecadado_passagens.toFixed(2)}</div><div class="desc">Total em passagens</div></div>
+        <div class="cartao-resumo"><div class="titulo">${resumo.total_fretes}</div><div class="desc">Fretes despachados</div></div>
+        <div class="cartao-resumo"><div class="titulo">R$ ${resumo.total_arrecadado_fretes.toFixed(2)}</div><div class="desc">Total em fretes</div></div>
+        <div class="cartao-resumo"><div class="titulo">${resumo.comissao_percentual != null ? resumo.comissao_percentual + "%" : "—"}</div><div class="desc">Sua comissão</div></div>
+        <div class="cartao-resumo"><div class="titulo">R$ ${resumo.comissao_estimada.toFixed(2)}</div><div class="desc">Comissão estimada</div></div>
+      `;
+
+      const corpoPassagens = document.getElementById("corpo-passagens");
+      document.getElementById("vazio-passagens").classList.toggle("escondido", passagens.length > 0);
+      corpoPassagens.innerHTML = passagens
+        .map(
+          (p) => `
+        <tr>
+          <td>${p.localizador}</td>
+          <td>${p.cliente_nome}</td>
+          <td>R$ ${Number(p.preco).toFixed(2)}</td>
+          <td><span class="selo ${p.status}">${ROTULOS_STATUS_PASSAGEM[p.status] || p.status}</span></td>
+          <td>${formatarDataHora(p.criado_em)}</td>
+        </tr>`
+        )
+        .join("");
+
+      const corpoFretes = document.getElementById("corpo-fretes");
+      document.getElementById("vazio-fretes").classList.toggle("escondido", fretes.length > 0);
+      corpoFretes.innerHTML = fretes
+        .map(
+          (f) => `
+        <tr>
+          <td>${f.codigo_rastreio}</td>
+          <td>${f.remetente_nome} → ${f.destinatario_nome}</td>
+          <td>${f.origem} → ${f.destino}</td>
+          <td>${f.valor_total != null ? "R$ " + Number(f.valor_total).toFixed(2) : "—"}</td>
+          <td><span class="selo hold">${ROTULOS_STATUS_FRETE[f.status] || f.status}</span></td>
+        </tr>`
+        )
+        .join("");
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+  </script>
+</body>
+</html>

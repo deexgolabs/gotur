@@ -3,6 +3,7 @@ const ROTULOS_PAPEL = {
   admin_empresa: "Administrador",
   funcionario: "Funcionário",
   cliente: "Cliente",
+  parceiro: "Parceiro",
 };
 
 function exigirLogin() {
@@ -53,9 +54,16 @@ function linksPorPapel(role) {
       { href: "/pages/dre.html", label: "DRE", grupo: "Financeiro" },
       { href: "/pages/minhas-faturas.html", label: "Faturas", grupo: "Financeiro" },
       { href: "/pages/funcionarios.html", label: "Funcionários", grupo: "Equipe" },
+      { href: "/pages/parceiros.html", label: "Parceiros", grupo: "Equipe" },
       { href: "/pages/avaliacoes.html", label: "Avaliações", grupo: "Equipe" },
       { href: "/pages/auditoria.html", label: "Auditoria", grupo: "Equipe" },
       { href: "/pages/configuracoes.html", label: "Configurações" },
+    ];
+  }
+  if (role === "parceiro") {
+    return [
+      ...base,
+      { href: "/pages/parceiro-vendas.html", label: "Minhas vendas" },
     ];
   }
   if (role === "funcionario") {

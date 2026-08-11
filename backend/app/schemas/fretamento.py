@@ -19,6 +19,7 @@ class FretamentoCreate(BaseModel):
     distancia_km: float | None = Field(default=None, ge=0)
     valor_por_km: float | None = Field(default=None, ge=0)
     valor_total: float | None = Field(default=None, ge=0)
+    parceiro_id: int | None = None
     observacoes: str | None = None
 
 
@@ -49,6 +50,7 @@ class FretamentoUpdate(BaseModel):
     distancia_km: float | None = Field(default=None, ge=0)
     valor_por_km: float | None = Field(default=None, ge=0)
     valor_total: float | None = Field(default=None, ge=0)
+    parceiro_id: int | None = None
     observacoes: str | None = None
     icone_mapa: str | None = None
 
@@ -88,6 +90,7 @@ class FretamentoOut(BaseModel):
     distancia_km: float | None
     valor_por_km: float | None
     valor_total: float | None
+    parceiro_id: int | None = None
     status: StatusFretamento
     icone_mapa: str = "🚌"
     observacoes: str | None

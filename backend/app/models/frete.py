@@ -40,6 +40,11 @@ class Frete(Base):
     valor_por_km: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
     valor_total: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
 
+    peso_kg: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
+    quantidade_volumes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    valor_declarado: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    parceiro_id: Mapped[int | None] = mapped_column(ForeignKey("parceiros.id"), nullable=True)
+
     status: Mapped[StatusFrete] = mapped_column(SAEnum(StatusFrete), default=StatusFrete.SOLICITADO)
     icone_mapa: Mapped[str] = mapped_column(String(8), default="🚚")
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)

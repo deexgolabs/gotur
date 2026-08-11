@@ -2,17 +2,21 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.enums import FormaPagamento, StatusPassagem
+from app.models.enums import CategoriaPassageiro, FormaPagamento, StatusPassagem, TipoDocumento
 
 
 class VenderPassagemRequest(BaseModel):
     poltrona_viagem_id: int
     cliente_nome: str
     cliente_documento: str
+    cliente_telefone: str | None = None
+    tipo_documento: TipoDocumento = TipoDocumento.CPF
+    categoria_passageiro: CategoriaPassageiro = CategoriaPassageiro.COMUM
     forma_pagamento: FormaPagamento
     parada_origem_id: int | None = None
     parada_destino_id: int | None = None
     codigo_cupom: str | None = None
+    parceiro_id: int | None = None
 
 
 class PassagemOut(BaseModel):
@@ -23,8 +27,12 @@ class PassagemOut(BaseModel):
     poltrona_viagem_id: int
     cliente_nome: str
     cliente_documento: str
+    cliente_telefone: str | None = None
+    tipo_documento: TipoDocumento = TipoDocumento.CPF
+    categoria_passageiro: CategoriaPassageiro = CategoriaPassageiro.COMUM
     preco: float
     codigo_cupom: str | None = None
+    parceiro_id: int | None = None
     status: StatusPassagem
     localizador: str
     criado_em: datetime

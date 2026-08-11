@@ -66,6 +66,18 @@
       </table>
       <p class="vazio escondido" id="vazio-funcionarios">Nenhuma venda registrada por funcionários ainda.</p>
     </div>
+
+    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      Vendas por parceiro
+      <button type="button" class="secundario" id="btn-csv-parceiros">Exportar CSV</button>
+    </h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Parceiro</th><th>Comissão</th><th>Passagens</th><th>Total passagens</th><th>Fretes</th><th>Total fretes</th><th>Comissão estimada</th></tr></thead>
+        <tbody id="corpo-parceiros"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio-parceiros">Nenhuma venda registrada por parceiros ainda.</p>
+    </div>
   </main>
 
   <script src="/js/api.js"></script>
@@ -76,6 +88,7 @@
     const ROTULOS_PAGAMENTO = { dinheiro: "Dinheiro", cartao: "Cartão", pix: "Pix", outro: "Outro" };
     let ultimaOcupacao = [];
     let ultimosFuncionarios = [];
+    let ultimosParceiros = [];
     let ultimoResumoVendas = null;
 
     function mostrarAlerta(mensagem, tipo = "erro") {
@@ -162,6 +175,27 @@
         .join("");
     }
 
+    async function carregarParceiros() {
+      const lista = await api("GET", "/relatorios/parceiros");
+      ultimosParceiros = lista;
+      const corpo = document.getElementById("corpo-parceiros");
+      document.getElementById("vazio-parceiros").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (p) => `
+        <tr>
+          <td>${p.nome}</td>
+          <td>${p.comissao_percentual != null ? p.comissao_percentual + "%" : "—"}</td>
+          <td>${p.total_passagens}</td>
+          <td>R$ ${p.total_arrecadado_passagens.toFixed(2)}</td>
+          <td>${p.total_fretes}</td>
+          <td>R$ ${p.total_arrecadado_fretes.toFixed(2)}</td>
+          <td>R$ ${p.comissao_estimada.toFixed(2)}</td>
+        </tr>`
+        )
+        .join("");
+    }
+
     if (auth) {
       montarTopo("topo");
       const hoje = new Date().toISOString().slice(0, 10);
@@ -170,6 +204,7 @@
       document.getElementById("fim").value = hoje;
       carregarOcupacao().catch((e) => mostrarAlerta(e.message));
       carregarFuncionarios().catch((e) => mostrarAlerta(e.message));
+      carregarParceiros().catch((e) => mostrarAlerta(e.message));
     }
 
     document.getElementById("form-periodo").addEventListener("submit", async (ev) => {
@@ -215,6 +250,22 @@
         "desempenho-funcionarios.csv",
         ["Funcionário", "Passagens vendidas", "Total arrecadado (R$)"],
         ultimosFuncionarios.map((f) => [f.nome, f.total_passagens, f.total_arrecadado.toFixed(2)])
+      );
+    });
+
+    document.getElementById("btn-csv-parceiros").addEventListener("click", () => {
+      baixarCsv(
+        "vendas-por-parceiro.csv",
+        ["Parceiro", "Comissão (%)", "Passagens", "Total passagens (R$)", "Fretes", "Total fretes (R$)", "Comissão estimada (R$)"],
+        ultimosParceiros.map((p) => [
+          p.nome,
+          p.comissao_percentual != null ? p.comissao_percentual : "",
+          p.total_passagens,
+          p.total_arrecadado_passagens.toFixed(2),
+          p.total_fretes,
+          p.total_arrecadado_fretes.toFixed(2),
+          p.comissao_estimada.toFixed(2),
+        ])
       );
     });
 

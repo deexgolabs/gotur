@@ -22,4 +22,9 @@ class Usuario(Base):
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    # Só preenchido quando role == PARCEIRO: liga esse login ao cadastro
+    # de parceiro (app.models.parceiro.Parceiro) cujas vendas ele pode ver.
+    parceiro_id: Mapped[int | None] = mapped_column(ForeignKey("parceiros.id"), nullable=True)
+
     empresa = relationship("Empresa", back_populates="usuarios")
+    parceiro = relationship("Parceiro", back_populates="usuarios")

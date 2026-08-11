@@ -34,6 +34,7 @@
         ],
         admin_empresa: [
           { href: "/pages/funcionarios.html", titulo: "Funcionários", desc: "Gerencie a equipe da sua empresa" },
+          { href: "/pages/parceiros.html", titulo: "Parceiros", desc: "Agências/vendedores que vendem passagem ou despacham frete pra você" },
           { href: "/pages/onibus.html", titulo: "Ônibus", desc: "Cadastre veículos e o layout de poltronas" },
           { href: "/pages/rotas.html", titulo: "Rotas", desc: "Origens e destinos atendidos", modulo: "passagens" },
           { href: "/pages/viagens.html", titulo: "Viagens", desc: "Crie viagens, venda passagens e gerencie poltronas", modulo: "passagens" },
@@ -57,6 +58,9 @@
           { href: "/pages/busca.html", titulo: "Buscar viagem", desc: "Encontre passagens disponíveis" },
           { href: "/pages/minhas-passagens.html", titulo: "Minhas passagens", desc: "Veja e cancele suas passagens" },
         ],
+        parceiro: [
+          { href: "/pages/parceiro-vendas.html", titulo: "Minhas vendas", desc: "Passagens vendidas, fretes despachados e comissão estimada" },
+        ],
       };
 
       const subtitulos = {
@@ -64,6 +68,7 @@
         admin_empresa: "Gerencie sua empresa, frota, rotas e vendas.",
         funcionario: "Atenda seus clientes e venda passagens.",
         cliente: "Encontre e compre suas passagens.",
+        parceiro: "Acompanhe suas vendas e comissão.",
       };
       document.getElementById("subtitulo").textContent = subtitulos[auth.role] || "";
 

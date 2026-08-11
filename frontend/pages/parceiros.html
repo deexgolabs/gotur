@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Parceiros</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#08427a" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Parceiros</h1>
+    <p class="subtitulo">Agências ou vendedores que vendem passagem ou despacham frete em nome da sua empresa — normalmente embarcando num ponto intermediário da rota. Cada venda marcada com o parceiro fica separada da venda direta, pra comissão e relatório.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Novo parceiro</h2>
+      <form id="form-parceiro">
+        <div class="grid-form">
+          <div>
+            <label for="nome">Nome</label>
+            <input id="nome" required />
+          </div>
+          <div>
+            <label for="documento">CPF/CNPJ (opcional)</label>
+            <input id="documento" />
+          </div>
+          <div>
+            <label for="contato">Contato (opcional)</label>
+            <input id="contato" placeholder="Telefone ou e-mail" />
+          </div>
+          <div>
+            <label for="comissao">Comissão (%) (opcional)</label>
+            <input id="comissao" type="number" min="0" max="100" step="0.1" placeholder="Ex: 10" />
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="vende-passagem" checked style="width:auto" />
+          Vende passagem
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="despacha-frete" checked style="width:auto" />
+          Despacha frete
+        </label>
+        <div class="linha-acoes">
+          <button type="submit">Cadastrar parceiro</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Parceiros cadastrados</h2>
+    <div class="cartao">
+      <table>
+        <thead>
+          <tr><th>Nome</th><th>Contato</th><th>Vende</th><th>Comissão</th><th>Acesso</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhum parceiro cadastrado ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+    }
+
+    function rotuloVende(p) {
+      if (p.vende_passagem && p.despacha_frete) return "Passagem + Frete";
+      if (p.vende_passagem) return "Passagem";
+      if (p.despacha_frete) return "Frete";
+      return "—";
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/parceiros");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (p) => `
+        <tr>
+          <td>${p.nome}</td>
+          <td>${p.contato || "—"}</td>
+          <td>${rotuloVende(p)}</td>
+          <td>${p.comissao_percentual != null ? p.comissao_percentual + "%" : "—"}</td>
+          <td><span class="selo ${p.tem_acesso ? "livre" : "hold"}">${p.tem_acesso ? "Tem login" : "Sem login"}</span></td>
+          <td><span class="selo ${p.ativo ? "livre" : "bloqueada"}">${p.ativo ? "Ativo" : "Desativado"}</span></td>
+          <td>
+            ${!p.tem_acesso ? `<button class="secundario" data-criar-acesso="${p.id}">Criar acesso</button>` : ""}
+            ${p.ativo ? `<button class="perigo" data-desativar="${p.id}">Desativar</button>` : `<button class="secundario" data-ativar="${p.id}">Reativar</button>`}
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/parceiros/${btn.dataset.desativar}`, { ativo: false });
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-ativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/parceiros/${btn.dataset.ativar}`, { ativo: true });
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-criar-acesso]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const email = prompt("E-mail de login do parceiro:");
+          if (!email) return;
+          const senha = prompt("Senha (mínimo 6 caracteres):");
+          if (!senha) return;
+          try {
+            await api("POST", `/parceiros/${btn.dataset.criarAcesso}/acesso`, { email, senha });
+            mostrarAlerta("Acesso criado! Passe o e-mail e a senha pro parceiro.", "sucesso");
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-parceiro").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const comissao = document.getElementById("comissao").value.trim();
+        await api("POST", "/parceiros", {
+          nome: document.getElementById("nome").value.trim(),
+          documento: document.getElementById("documento").value.trim() || null,
+          contato: document.getElementById("contato").value.trim() || null,
+          vende_passagem: document.getElementById("vende-passagem").checked,
+          despacha_frete: document.getElementById("despacha-frete").checked,
+          comissao_percentual: comissao === "" ? null : parseFloat(comissao),
+        });
+        ev.target.reset();
+        document.getElementById("vende-passagem").checked = true;
+        document.getElementById("despacha-frete").checked = true;
+        mostrarAlerta("Parceiro cadastrado com sucesso.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

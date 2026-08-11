@@ -10,6 +10,7 @@ from app.models.onibus import Onibus, PoltronaOnibus
 from app.models.pagamento import Pagamento
 from app.models.parada import Parada
 from app.models.passagem import Passagem
+from app.models.parceiro import Parceiro
 from app.models.pedido_pagamento import PedidoPagamento
 from app.models.plano import Plano
 from app.models.poltrona_viagem import PoltronaViagem
@@ -41,4 +42,5 @@ __all__ = [
     "Frete",
     "PosicaoFrete",
     "PushInscricao",
+    "Parceiro",
 ]

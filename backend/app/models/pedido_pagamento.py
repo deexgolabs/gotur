@@ -5,7 +5,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.models.enums import FormaPagamento, StatusPedidoPagamento
+from app.models.enums import CategoriaPassageiro, FormaPagamento, StatusPedidoPagamento, TipoDocumento
 
 
 class PedidoPagamento(Base):
@@ -30,6 +30,10 @@ class PedidoPagamento(Base):
     forma_pagamento: Mapped[FormaPagamento] = mapped_column(SAEnum(FormaPagamento), nullable=False)
     valor: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     codigo_cupom: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    parceiro_id: Mapped[int | None] = mapped_column(ForeignKey("parceiros.id"), nullable=True)
+    cliente_telefone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    tipo_documento: Mapped[TipoDocumento] = mapped_column(SAEnum(TipoDocumento), default=TipoDocumento.CPF)
+    categoria_passageiro: Mapped[CategoriaPassageiro] = mapped_column(SAEnum(CategoriaPassageiro), default=CategoriaPassageiro.COMUM)
     pix_copia_cola: Mapped[str] = mapped_column(String(300), nullable=False)
     status: Mapped[StatusPedidoPagamento] = mapped_column(
         SAEnum(StatusPedidoPagamento), default=StatusPedidoPagamento.PENDENTE, nullable=False

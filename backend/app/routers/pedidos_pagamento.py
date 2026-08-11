@@ -100,10 +100,14 @@ def confirmar_pagamento_simulado(
         localizador=_gerar_localizador_unico(db),
         cliente_nome=pedido.cliente_nome,
         cliente_documento=pedido.cliente_documento,
+        cliente_telefone=pedido.cliente_telefone,
+        tipo_documento=pedido.tipo_documento,
+        categoria_passageiro=pedido.categoria_passageiro,
         cliente_usuario_id=usuario_do_pedido.id if usuario_do_pedido and usuario_do_pedido.role == UserRole.CLIENTE else None,
         vendido_por_usuario_id=usuario_do_pedido.id
         if usuario_do_pedido and usuario_do_pedido.role in (UserRole.FUNCIONARIO, UserRole.ADMIN_EMPRESA, UserRole.SUPER_ADMIN)
         else None,
+        parceiro_id=pedido.parceiro_id,
         preco_final=float(pedido.valor),
         forma_pagamento=pedido.forma_pagamento,
         gateway_ref=f"SIMULADO-{pedido.id}",

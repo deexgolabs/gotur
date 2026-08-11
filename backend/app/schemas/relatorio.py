@@ -26,3 +26,14 @@ class VendasPorFuncionarioOut(BaseModel):
     nome: str
     total_passagens: int
     total_arrecadado: float
+
+
+class VendasPorParceiroOut(BaseModel):
+    parceiro_id: int
+    nome: str
+    comissao_percentual: float | None
+    total_passagens: int
+    total_arrecadado_passagens: float
+    total_fretes: int
+    total_arrecadado_fretes: float
+    comissao_estimada: float

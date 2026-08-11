@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.deps import get_current_user, require_staff
 from app.database import get_db
 from app.models.avaliacao import Avaliacao
-from app.models.enums import FormaPagamento, StatusPassagem, StatusPoltrona, TipoOcupacao, UserRole
+from app.models.enums import CategoriaPassageiro, FormaPagamento, StatusPassagem, StatusPoltrona, TipoDocumento, TipoOcupacao, UserRole
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
 from app.models.pagamento import Pagamento
 from app.models.parada import Parada
+from app.models.parceiro import Parceiro
 from app.models.passagem import Passagem
 from app.models.pedido_pagamento import PedidoPagamento
 from app.models.poltrona_viagem import PoltronaViagem
@@ -63,6 +64,10 @@ def _criar_passagem_confirmada(
     hold_para_remover: OcupacaoPoltrona | None,
     usuario_para_notificar: Usuario | None,
     codigo_cupom: str | None = None,
+    parceiro_id: int | None = None,
+    cliente_telefone: str | None = None,
+    tipo_documento: TipoDocumento = TipoDocumento.CPF,
+    categoria_passageiro: CategoriaPassageiro = CategoriaPassageiro.COMUM,
 ) -> Passagem:
     passagem = Passagem(
         tenant_id=viagem.tenant_id,
@@ -73,7 +78,11 @@ def _criar_passagem_confirmada(
         cliente_usuario_id=cliente_usuario_id,
         cliente_nome=cliente_nome,
         cliente_documento=cliente_documento,
+        cliente_telefone=cliente_telefone,
+        tipo_documento=tipo_documento,
+        categoria_passageiro=categoria_passageiro,
         vendido_por_usuario_id=vendido_por_usuario_id,
+        parceiro_id=parceiro_id,
         preco=preco_final,
         codigo_cupom=codigo_cupom,
         status=StatusPassagem.CONFIRMADA,
@@ -162,6 +171,11 @@ def vender_passagem(
     if not poltrona or poltrona.viagem_id != viagem_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Poltrona não encontrada")
 
+    if dados.parceiro_id is not None:
+        parceiro = db.get(Parceiro, dados.parceiro_id)
+        if not parceiro or parceiro.tenant_id != viagem.tenant_id or not parceiro.vende_passagem:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parceiro inválido para venda de passagem")
+
     is_staff = usuario_atual.role in (UserRole.FUNCIONARIO, UserRole.ADMIN_EMPRESA, UserRole.SUPER_ADMIN)
 
     liberar_holds_expirados(db, [poltrona.id])
@@ -225,9 +239,13 @@ def vender_passagem(
             usuario_id=usuario_atual.id,
             cliente_nome=dados.cliente_nome,
             cliente_documento=dados.cliente_documento,
+            cliente_telefone=dados.cliente_telefone,
+            tipo_documento=dados.tipo_documento,
+            categoria_passageiro=dados.categoria_passageiro,
             forma_pagamento=dados.forma_pagamento,
             valor=preco_final,
             codigo_cupom=codigo_cupom_aplicado,
+            parceiro_id=dados.parceiro_id,
             pix_copia_cola=resultado_cobranca.pix_copia_cola,
             expira_em=resultado_cobranca.pix_expira_em,
         )
@@ -245,8 +263,12 @@ def vender_passagem(
         localizador=_gerar_localizador_unico(db),
         cliente_nome=dados.cliente_nome,
         cliente_documento=dados.cliente_documento,
+        cliente_telefone=dados.cliente_telefone,
+        tipo_documento=dados.tipo_documento,
+        categoria_passageiro=dados.categoria_passageiro,
         cliente_usuario_id=usuario_atual.id if usuario_atual.role == UserRole.CLIENTE else None,
         vendido_por_usuario_id=usuario_atual.id if is_staff else None,
+        parceiro_id=dados.parceiro_id,
         preco_final=preco_final,
         forma_pagamento=dados.forma_pagamento,
         gateway_ref=resultado_cobranca.gateway_ref,

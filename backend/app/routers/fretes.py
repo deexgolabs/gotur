@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.enums import TipoRastreioPush, UserRole
 from app.models.frete import Frete, PosicaoFrete
+from app.models.parceiro import Parceiro
 from app.models.usuario import Usuario
 from app.schemas.fretamento import PosicaoCreate, PosicaoOut
 from app.schemas.frete import (
@@ -67,6 +68,10 @@ def _para_out(frete: Frete) -> FreteOut:
         distancia_km=float(frete.distancia_km) if frete.distancia_km is not None else None,
         valor_por_km=float(frete.valor_por_km) if frete.valor_por_km is not None else None,
         valor_total=float(frete.valor_total) if frete.valor_total is not None else None,
+        peso_kg=float(frete.peso_kg) if frete.peso_kg is not None else None,
+        quantidade_volumes=frete.quantidade_volumes,
+        valor_declarado=float(frete.valor_declarado) if frete.valor_declarado is not None else None,
+        parceiro_id=frete.parceiro_id,
         status=frete.status,
         icone_mapa=frete.icone_mapa,
         observacoes=frete.observacoes,
@@ -86,6 +91,11 @@ def criar_frete(
     if not empresa.frete_habilitado:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de frete não está habilitado para sua empresa")
 
+    if dados.parceiro_id is not None:
+        parceiro = db.get(Parceiro, dados.parceiro_id)
+        if not parceiro or parceiro.tenant_id != usuario_atual.tenant_id or not parceiro.despacha_frete:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parceiro inválido para despacho de frete")
+
     frete = Frete(
         tenant_id=usuario_atual.tenant_id,
         codigo_rastreio=_gerar_codigo_rastreio(db),
@@ -104,6 +114,10 @@ def criar_frete(
         distancia_km=dados.distancia_km,
         valor_por_km=dados.valor_por_km,
         valor_total=_calcular_valor_total(dados.distancia_km, dados.valor_por_km, dados.valor_total),
+        peso_kg=dados.peso_kg,
+        quantidade_volumes=dados.quantidade_volumes,
+        valor_declarado=dados.valor_declarado,
+        parceiro_id=dados.parceiro_id,
         observacoes=dados.observacoes,
     )
     db.add(frete)
@@ -149,6 +163,9 @@ def solicitar_frete(slug: str, dados: SolicitarFreteRequest, db: Session = Depen
         origem=dados.origem,
         destino=dados.destino,
         data_hora_coleta=dados.data_hora_coleta,
+        peso_kg=dados.peso_kg,
+        quantidade_volumes=dados.quantidade_volumes,
+        valor_declarado=dados.valor_declarado,
         observacoes=dados.observacoes,
     )
     db.add(frete)

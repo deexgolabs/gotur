@@ -5,7 +5,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.models.enums import StatusPassagem
+from app.models.enums import CategoriaPassageiro, StatusPassagem, TipoDocumento
 
 
 class Passagem(Base):
@@ -21,6 +21,10 @@ class Passagem(Base):
     cliente_nome: Mapped[str] = mapped_column(String(150), nullable=False)
     cliente_documento: Mapped[str] = mapped_column(String(30), nullable=False)
     vendido_por_usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    parceiro_id: Mapped[int | None] = mapped_column(ForeignKey("parceiros.id"), nullable=True)
+    cliente_telefone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    tipo_documento: Mapped[TipoDocumento] = mapped_column(SAEnum(TipoDocumento), default=TipoDocumento.CPF)
+    categoria_passageiro: Mapped[CategoriaPassageiro] = mapped_column(SAEnum(CategoriaPassageiro), default=CategoriaPassageiro.COMUM)
     preco: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     codigo_cupom: Mapped[str | None] = mapped_column(String(30), nullable=True)
     status: Mapped[StatusPassagem] = mapped_column(SAEnum(StatusPassagem), default=StatusPassagem.CONFIRMADA)

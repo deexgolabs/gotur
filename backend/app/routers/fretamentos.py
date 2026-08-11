@@ -8,6 +8,7 @@ from app.models.empresa import Empresa
 from app.models.enums import StatusFretamento, TipoRastreioPush, UserRole
 from app.models.fretamento import Fretamento, PosicaoFretamento
 from app.models.onibus import Onibus
+from app.models.parceiro import Parceiro
 from app.models.usuario import Usuario
 from app.schemas.avaliacao import AvaliacaoOut, AvaliarRequest
 from app.schemas.fretamento import (
@@ -70,6 +71,7 @@ def _para_out(fretamento: Fretamento) -> FretamentoOut:
         distancia_km=float(fretamento.distancia_km) if fretamento.distancia_km is not None else None,
         valor_por_km=float(fretamento.valor_por_km) if fretamento.valor_por_km is not None else None,
         valor_total=float(fretamento.valor_total) if fretamento.valor_total is not None else None,
+        parceiro_id=fretamento.parceiro_id,
         status=fretamento.status,
         icone_mapa=fretamento.icone_mapa,
         observacoes=fretamento.observacoes,
@@ -94,6 +96,11 @@ def criar_fretamento(
         if not onibus or onibus.tenant_id != usuario_atual.tenant_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ônibus não encontrado")
 
+    if dados.parceiro_id is not None:
+        parceiro = db.get(Parceiro, dados.parceiro_id)
+        if not parceiro or parceiro.tenant_id != usuario_atual.tenant_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parceiro inválido")
+
     valor_por_km = dados.valor_por_km if dados.valor_por_km is not None else empresa.preco_km_fretamento
 
     fretamento = Fretamento(
@@ -112,6 +119,7 @@ def criar_fretamento(
         distancia_km=dados.distancia_km,
         valor_por_km=valor_por_km,
         valor_total=_calcular_valor_total(dados.distancia_km, valor_por_km, dados.valor_total),
+        parceiro_id=dados.parceiro_id,
         observacoes=dados.observacoes,
     )
     db.add(fretamento)

@@ -6,6 +6,7 @@ class UserRole(str, enum.Enum):
     ADMIN_EMPRESA = "admin_empresa"
     FUNCIONARIO = "funcionario"
     CLIENTE = "cliente"
+    PARCEIRO = "parceiro"
 
 
 class TipoOnibus(str, enum.Enum):
@@ -87,6 +88,27 @@ class TipoRastreioPush(str, enum.Enum):
 
     FRETAMENTO = "fretamento"
     FRETE = "frete"
+
+
+class TipoDocumento(str, enum.Enum):
+    CPF = "cpf"
+    RG = "rg"
+    CNH = "cnh"
+    PASSAPORTE = "passaporte"
+    OUTRO = "outro"
+
+
+class CategoriaPassageiro(str, enum.Enum):
+    """Categorias que a legislação brasileira trata de forma diferente na
+    venda de passagem rodoviária (vaga gratuita/desconto pra idoso, PCD e
+    criança de colo — Estatuto do Idoso e regras da ANTT). Guardar aqui não
+    aplica desconto sozinho; é o dado bruto pra empresa comprovar/aplicar
+    a regra manualmente por enquanto."""
+
+    COMUM = "comum"
+    IDOSO = "idoso"
+    PCD = "pcd"
+    CRIANCA_COLO = "crianca_colo"
 
 
 class StatusPedidoPagamento(str, enum.Enum):
