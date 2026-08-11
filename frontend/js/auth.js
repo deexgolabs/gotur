@@ -124,7 +124,7 @@ function montarTopo(containerId) {
         .join("");
       if (!bloco.grupo) return linksDoBloco;
       const grupoAtivo = bloco.links.some((l) => caminhoAtual === l.href);
-      return `<div class="nav-grupo">
+      return `<div class="nav-grupo${grupoAtivo ? " aberto" : ""}">
         <span class="nav-grupo-toggle${grupoAtivo ? " ativo" : ""}" tabindex="0">${bloco.grupo}${ICONE_SETA}</span>
         <div class="nav-dropdown">${linksDoBloco}</div>
       </div>`;
@@ -173,6 +173,22 @@ function montarTopo(containerId) {
     document.addEventListener("gotur-pwa-instalada", () => btnInstalar.classList.add("escondido"));
     btnInstalar.addEventListener("click", () => instalarPwaGoTur());
   }
+
+  container.querySelectorAll(".nav-grupo-toggle").forEach((toggle) => {
+    const alternar = () => {
+      const grupo = toggle.closest(".nav-grupo");
+      const abrindo = !grupo.classList.contains("aberto");
+      container.querySelectorAll(".nav-grupo.aberto").forEach((g) => g.classList.remove("aberto"));
+      grupo.classList.toggle("aberto", abrindo);
+    };
+    toggle.addEventListener("click", alternar);
+    toggle.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        alternar();
+      }
+    });
+  });
 
   const btnMenu = document.getElementById("btn-menu-mobile");
   const nav = document.getElementById("nav-principal");
