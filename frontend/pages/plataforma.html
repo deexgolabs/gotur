@@ -13,11 +13,40 @@
   <div id="topo"></div>
   <main>
     <h1>Visão geral da plataforma</h1>
-    <p class="subtitulo">Números de todas as empresas cadastradas no GoTur.</p>
+    <p class="subtitulo">Saúde da carteira: todas as empresas cadastradas no GoTur.</p>
 
     <div id="alerta"></div>
 
     <div class="cartoes-resumo" id="cartoes-metricas"></div>
+
+    <h2>MRR — últimos 6 meses</h2>
+    <div class="cartao">
+      <div id="grafico-mrr"></div>
+    </div>
+
+    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      Carteira em risco
+      <span class="rodape-form" style="margin:0">Inadimplentes e suspensas, por tempo de atraso</span>
+    </h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Empresa</th><th>Situação</th><th>Em atraso</th><th>Dias de atraso</th></tr></thead>
+        <tbody id="corpo-risco"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio-risco">Nenhuma empresa inadimplente ou suspensa no momento.</p>
+    </div>
+
+    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      Quem mais cresce
+      <span class="rodape-form" style="margin:0">Passagens vendidas: últimos 30 dias vs. 30 dias anteriores</span>
+    </h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Empresa</th><th>Últimos 30 dias</th><th>30 dias anteriores</th><th>Variação</th></tr></thead>
+        <tbody id="corpo-crescimento"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio-crescimento">Sem vendas registradas nos últimos 60 dias.</p>
+    </div>
 
     <h2>Empresas perto do limite do plano</h2>
     <div class="cartao">
@@ -39,6 +68,44 @@
       document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
     }
 
+    function escaparTexto(texto) {
+      const div = document.createElement("div");
+      div.textContent = texto;
+      return div.innerHTML;
+    }
+
+    function svgBarrasHorizontal(itens, opts = {}) {
+      if (!itens.length) return '<p class="vazio">Sem dados para exibir.</p>';
+      const alturaBarra = 22;
+      const espaco = 12;
+      const larguraRotulo = 90;
+      const larguraMaxBarra = 320;
+      const largura = larguraRotulo + larguraMaxBarra + 100;
+      const altura = itens.length * (alturaBarra + espaco) + espaco;
+      const max = Math.max(...itens.map((i) => i.valor), 1);
+      const cor = opts.cor || "#0b5fa5";
+
+      const barras = itens
+        .map((item, i) => {
+          const y = espaco + i * (alturaBarra + espaco);
+          const larguraBarra = Math.max((item.valor / max) * larguraMaxBarra, 2);
+          return `
+            <text x="0" y="${y + alturaBarra / 2 + 4}" font-size="12" fill="#374151">${escaparTexto(item.label)}</text>
+            <rect x="${larguraRotulo}" y="${y}" width="${larguraBarra}" height="${alturaBarra}" rx="4" fill="${cor}"></rect>
+            <text x="${larguraRotulo + larguraBarra + 8}" y="${y + alturaBarra / 2 + 4}" font-size="12" fill="#374151">${escaparTexto(item.valorTexto ?? item.valor)}</text>
+          `;
+        })
+        .join("");
+
+      return `<svg viewBox="0 0 ${largura} ${altura}" width="100%" style="max-width:560px;min-width:320px">${barras}</svg>`;
+    }
+
+    function rotuloMes(mesIso) {
+      const [ano, mes] = mesIso.split("-");
+      const nomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+      return `${nomes[parseInt(mes, 10) - 1]}/${ano.slice(2)}`;
+    }
+
     async function carregar() {
       const m = await api("GET", "/plataforma/metricas");
 
@@ -49,7 +116,47 @@
         <div class="cartao-resumo"><div class="titulo">${m.empresas_trial}</div><div class="desc">Em trial</div></div>
         <div class="cartao-resumo"><div class="titulo">${m.empresas_inadimplentes}</div><div class="desc">Inadimplentes</div></div>
         <div class="cartao-resumo"><div class="titulo">${m.empresas_suspensas}</div><div class="desc">Suspensas</div></div>
+        <div class="cartao-resumo"><div class="titulo">${m.empresas_desativadas}</div><div class="desc">Desativadas</div></div>
+        <div class="cartao-resumo"><div class="titulo">R$ ${m.inadimplencia_total.toFixed(2)}</div><div class="desc">Total em atraso</div></div>
       `;
+
+      document.getElementById("grafico-mrr").innerHTML = svgBarrasHorizontal(
+        m.mrr_historico.map((linha) => ({
+          label: rotuloMes(linha.mes),
+          valor: linha.mrr,
+          valorTexto: `R$ ${linha.mrr.toFixed(2)}`,
+        })),
+        { cor: "#1c9b6e" }
+      );
+
+      const corpoRisco = document.getElementById("corpo-risco");
+      document.getElementById("vazio-risco").classList.toggle("escondido", m.empresas_em_risco.length > 0);
+      const ROTULOS_SITUACAO = { inadimplente: "Inadimplente", suspensa: "Suspensa" };
+      corpoRisco.innerHTML = m.empresas_em_risco
+        .map(
+          (e) => `
+        <tr>
+          <td>${e.empresa_nome}</td>
+          <td><span class="selo ${e.status_assinatura === "suspensa" ? "bloqueada" : "hold"}">${ROTULOS_SITUACAO[e.status_assinatura] || e.status_assinatura}</span></td>
+          <td>R$ ${e.valor_em_atraso.toFixed(2)}</td>
+          <td>${e.dias_em_atraso}</td>
+        </tr>`
+        )
+        .join("");
+
+      const corpoCrescimento = document.getElementById("corpo-crescimento");
+      document.getElementById("vazio-crescimento").classList.toggle("escondido", m.top_crescimento.length > 0);
+      corpoCrescimento.innerHTML = m.top_crescimento
+        .map(
+          (c) => `
+        <tr>
+          <td>${c.empresa_nome}</td>
+          <td>${c.passagens_mes_atual}</td>
+          <td>${c.passagens_mes_anterior}</td>
+          <td>${c.variacao_percentual == null ? "—" : (c.variacao_percentual >= 0 ? "+" : "") + c.variacao_percentual + "%"}</td>
+        </tr>`
+        )
+        .join("");
 
       const corpo = document.getElementById("corpo-limites");
       document.getElementById("vazio-limites").classList.toggle("escondido", m.empresas_perto_do_limite.length > 0);
