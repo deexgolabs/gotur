@@ -15,6 +15,7 @@ from app.models.pedido_pagamento import PedidoPagamento
 from app.models.plano import Plano
 from app.models.poltrona_viagem import PoltronaViagem
 from app.models.push_inscricao import PushInscricao
+from app.models.repasse_parceiro import RepasseParceiro
 from app.models.rota import Rota
 from app.models.usuario import Usuario
 from app.models.viagem import Viagem
@@ -43,4 +44,5 @@ __all__ = [
     "PosicaoFrete",
     "PushInscricao",
     "Parceiro",
+    "RepasseParceiro",
 ]

@@ -75,6 +75,10 @@
       if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
     }
 
+    function formatarData(iso) {
+      return iso ? new Date(iso).toLocaleDateString("pt-BR") : "-";
+    }
+
     function rotuloVende(p) {
       if (p.vende_passagem && p.despacha_frete) return "Passagem + Frete";
       if (p.vende_passagem) return "Passagem";
@@ -97,12 +101,20 @@
           <td><span class="selo ${p.tem_acesso ? "livre" : "hold"}">${p.tem_acesso ? "Tem login" : "Sem login"}</span></td>
           <td><span class="selo ${p.ativo ? "livre" : "bloqueada"}">${p.ativo ? "Ativo" : "Desativado"}</span></td>
           <td>
+            <button class="secundario" data-repasses="${p.id}">Repasses</button>
             ${!p.tem_acesso ? `<button class="secundario" data-criar-acesso="${p.id}">Criar acesso</button>` : ""}
             ${p.ativo ? `<button class="perigo" data-desativar="${p.id}">Desativar</button>` : `<button class="secundario" data-ativar="${p.id}">Reativar</button>`}
           </td>
+        </tr>
+        <tr class="escondido" id="linha-repasses-${p.id}">
+          <td colspan="7"><div id="repasses-${p.id}"></div></td>
         </tr>`
         )
         .join("");
+
+      corpo.querySelectorAll("button[data-repasses]").forEach((btn) => {
+        btn.addEventListener("click", () => alternarRepasses(btn.dataset.repasses));
+      });
 
       corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
         btn.addEventListener("click", async () => {
@@ -141,6 +153,65 @@
           }
         });
       });
+    }
+
+    async function alternarRepasses(parceiroId) {
+      const linha = document.getElementById(`linha-repasses-${parceiroId}`);
+      const abrindo = linha.classList.contains("escondido");
+      linha.classList.toggle("escondido");
+      if (abrindo) await carregarRepasses(parceiroId);
+    }
+
+    async function carregarRepasses(parceiroId) {
+      const container = document.getElementById(`repasses-${parceiroId}`);
+      container.innerHTML = "Carregando...";
+      try {
+        const lista = await api("GET", `/parceiros/${parceiroId}/repasses`);
+        const linhas = lista
+          .map(
+            (r) => `
+          <tr>
+            <td>${formatarData(r.periodo_inicio)} – ${formatarData(r.periodo_fim)}</td>
+            <td>${r.total_passagens}</td>
+            <td>${r.total_fretes}</td>
+            <td>R$ ${r.valor_comissao.toFixed(2)}</td>
+            <td><span class="selo ${r.status === "pago" ? "livre" : "hold"}">${r.status === "pago" ? "Pago" : "Pendente"}</span></td>
+            <td>${r.status === "pendente" ? `<button class="secundario" data-pagar="${r.id}">Marcar como pago</button>` : `Pago em ${formatarData(r.pago_em)}`}</td>
+          </tr>`
+          )
+          .join("");
+        container.innerHTML = `
+          <div class="linha-acoes" style="margin:10px 0">
+            <button type="button" class="secundario" data-gerar-repasse="${parceiroId}">Gerar repasse</button>
+          </div>
+          <table>
+            <thead><tr><th>Período</th><th>Passagens</th><th>Fretes</th><th>Comissão</th><th>Status</th><th></th></tr></thead>
+            <tbody>${linhas || '<tr><td colspan="6">Nenhum repasse gerado ainda.</td></tr>'}</tbody>
+          </table>`;
+
+        container.querySelector("[data-gerar-repasse]").addEventListener("click", async () => {
+          try {
+            await api("POST", `/parceiros/${parceiroId}/repasses`);
+            mostrarAlerta("Repasse gerado.", "sucesso");
+            carregarRepasses(parceiroId);
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+        container.querySelectorAll("[data-pagar]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            try {
+              await api("PATCH", `/parceiros/repasses/${btn.dataset.pagar}/pagar`);
+              mostrarAlerta("Repasse marcado como pago.", "sucesso");
+              carregarRepasses(parceiroId);
+            } catch (erro) {
+              mostrarAlerta(erro.message);
+            }
+          });
+        });
+      } catch (erro) {
+        container.innerHTML = `<p class="vazio">${erro.message}</p>`;
+      }
     }
 
     if (auth) {

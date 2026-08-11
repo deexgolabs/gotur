@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -5,16 +7,18 @@ from sqlalchemy.orm import Session
 from app.core.deps import require_roles
 from app.core.security import hash_senha
 from app.database import get_db
-from app.models.enums import StatusFrete, StatusPassagem, UserRole
+from app.models.enums import StatusFrete, StatusPassagem, StatusRepasse, UserRole
 from app.models.frete import Frete
 from app.models.parceiro import Parceiro
 from app.models.passagem import Passagem
+from app.models.repasse_parceiro import RepasseParceiro
 from app.models.usuario import Usuario
 from app.schemas.parceiro import (
     CriarAcessoParceiroRequest,
     ParceiroCreate,
     ParceiroOut,
     ParceiroUpdate,
+    RepasseParceiroOut,
     ResumoParceiroOut,
 )
 from app.schemas.passagem import PassagemOut
@@ -124,6 +128,147 @@ def criar_acesso_parceiro(
     db.add(usuario)
     db.commit()
     return _para_out(db, parceiro)
+
+
+def _repasse_para_out(repasse: RepasseParceiro) -> RepasseParceiroOut:
+    return RepasseParceiroOut(
+        id=repasse.id,
+        parceiro_id=repasse.parceiro_id,
+        parceiro_nome=repasse.parceiro.nome if repasse.parceiro else None,
+        periodo_inicio=repasse.periodo_inicio,
+        periodo_fim=repasse.periodo_fim,
+        total_passagens=repasse.total_passagens,
+        valor_passagens=float(repasse.valor_passagens),
+        total_fretes=repasse.total_fretes,
+        valor_fretes=float(repasse.valor_fretes),
+        comissao_percentual=float(repasse.comissao_percentual),
+        valor_comissao=float(repasse.valor_comissao),
+        status=repasse.status,
+        criado_em=repasse.criado_em,
+        pago_em=repasse.pago_em,
+    )
+
+
+@router.post("/{parceiro_id}/repasses", response_model=RepasseParceiroOut, status_code=status.HTTP_201_CREATED)
+def gerar_repasse(
+    parceiro_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """Apura passagens e fretes do parceiro desde o último repasse gerado
+    (ou desde o cadastro dele, no primeiro repasse) e cria um "a pagar"
+    pendente. O pagamento em si acontece fora do sistema — ver
+    /repasses/{id}/pagar pra só marcar como quitado."""
+    parceiro = _buscar_parceiro_da_empresa(db, parceiro_id, usuario_atual)
+
+    ultimo = (
+        db.query(RepasseParceiro)
+        .filter(RepasseParceiro.parceiro_id == parceiro.id)
+        .order_by(RepasseParceiro.periodo_fim.desc())
+        .first()
+    )
+    inicio = ultimo.periodo_fim if ultimo else parceiro.criado_em
+    fim = datetime.now(timezone.utc)
+
+    total_passagens, valor_passagens = (
+        db.query(func.count(Passagem.id), func.coalesce(func.sum(Passagem.preco), 0))
+        .filter(
+            Passagem.parceiro_id == parceiro.id,
+            Passagem.status == StatusPassagem.CONFIRMADA,
+            Passagem.criado_em > inicio,
+            Passagem.criado_em <= fim,
+        )
+        .first()
+    )
+    total_fretes, valor_fretes = (
+        db.query(func.count(Frete.id), func.coalesce(func.sum(Frete.valor_total), 0))
+        .filter(
+            Frete.parceiro_id == parceiro.id,
+            Frete.status != StatusFrete.CANCELADO,
+            Frete.criado_em > inicio,
+            Frete.criado_em <= fim,
+        )
+        .first()
+    )
+
+    if total_passagens == 0 and total_fretes == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Não há vendas nesse período pra gerar repasse."
+        )
+
+    valor_passagens = float(valor_passagens)
+    valor_fretes = float(valor_fretes)
+    comissao_pct = float(parceiro.comissao_percentual) if parceiro.comissao_percentual is not None else 0.0
+    valor_comissao = round((valor_passagens + valor_fretes) * comissao_pct / 100, 2)
+
+    repasse = RepasseParceiro(
+        tenant_id=usuario_atual.tenant_id,
+        parceiro_id=parceiro.id,
+        periodo_inicio=inicio,
+        periodo_fim=fim,
+        total_passagens=total_passagens,
+        valor_passagens=round(valor_passagens, 2),
+        total_fretes=total_fretes,
+        valor_fretes=round(valor_fretes, 2),
+        comissao_percentual=comissao_pct,
+        valor_comissao=valor_comissao,
+    )
+    db.add(repasse)
+    db.commit()
+    db.refresh(repasse)
+    return _repasse_para_out(repasse)
+
+
+@router.get("/minha/repasses", response_model=list[RepasseParceiroOut])
+def meus_repasses(
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.PARCEIRO)),
+):
+    """Precisa vir registrada antes de GET /{parceiro_id}/repasses — o
+    FastAPI casa rotas por posição de registro e forma do caminho, não
+    pelo tipo do parâmetro, então "/minha/repasses" seria capturado pela
+    rota dinâmica se ela viesse primeiro."""
+    repasses = (
+        db.query(RepasseParceiro)
+        .filter(RepasseParceiro.parceiro_id == usuario_atual.parceiro_id)
+        .order_by(RepasseParceiro.criado_em.desc())
+        .all()
+    )
+    return [_repasse_para_out(r) for r in repasses]
+
+
+@router.get("/{parceiro_id}/repasses", response_model=list[RepasseParceiroOut])
+def listar_repasses(
+    parceiro_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    parceiro = _buscar_parceiro_da_empresa(db, parceiro_id, usuario_atual)
+    repasses = (
+        db.query(RepasseParceiro)
+        .filter(RepasseParceiro.parceiro_id == parceiro.id)
+        .order_by(RepasseParceiro.criado_em.desc())
+        .all()
+    )
+    return [_repasse_para_out(r) for r in repasses]
+
+
+@router.patch("/repasses/{repasse_id}/pagar", response_model=RepasseParceiroOut)
+def marcar_repasse_pago(
+    repasse_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    repasse = db.get(RepasseParceiro, repasse_id)
+    if not repasse or repasse.tenant_id != usuario_atual.tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repasse não encontrado")
+    if repasse.status == StatusRepasse.PAGO:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Esse repasse já foi marcado como pago.")
+    repasse.status = StatusRepasse.PAGO
+    repasse.pago_em = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(repasse)
+    return _repasse_para_out(repasse)
 
 
 @router.get("/minha/resumo", response_model=ResumoParceiroOut)

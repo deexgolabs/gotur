@@ -211,6 +211,102 @@ def test_relatorio_por_parceiro(client, db):
     assert linhas[0]["comissao_estimada"] == 5.0
 
 
+def test_gerar_repasse_apura_comissao_e_marca_como_pago(client, db):
+    empresa = criar_empresa_completa(db, "PAR13")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+    parceiro = _criar_parceiro(client, headers, comissao_percentual=10)
+
+    _vender_passagem(client, headers, empresa["viagem_id"], parceiro_id=parceiro["id"])
+
+    resposta = client.post(f"/api/parceiros/{parceiro['id']}/repasses", headers=headers)
+    assert resposta.status_code == 201, resposta.text
+    repasse = resposta.json()
+    assert repasse["total_passagens"] == 1
+    assert repasse["valor_passagens"] == 100.0
+    assert repasse["comissao_percentual"] == 10.0
+    assert repasse["valor_comissao"] == 10.0
+    assert repasse["status"] == "pendente"
+    assert repasse["pago_em"] is None
+
+    lista = client.get(f"/api/parceiros/{parceiro['id']}/repasses", headers=headers).json()
+    assert len(lista) == 1
+    assert lista[0]["id"] == repasse["id"]
+
+    pago = client.patch(f"/api/parceiros/repasses/{repasse['id']}/pagar", headers=headers)
+    assert pago.status_code == 200
+    assert pago.json()["status"] == "pago"
+    assert pago.json()["pago_em"] is not None
+
+    repetir = client.patch(f"/api/parceiros/repasses/{repasse['id']}/pagar", headers=headers)
+    assert repetir.status_code == 400
+
+
+def test_gerar_repasse_sem_vendas_no_periodo_e_rejeitado(client, db):
+    empresa = criar_empresa_completa(db, "PAR14")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+    parceiro = _criar_parceiro(client, headers)
+
+    resposta = client.post(f"/api/parceiros/{parceiro['id']}/repasses", headers=headers)
+    assert resposta.status_code == 400
+
+
+def test_segundo_repasse_cobre_so_o_periodo_novo(client, db):
+    empresa = criar_empresa_completa(db, "PAR15", total_poltronas=4)
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+    parceiro = _criar_parceiro(client, headers, comissao_percentual=10)
+
+    _vender_passagem(client, headers, empresa["viagem_id"], parceiro_id=parceiro["id"], cliente_documento="111")
+    primeiro = client.post(f"/api/parceiros/{parceiro['id']}/repasses", headers=headers)
+    assert primeiro.status_code == 201
+    assert primeiro.json()["total_passagens"] == 1
+
+    # Sem vendas novas — segundo repasse não tem o que apurar.
+    sem_vendas_novas = client.post(f"/api/parceiros/{parceiro['id']}/repasses", headers=headers)
+    assert sem_vendas_novas.status_code == 400
+
+    _vender_passagem(client, headers, empresa["viagem_id"], parceiro_id=parceiro["id"], cliente_documento="222")
+    segundo = client.post(f"/api/parceiros/{parceiro['id']}/repasses", headers=headers)
+    assert segundo.status_code == 201
+    assert segundo.json()["total_passagens"] == 1  # só a venda nova, não repete a já apurada
+
+
+def test_parceiro_ve_seus_proprios_repasses(client, db):
+    empresa = criar_empresa_completa(db, "PAR16")
+    headers_admin = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+    parceiro = _criar_parceiro(client, headers_admin, comissao_percentual=10)
+    client.post(
+        f"/api/parceiros/{parceiro['id']}/acesso",
+        json={"email": "acesso.par16@teste.com", "senha": "senha123"},
+        headers=headers_admin,
+    )
+
+    _vender_passagem(client, headers_admin, empresa["viagem_id"], parceiro_id=parceiro["id"])
+    client.post(f"/api/parceiros/{parceiro['id']}/repasses", headers=headers_admin)
+
+    headers_parceiro = auth_header(login(client, "acesso.par16@teste.com", "senha123"))
+    meus = client.get("/api/parceiros/minha/repasses", headers=headers_parceiro).json()
+    assert len(meus) == 1
+    assert meus[0]["valor_comissao"] == 10.0
+
+    # rota de gerar/marcar pago é só de staff, parceiro não acessa
+    negado = client.post(f"/api/parceiros/{parceiro['id']}/repasses", headers=headers_parceiro)
+    assert negado.status_code == 403
+
+
+def test_repasse_de_outra_empresa_nao_pode_ser_marcado_pago(client, db):
+    empresa_a = criar_empresa_completa(db, "PAR17")
+    empresa_b = criar_empresa_completa(db, "PAR18")
+    headers_a = auth_header(login(client, empresa_a["admin_email"], empresa_a["senha"]))
+    headers_b = auth_header(login(client, empresa_b["admin_email"], empresa_b["senha"]))
+    parceiro_a = _criar_parceiro(client, headers_a, comissao_percentual=10)
+
+    _vender_passagem(client, headers_a, empresa_a["viagem_id"], parceiro_id=parceiro_a["id"])
+    repasse = client.post(f"/api/parceiros/{parceiro_a['id']}/repasses", headers=headers_a).json()
+
+    resposta = client.patch(f"/api/parceiros/repasses/{repasse['id']}/pagar", headers=headers_b)
+    assert resposta.status_code == 404
+
+
 def test_parceiro_nao_acessa_rotas_de_staff(client, db):
     empresa = criar_empresa_completa(db, "PAR11")
     headers_admin = auth_header(login(client, empresa["admin_email"], empresa["senha"]))

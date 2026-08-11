@@ -36,6 +36,15 @@
       </table>
       <p class="vazio escondido" id="vazio-fretes">Nenhum frete despachado ainda.</p>
     </div>
+
+    <h2>Meus repasses</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Período</th><th>Passagens</th><th>Fretes</th><th>Comissão</th><th>Status</th></tr></thead>
+        <tbody id="corpo-repasses"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio-repasses">Nenhum repasse gerado ainda.</p>
+    </div>
   </main>
 
   <script src="/js/api.js"></script>
@@ -61,11 +70,16 @@
       return iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "-";
     }
 
+    function formatarData(iso) {
+      return iso ? new Date(iso).toLocaleDateString("pt-BR") : "-";
+    }
+
     async function carregar() {
-      const [resumo, passagens, fretes] = await Promise.all([
+      const [resumo, passagens, fretes, repasses] = await Promise.all([
         api("GET", "/parceiros/minha/resumo"),
         api("GET", "/parceiros/minha/passagens"),
         api("GET", "/parceiros/minha/fretes"),
+        api("GET", "/parceiros/minha/repasses"),
       ]);
 
       document.getElementById("subtitulo").textContent = `Vendas registradas em seu nome — ${resumo.parceiro_nome}`;
@@ -105,6 +119,21 @@
           <td>${f.origem} → ${f.destino}</td>
           <td>${f.valor_total != null ? "R$ " + Number(f.valor_total).toFixed(2) : "—"}</td>
           <td><span class="selo hold">${ROTULOS_STATUS_FRETE[f.status] || f.status}</span></td>
+        </tr>`
+        )
+        .join("");
+
+      const corpoRepasses = document.getElementById("corpo-repasses");
+      document.getElementById("vazio-repasses").classList.toggle("escondido", repasses.length > 0);
+      corpoRepasses.innerHTML = repasses
+        .map(
+          (r) => `
+        <tr>
+          <td>${formatarData(r.periodo_inicio)} – ${formatarData(r.periodo_fim)}</td>
+          <td>${r.total_passagens}</td>
+          <td>${r.total_fretes}</td>
+          <td>R$ ${r.valor_comissao.toFixed(2)}</td>
+          <td><span class="selo ${r.status === "pago" ? "livre" : "hold"}">${r.status === "pago" ? "Pago" : "Pendente"}</span></td>
         </tr>`
         )
         .join("");

@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.models.enums import StatusRepasse
+
 
 class ParceiroCreate(BaseModel):
     nome: str
@@ -50,3 +52,22 @@ class ResumoParceiroOut(BaseModel):
     total_fretes: int
     total_arrecadado_fretes: float
     comissao_estimada: float
+
+
+class RepasseParceiroOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    parceiro_id: int
+    parceiro_nome: str | None = None
+    periodo_inicio: datetime
+    periodo_fim: datetime
+    total_passagens: int
+    valor_passagens: float
+    total_fretes: int
+    valor_fretes: float
+    comissao_percentual: float
+    valor_comissao: float
+    status: StatusRepasse
+    criado_em: datetime
+    pago_em: datetime | None

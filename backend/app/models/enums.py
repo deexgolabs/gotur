@@ -111,6 +111,16 @@ class CategoriaPassageiro(str, enum.Enum):
     CRIANCA_COLO = "crianca_colo"
 
 
+class StatusRepasse(str, enum.Enum):
+    """Situação de um repasse de comissão gerado pra um parceiro (ver
+    app.models.repasse_parceiro.RepasseParceiro) — o pagamento em si
+    acontece fora do sistema (Pix, transferência); aqui só se registra o
+    valor apurado e se já foi marcado como pago."""
+
+    PENDENTE = "pendente"
+    PAGO = "pago"
+
+
 class StatusPedidoPagamento(str, enum.Enum):
     """Status de uma cobrança Pix pendente de confirmação (compra do
     cliente que ainda não caiu na conta). Cartão, dinheiro e outros meios
