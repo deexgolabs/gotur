@@ -1,27 +1,44 @@
 from datetime import date, datetime, time
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import require_roles
 from app.database import get_db
 from app.models.empresa import Empresa
-from app.models.enums import StatusPoltrona, UserRole
+from app.models.enums import CategoriaPassageiro, StatusPassagem, StatusPoltrona, TipoDocumento, UserRole
 from app.models.onibus import Onibus, PoltronaOnibus
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
 from app.models.parada import Parada
+from app.models.passagem import Passagem
 from app.models.poltrona_viagem import PoltronaViagem
 from app.models.rota import Rota
 from app.models.usuario import Usuario
 from app.models.viagem import Viagem
 from app.schemas.viagem import ViagemBuscaOut, ViagemCreate, ViagemOut, ViagemUpdate
 from app.services.limites_plano import verificar_limite_viagens_mes
+from app.services.pdf_service import DadosManifesto, PassageiroManifesto, gerar_manifesto_pdf
 from app.services.trecho import (
     buscar_paradas_da_rota,
     calcular_preco_trecho,
     liberar_holds_expirados,
     status_da_poltrona_no_trecho,
 )
+
+ROTULOS_TIPO_DOCUMENTO = {
+    TipoDocumento.CPF: "CPF",
+    TipoDocumento.RG: "RG",
+    TipoDocumento.CNH: "CNH",
+    TipoDocumento.PASSAPORTE: "Passaporte",
+    TipoDocumento.OUTRO: "Outro",
+}
+
+ROTULOS_CATEGORIA_PASSAGEIRO = {
+    CategoriaPassageiro.COMUM: "Comum",
+    CategoriaPassageiro.IDOSO: "Idoso",
+    CategoriaPassageiro.PCD: "PCD",
+    CategoriaPassageiro.CRIANCA_COLO: "Crianca de colo",
+}
 
 router = APIRouter(prefix="/viagens", tags=["viagens"])
 
@@ -101,6 +118,60 @@ def editar_viagem(
     db.commit()
     db.refresh(viagem)
     return viagem
+
+
+@router.get("/{viagem_id}/manifesto.pdf")
+def manifesto_pdf(
+    viagem_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA, UserRole.FUNCIONARIO)),
+):
+    """Lista de passageiros confirmados na viagem, em PDF — pro motorista
+    apresentar numa fiscalização (blitz) em linha intermunicipal."""
+    viagem = (
+        db.query(Viagem)
+        .options(joinedload(Viagem.rota), joinedload(Viagem.onibus))
+        .filter(Viagem.id == viagem_id, Viagem.tenant_id == usuario_atual.tenant_id)
+        .first()
+    )
+    if not viagem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
+
+    passagens = (
+        db.query(Passagem)
+        .options(joinedload(Passagem.poltrona_viagem).joinedload(PoltronaViagem.poltrona_onibus))
+        .filter(Passagem.viagem_id == viagem.id, Passagem.status == StatusPassagem.CONFIRMADA)
+        .all()
+    )
+    passagens.sort(key=lambda p: p.poltrona_viagem.poltrona_onibus.numero)
+
+    empresa = db.get(Empresa, usuario_atual.tenant_id)
+    pdf_bytes = gerar_manifesto_pdf(
+        DadosManifesto(
+            empresa_nome=empresa.nome if empresa else "",
+            origem=viagem.rota.origem,
+            destino=viagem.rota.destino,
+            data_hora_partida=viagem.data_hora_partida,
+            onibus_identificacao=viagem.onibus.identificacao,
+            motorista_nome=viagem.motorista_nome,
+            passageiros=[
+                PassageiroManifesto(
+                    poltrona=p.poltrona_viagem.poltrona_onibus.numero,
+                    nome=p.cliente_nome,
+                    documento=p.cliente_documento,
+                    tipo_documento=ROTULOS_TIPO_DOCUMENTO.get(p.tipo_documento, p.tipo_documento.value),
+                    categoria=ROTULOS_CATEGORIA_PASSAGEIRO.get(p.categoria_passageiro, p.categoria_passageiro.value),
+                    embarcado=p.checkin_em is not None,
+                )
+                for p in passagens
+            ],
+        )
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="manifesto-viagem-{viagem.id}.pdf"'},
+    )
 
 
 @router.patch("/{viagem_id}/desativar", response_model=ViagemOut)

@@ -101,6 +101,7 @@
           <td><span class="selo ${v.ativo ? "livre" : "bloqueada"}">${v.ativo ? "Ativa" : "Cancelada"}</span></td>
           <td>
             <a href="/pages/mapa-poltronas.html?viagem_id=${v.id}"><button>Mapa de poltronas</button></a>
+            <button class="secundario" data-manifesto="${v.id}">Manifesto PDF</button>
             <button class="secundario" data-jornada="${v.id}" data-motorista="${v.motorista_nome || ""}">Jornada</button>
             ${ehAdmin ? `<button class="secundario" data-editar="${v.id}">Editar</button>` : ""}
             ${ehAdmin
@@ -115,6 +116,12 @@
 
       corpo.querySelectorAll("button[data-jornada]").forEach((btn) => {
         btn.addEventListener("click", () => abrirDialogJornada("viagem", parseInt(btn.dataset.jornada, 10), btn.dataset.motorista));
+      });
+
+      corpo.querySelectorAll("button[data-manifesto]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          abrirArquivoAutenticado(`/viagens/${btn.dataset.manifesto}/manifesto.pdf`, "manifesto").catch((e) => mostrarAlerta(e.message));
+        });
       });
 
       if (!ehAdmin) return;
