@@ -104,6 +104,7 @@ function agruparLinks(links) {
 
 const ICONE_MENU = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
 const ICONE_FECHAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>`;
+const ICONE_SETA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
 
 function montarTopo(containerId) {
   const auth = obterAuth();
@@ -114,16 +115,19 @@ function montarTopo(containerId) {
   const caminhoAtual = window.location.pathname;
   const blocos = agruparLinks(links);
   const navHtml = blocos
-    .map((bloco, indice) => {
-      const rotulo = bloco.grupo ? `<span class="nav-rotulo-grupo">${bloco.grupo}</span>` : "";
+    .map((bloco) => {
       const linksDoBloco = bloco.links
         .map(
           (l) =>
             `<a href="${l.href}" class="link-nav${caminhoAtual === l.href ? " ativo" : ""}"${l.modulo ? ` data-modulo="${l.modulo}"` : ""}>${l.label}</a>`
         )
         .join("");
-      const separador = indice > 0 ? '<div class="nav-separador"></div>' : "";
-      return `${separador}<div class="nav-grupo">${rotulo}${linksDoBloco}</div>`;
+      if (!bloco.grupo) return linksDoBloco;
+      const grupoAtivo = bloco.links.some((l) => caminhoAtual === l.href);
+      return `<div class="nav-grupo">
+        <span class="nav-grupo-toggle${grupoAtivo ? " ativo" : ""}" tabindex="0">${bloco.grupo}${ICONE_SETA}</span>
+        <div class="nav-dropdown">${linksDoBloco}</div>
+      </div>`;
     })
     .join("");
 
@@ -202,6 +206,12 @@ function montarTopo(containerId) {
         if (!empresa.frete_habilitado) {
           container.querySelectorAll('[data-modulo="frete"]').forEach((el) => el.classList.add("escondido"));
         }
+        container.querySelectorAll(".nav-grupo").forEach((grupoEl) => {
+          const linksDoGrupo = grupoEl.querySelectorAll(".nav-dropdown .link-nav");
+          if ([...linksDoGrupo].every((a) => a.classList.contains("escondido"))) {
+            grupoEl.classList.add("escondido");
+          }
+        });
         if (empresa.logo_url) {
           const logo = document.getElementById("logo-empresa-topo");
           if (logo) {
