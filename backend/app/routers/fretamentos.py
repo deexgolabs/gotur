@@ -5,7 +5,7 @@ from app.core.deps import require_roles, require_staff
 from app.database import get_db
 from app.models.avaliacao import Avaliacao
 from app.models.empresa import Empresa
-from app.models.enums import StatusFretamento, UserRole
+from app.models.enums import StatusFretamento, TipoRastreioPush, UserRole
 from app.models.fretamento import Fretamento, PosicaoFretamento
 from app.models.onibus import Onibus
 from app.models.usuario import Usuario
@@ -20,16 +20,20 @@ from app.schemas.fretamento import (
     RastreioPublicoOut,
     SolicitarOrcamentoFretamentoRequest,
 )
+from app.schemas.push import InscricaoPushRequest
 from app.services.auditoria import registrar as registrar_auditoria
 from app.services.codigo import gerar_localizador
 from app.services.geo import distancia_percorrida_km
 from app.services.notificacoes import enviar_atualizacao_status_fretamento
+from app.services.push_service import inscrever as inscrever_push
+from app.services.push_service import notificar_inscritos
 from app.services.rate_limit import limitar_taxa
-from app.services.whatsapp_service import enviar_atualizacao_status_fretamento_whatsapp
+from app.services.whatsapp_service import ROTULOS_STATUS_FRETAMENTO, enviar_atualizacao_status_fretamento_whatsapp
 
 router = APIRouter(prefix="/fretamentos", tags=["fretamentos"])
 
 _limite_solicitar_orcamento = limitar_taxa("solicitar-fretamento", max_chamadas=5, janela_segundos=600)
+_limite_inscrever_push = limitar_taxa("inscrever-push-fretamento", max_chamadas=10, janela_segundos=600)
 
 
 def _calcular_valor_total(distancia_km: float | None, valor_por_km: float | None, valor_total_manual: float | None) -> float | None:
@@ -67,6 +71,7 @@ def _para_out(fretamento: Fretamento) -> FretamentoOut:
         valor_por_km=float(fretamento.valor_por_km) if fretamento.valor_por_km is not None else None,
         valor_total=float(fretamento.valor_total) if fretamento.valor_total is not None else None,
         status=fretamento.status,
+        icone_mapa=fretamento.icone_mapa,
         observacoes=fretamento.observacoes,
         criado_em=fretamento.criado_em,
         distancia_percorrida_km=distancia_percorrida_km(pontos),
@@ -103,6 +108,7 @@ def criar_fretamento(
         data_hora_retorno_prevista=dados.data_hora_retorno_prevista,
         onibus_id=dados.onibus_id,
         motorista_nome=dados.motorista_nome,
+        icone_mapa=dados.icone_mapa or "🚌",
         distancia_km=dados.distancia_km,
         valor_por_km=valor_por_km,
         valor_total=_calcular_valor_total(dados.distancia_km, valor_por_km, dados.valor_total),
@@ -233,10 +239,6 @@ def editar_fretamento(
 
 
 def _notificar_mudanca_status(request: Request, db: Session, fretamento: Fretamento) -> None:
-    contato = (fretamento.cliente_contato or "").strip()
-    if not contato:
-        return
-
     empresa = db.get(Empresa, fretamento.tenant_id)
     slug = empresa.slug if empresa else None
     base = str(request.base_url).rstrip("/")
@@ -246,24 +248,36 @@ def _notificar_mudanca_status(request: Request, db: Session, fretamento: Fretame
         else f"{base}/rastrear.html?codigo={fretamento.codigo_rastreio}"
     )
 
-    if "@" in contato:
-        enviar_atualizacao_status_fretamento(
-            destinatario_email=contato,
-            cliente_nome=fretamento.cliente_nome,
-            origem=fretamento.origem,
-            destino=fretamento.destino,
-            novo_status=fretamento.status.value,
-            link_acompanhar=link_acompanhar,
-        )
-    else:
-        enviar_atualizacao_status_fretamento_whatsapp(
-            telefone=contato,
-            cliente_nome=fretamento.cliente_nome,
-            origem=fretamento.origem,
-            destino=fretamento.destino,
-            novo_status=fretamento.status.value,
-            link_acompanhar=link_acompanhar,
-        )
+    contato = (fretamento.cliente_contato or "").strip()
+    if contato:
+        if "@" in contato:
+            enviar_atualizacao_status_fretamento(
+                destinatario_email=contato,
+                cliente_nome=fretamento.cliente_nome,
+                origem=fretamento.origem,
+                destino=fretamento.destino,
+                novo_status=fretamento.status.value,
+                link_acompanhar=link_acompanhar,
+            )
+        else:
+            enviar_atualizacao_status_fretamento_whatsapp(
+                telefone=contato,
+                cliente_nome=fretamento.cliente_nome,
+                origem=fretamento.origem,
+                destino=fretamento.destino,
+                novo_status=fretamento.status.value,
+                link_acompanhar=link_acompanhar,
+            )
+
+    rotulo_status = ROTULOS_STATUS_FRETAMENTO.get(fretamento.status.value, fretamento.status.value)
+    notificar_inscritos(
+        db,
+        tipo=TipoRastreioPush.FRETAMENTO,
+        objeto_id=fretamento.id,
+        titulo="Fretamento atualizado",
+        corpo=f"{fretamento.origem} → {fretamento.destino}: {rotulo_status}",
+        url=link_acompanhar,
+    )
 
 
 @router.patch("/{fretamento_id}/status", response_model=FretamentoOut)
@@ -345,11 +359,23 @@ def rastrear_publico(codigo: str, db: Session = Depends(get_db)):
         destino=fretamento.destino,
         data_hora_saida=fretamento.data_hora_saida,
         status=fretamento.status,
+        icone_mapa=fretamento.icone_mapa,
         distancia_percorrida_km=distancia_percorrida_km(pontos),
         ultima_posicao=PosicaoOut.model_validate(ultima) if ultima else None,
         trajeto=[PosicaoOut.model_validate(p) for p in fretamento.posicoes],
         ja_avaliado=db.query(Avaliacao).filter(Avaliacao.fretamento_id == fretamento.id).first() is not None,
     )
+
+
+@router.post("/rastrear/{codigo}/push", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(_limite_inscrever_push)])
+def inscrever_push_fretamento(codigo: str, dados: InscricaoPushRequest, db: Session = Depends(get_db)):
+    """Sem autenticação — quem está acompanhando pela tela de rastreio
+    ativa notificações do navegador pra esse fretamento específico."""
+    fretamento = db.query(Fretamento).filter(Fretamento.codigo_rastreio == codigo.upper()).first()
+    if not fretamento:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Código de rastreio não encontrado")
+
+    inscrever_push(db, tenant_id=fretamento.tenant_id, tipo=TipoRastreioPush.FRETAMENTO, objeto_id=fretamento.id, dados=dados)
 
 
 @router.post("/rastrear/{codigo}/avaliar", response_model=AvaliacaoOut, status_code=status.HTTP_201_CREATED)

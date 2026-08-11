@@ -54,6 +54,10 @@
           <input type="checkbox" id="inclui-fretamento" checked style="width:auto" />
           Inclui fretamento
         </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="inclui-frete" checked style="width:auto" />
+          Inclui frete
+        </label>
         <div class="linha-acoes">
           <button type="submit">Cadastrar plano</button>
         </div>
@@ -101,6 +105,7 @@
           <td>
             <span class="selo ${p.modulo_passagens ? "livre" : "bloqueada"}" data-toggle-modulo="passagens" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Viagens</span>
             <span class="selo ${p.modulo_fretamento ? "livre" : "bloqueada"}" data-toggle-modulo="fretamento" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Fretamento</span>
+            <span class="selo ${p.modulo_frete ? "livre" : "bloqueada"}" data-toggle-modulo="frete" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Frete</span>
           </td>
           <td><span class="selo ${p.ativo ? "livre" : "bloqueada"}">${p.ativo ? "Ativo" : "Inativo"}</span></td>
           <td>
@@ -151,7 +156,7 @@
       corpo.querySelectorAll("[data-toggle-modulo]").forEach((selo) => {
         selo.addEventListener("click", async () => {
           const plano = lista.find((p) => p.id == selo.dataset.plano);
-          const campo = selo.dataset.toggleModulo === "passagens" ? "modulo_passagens" : "modulo_fretamento";
+          const campo = { passagens: "modulo_passagens", fretamento: "modulo_fretamento", frete: "modulo_frete" }[selo.dataset.toggleModulo];
           try {
             await api("PATCH", `/planos/${plano.id}`, { [campo]: !plano[campo] });
             carregar();
@@ -183,6 +188,7 @@
           descricao: document.getElementById("descricao").value.trim() || null,
           modulo_passagens: document.getElementById("inclui-passagens").checked,
           modulo_fretamento: document.getElementById("inclui-fretamento").checked,
+          modulo_frete: document.getElementById("inclui-frete").checked,
         });
         ev.target.reset();
         mostrarAlerta("Plano cadastrado com sucesso.", "sucesso");

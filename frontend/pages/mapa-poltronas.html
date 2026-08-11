@@ -70,6 +70,10 @@
               <option value="outro">Outro</option>
             </select>
           </div>
+          <div style="margin-bottom:12px">
+            <label for="codigo-cupom">Cupom de desconto (opcional)</label>
+            <input id="codigo-cupom" placeholder="Ex: PROMO10" style="text-transform:uppercase" />
+          </div>
           <div class="linha-acoes">
             <button type="submit">Confirmar venda</button>
             <button type="button" class="secundario" id="btn-liberar">Liberar poltrona</button>
@@ -245,6 +249,7 @@
           forma_pagamento: document.getElementById("forma-pagamento").value,
           parada_origem_id: trechoOrigemId,
           parada_destino_id: trechoDestinoId,
+          codigo_cupom: document.getElementById("codigo-cupom").value.trim() || null,
         });
 
         if (resposta.pedido_pagamento) {
@@ -293,6 +298,7 @@
           </td>
           <td>
             ${p.status === "confirmada" ? `<button class="secundario" data-bilhete="${p.localizador}">Bilhete PDF</button>` : ""}
+            ${p.status === "confirmada" ? `<button class="secundario" data-nfse="${p.id}">Emitir NFS-e</button>` : ""}
             ${p.status === "confirmada" ? `<button class="perigo" data-cancelar="${p.id}">Cancelar</button>` : ""}
             ${p.status === "cancelada" && !p.reembolsado_em ? `<button class="secundario" data-reembolsar="${p.id}">Reembolsar</button>` : ""}
           </td>
@@ -303,6 +309,21 @@
       corpo.querySelectorAll("button[data-bilhete]").forEach((btn) => {
         btn.addEventListener("click", () => {
           abrirArquivoAutenticado(`/passagens/${btn.dataset.bilhete}/bilhete.pdf`, "bilhete").catch((e) => mostrarAlerta(e.message));
+        });
+      });
+
+      corpo.querySelectorAll("button[data-nfse]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            const nfse = await api("POST", `/viagens/${viagemId}/passagens/${btn.dataset.nfse}/nfse`);
+            if (nfse.status === "simulada") {
+              mostrarAlerta("Emissão de NFS-e ainda não configurada nesta instalação (terreno pronto — veja DEPLOY.md).");
+            } else {
+              mostrarAlerta(`Nota fiscal emitida: ${nfse.numero}`, "sucesso");
+            }
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
         });
       });
 

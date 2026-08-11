@@ -70,6 +70,8 @@
               <option value="cartao">Cartão</option>
               <option value="dinheiro">Dinheiro</option>
             </select>
+            <label for="compra-cupom">Cupom de desconto (opcional)</label>
+            <input id="compra-cupom" placeholder="Ex: PROMO10" style="text-transform:uppercase" />
             <button type="submit">Confirmar compra</button>
           </form>
           <div id="area-pix-loja" class="escondido"></div>
@@ -116,6 +118,47 @@
         </div>
       </section>
 
+      <section class="loja-vista" id="vista-frete">
+        <div class="loja-titulo-vista">Frete</div>
+        <div class="loja-abas">
+          <button type="button" class="loja-aba ativa" data-aba-frete="solicitar">Enviar encomenda</button>
+          <button type="button" class="loja-aba" data-aba-frete="acompanhar">Acompanhar</button>
+        </div>
+
+        <div id="frete-solicitar">
+          <form class="loja-card loja-form" id="form-frete">
+            <label for="frete-remetente-nome">Seu nome</label>
+            <input id="frete-remetente-nome" required />
+            <label for="frete-remetente-contato">Telefone/e-mail para contato</label>
+            <input id="frete-remetente-contato" required />
+            <label for="frete-destinatario-nome">Nome do destinatário</label>
+            <input id="frete-destinatario-nome" required />
+            <label for="frete-destinatario-contato">Telefone/e-mail do destinatário (opcional)</label>
+            <input id="frete-destinatario-contato" />
+            <label for="frete-descricao-carga">O que está sendo enviado?</label>
+            <input id="frete-descricao-carga" placeholder="Ex: caixa com roupas, 5kg" />
+            <label for="frete-origem">Origem</label>
+            <input id="frete-origem" required />
+            <label for="frete-destino">Destino</label>
+            <input id="frete-destino" required />
+            <label for="frete-data-coleta">Data/hora da coleta</label>
+            <input id="frete-data-coleta" type="datetime-local" required />
+            <label for="frete-obs">Observações (opcional)</label>
+            <textarea id="frete-obs" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--borda);border-radius:6px;font-family:inherit;margin-bottom:12px"></textarea>
+            <button type="submit">Enviar solicitação</button>
+          </form>
+        </div>
+
+        <div id="frete-acompanhar" class="escondido">
+          <div class="loja-card loja-form">
+            <label for="frete-codigo">Código de rastreio</label>
+            <input id="frete-codigo" placeholder="Ex: AB12CD34EF" style="text-transform:uppercase" />
+            <button type="button" id="btn-rastrear-frete">Acompanhar</button>
+          </div>
+          <div id="frete-resultado"></div>
+        </div>
+      </section>
+
       <section class="loja-vista" id="vista-conta">
         <div class="loja-titulo-vista">Conta</div>
         <div id="conta-conteudo"></div>
@@ -135,6 +178,10 @@
         <svg viewBox="0 0 24 24"><rect x="3" y="7" width="14" height="10" rx="2"/><path d="M17 10h3l2 3v4h-5"/><circle cx="7" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>
         Fretamento
       </button>
+      <button type="button" class="loja-nav-item" data-vista="frete">
+        <svg viewBox="0 0 24 24"><rect x="1" y="9" width="13" height="8" rx="1"/><path d="M14 12h4l3 3v2h-7z"/><circle cx="6" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>
+        Frete
+      </button>
       <button type="button" class="loja-nav-item" data-vista="conta">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
         Conta
@@ -144,6 +191,7 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/pagamento-pix.js"></script>
+  <script src="/js/push.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/loja.js"></script>
 </body>

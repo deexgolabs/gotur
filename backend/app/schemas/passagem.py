@@ -12,6 +12,7 @@ class VenderPassagemRequest(BaseModel):
     forma_pagamento: FormaPagamento
     parada_origem_id: int | None = None
     parada_destino_id: int | None = None
+    codigo_cupom: str | None = None
 
 
 class PassagemOut(BaseModel):
@@ -23,6 +24,7 @@ class PassagemOut(BaseModel):
     cliente_nome: str
     cliente_documento: str
     preco: float
+    codigo_cupom: str | None = None
     status: StatusPassagem
     localizador: str
     criado_em: datetime
@@ -30,6 +32,13 @@ class PassagemOut(BaseModel):
     valor_reembolsado: float | None = None
     origem_trecho: str | None = None
     destino_trecho: str | None = None
+
+
+class NfseOut(BaseModel):
+    numero: str | None
+    status: str
+    url_pdf: str | None = None
+    chave_acesso: str | None = None
 
 
 class PassagemDetalheOut(PassagemOut):

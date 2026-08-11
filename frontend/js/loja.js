@@ -4,6 +4,7 @@ let viagemAtual = null;
 let poltronaSelecionadaId = null;
 let retomarAposLogin = null;
 let mapaFretamento, marcadorFretamento, linhaFretamento;
+let mapaFrete, marcadorFrete, linhaFrete;
 
 function escurecer(hex, fator) {
   const num = parseInt(hex.replace("#", ""), 16);
@@ -27,6 +28,14 @@ function aplicarTema(cor) {
   document.documentElement.style.setProperty("--azul-escuro", escurecer(cor, 0.75));
   document.documentElement.style.setProperty("--azul-claro", clarear(cor, 0.92));
   document.getElementById("meta-theme-color").setAttribute("content", cor);
+}
+
+function iconeEmojiMapa(emoji) {
+  return L.divIcon({
+    html: `<div style="font-size:28px;line-height:1;transform:translate(-50%,-100%)">${emoji}</div>`,
+    className: "",
+    iconSize: [0, 0],
+  });
 }
 
 function mostrarAlerta(mensagem, tipo = "erro", alvo = "alerta") {
@@ -214,6 +223,7 @@ function configurarCompra() {
         forma_pagamento: document.getElementById("compra-forma").value,
         parada_origem_id: viagemAtual.parada_origem_id,
         parada_destino_id: viagemAtual.parada_destino_id,
+        codigo_cupom: document.getElementById("compra-cupom").value.trim() || null,
       });
 
       if (resposta.pedido_pagamento) {
@@ -392,6 +402,7 @@ async function rastrearFretamentoLoja() {
         <div style="margin-top:8px"><span class="selo hold">${ROTULOS[dados.status] || dados.status}</span></div>
         ${dados.status === "em_andamento" ? '<div id="mapa-fretamento-loja" style="height:260px;border-radius:10px;margin-top:12px"></div>' : ""}
         <button type="button" class="secundario" id="btn-copiar-link-fretamento" style="margin-top:12px;width:100%">Copiar link pra acompanhar</button>
+        <button type="button" class="secundario" id="btn-ativar-push-fretamento" style="margin-top:8px;width:100%">Ativar notificações</button>
       </div>`;
 
     document.getElementById("btn-copiar-link-fretamento").addEventListener("click", async () => {
@@ -401,6 +412,17 @@ async function rastrearFretamentoLoja() {
         mostrarAlerta("Link copiado! Envie pra quem quiser acompanhar.", "sucesso");
       } catch (e) {
         mostrarAlerta(`Copie manualmente: ${link}`);
+      }
+    });
+
+    document.getElementById("btn-ativar-push-fretamento").addEventListener("click", async (ev) => {
+      ev.target.disabled = true;
+      try {
+        await ativarPushRastreio(`/api/fretamentos/rastrear/${codigo}/push`, `/loja/${SLUG}/`);
+        ev.target.textContent = "Notificações ativadas!";
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+        ev.target.disabled = false;
       }
     });
 
@@ -414,8 +436,126 @@ async function rastrearFretamentoLoja() {
       linhaFretamento.setLatLngs(pontos);
       const ultimo = pontos[pontos.length - 1];
       if (marcadorFretamento) marcadorFretamento.setLatLng(ultimo);
-      else marcadorFretamento = L.marker(ultimo).addTo(mapaFretamento);
+      else marcadorFretamento = L.marker(ultimo, { icon: iconeEmojiMapa(dados.icone_mapa || "🚌") }).addTo(mapaFretamento);
       mapaFretamento.fitBounds(linhaFretamento.getBounds(), { maxZoom: 15, padding: [20, 20] });
+    }
+  } catch (erro) {
+    resultado.innerHTML = `<p class="loja-selo-vazio">${erro.message}</p>`;
+  }
+}
+
+// ---------- Frete ----------
+
+function trocarAbaFrete(nome) {
+  document.querySelectorAll("[data-aba-frete]").forEach((b) => b.classList.toggle("ativa", b.dataset.abaFrete === nome));
+  document.getElementById("frete-solicitar").classList.toggle("escondido", nome !== "solicitar");
+  document.getElementById("frete-acompanhar").classList.toggle("escondido", nome !== "acompanhar");
+}
+
+function abrirAcompanharFrete(codigo) {
+  trocarVista("frete");
+  trocarAbaFrete("acompanhar");
+  document.getElementById("frete-codigo").value = codigo;
+  rastrearFreteLoja();
+}
+
+function configurarFrete() {
+  document.querySelectorAll("[data-aba-frete]").forEach((btn) => {
+    btn.addEventListener("click", () => trocarAbaFrete(btn.dataset.abaFrete));
+  });
+
+  document.getElementById("form-frete").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    try {
+      const resposta = await fetch(`/api/fretes/loja/${SLUG}/solicitar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          remetente_nome: document.getElementById("frete-remetente-nome").value.trim(),
+          remetente_contato: document.getElementById("frete-remetente-contato").value.trim(),
+          destinatario_nome: document.getElementById("frete-destinatario-nome").value.trim(),
+          destinatario_contato: document.getElementById("frete-destinatario-contato").value.trim() || null,
+          descricao_carga: document.getElementById("frete-descricao-carga").value.trim() || null,
+          origem: document.getElementById("frete-origem").value.trim(),
+          destino: document.getElementById("frete-destino").value.trim(),
+          data_hora_coleta: document.getElementById("frete-data-coleta").value,
+          observacoes: document.getElementById("frete-obs").value.trim() || null,
+        }),
+      });
+      if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => ({}));
+        throw new Error(erro.detail || "Não foi possível enviar a solicitação.");
+      }
+      const dados = await resposta.json();
+      document.getElementById("form-frete").reset();
+      mostrarAlerta("Solicitação enviada! Acompanhe o andamento a qualquer momento por aqui.", "sucesso");
+      abrirAcompanharFrete(dados.codigo_rastreio);
+    } catch (erro) {
+      mostrarAlerta(erro.message);
+    }
+  });
+
+  document.getElementById("btn-rastrear-frete").addEventListener("click", rastrearFreteLoja);
+}
+
+async function rastrearFreteLoja() {
+  const codigo = document.getElementById("frete-codigo").value.trim().toUpperCase();
+  const resultado = document.getElementById("frete-resultado");
+  if (!codigo) return;
+  resultado.innerHTML = `<p class="loja-selo-vazio">Buscando...</p>`;
+  try {
+    const dados = await fetch(`/api/fretes/rastrear/${codigo}`).then((r) => {
+      if (!r.ok) throw new Error("Código não encontrado");
+      return r.json();
+    });
+
+    history.replaceState(null, "", `/loja/${SLUG}?frete=${codigo}`);
+
+    const ROTULOS = { solicitado: "Solicitado", confirmado: "Confirmado", em_transito: "Em trânsito", entregue: "Entregue", cancelado: "Cancelado" };
+    resultado.innerHTML = `
+      <div class="loja-card">
+        <div class="trecho">${dados.origem} → ${dados.destino}</div>
+        <div class="info">Coleta: ${new Date(dados.data_hora_coleta).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</div>
+        <div class="info">${dados.remetente_nome} → ${dados.destinatario_nome}</div>
+        <div style="margin-top:8px"><span class="selo hold">${ROTULOS[dados.status] || dados.status}</span></div>
+        ${dados.status === "em_transito" ? '<div id="mapa-frete-loja" style="height:260px;border-radius:10px;margin-top:12px"></div>' : ""}
+        <button type="button" class="secundario" id="btn-copiar-link-frete" style="margin-top:12px;width:100%">Copiar link pra acompanhar</button>
+        <button type="button" class="secundario" id="btn-ativar-push-frete" style="margin-top:8px;width:100%">Ativar notificações</button>
+      </div>`;
+
+    document.getElementById("btn-copiar-link-frete").addEventListener("click", async () => {
+      const link = `${window.location.origin}/loja/${SLUG}?frete=${codigo}`;
+      try {
+        await navigator.clipboard.writeText(link);
+        mostrarAlerta("Link copiado! Envie pra quem quiser acompanhar.", "sucesso");
+      } catch (e) {
+        mostrarAlerta(`Copie manualmente: ${link}`);
+      }
+    });
+
+    document.getElementById("btn-ativar-push-frete").addEventListener("click", async (ev) => {
+      ev.target.disabled = true;
+      try {
+        await ativarPushRastreio(`/api/fretes/rastrear/${codigo}/push`, `/loja/${SLUG}/`);
+        ev.target.textContent = "Notificações ativadas!";
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+        ev.target.disabled = false;
+      }
+    });
+
+    if (dados.status === "em_transito" && dados.trajeto.length) {
+      if (!mapaFrete) {
+        mapaFrete = L.map("mapa-frete-loja");
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap", maxZoom: 19 }).addTo(mapaFrete);
+        linhaFrete = L.polyline([], { color: BRANDING.cor_primaria, weight: 4 }).addTo(mapaFrete);
+      }
+      const pontos = dados.trajeto.map((p) => [p.latitude, p.longitude]);
+      linhaFrete.setLatLngs(pontos);
+      const ultimo = pontos[pontos.length - 1];
+      if (marcadorFrete) marcadorFrete.setLatLng(ultimo);
+      else marcadorFrete = L.marker(ultimo, { icon: iconeEmojiMapa(dados.icone_mapa || "🚚") }).addTo(mapaFrete);
+      mapaFrete.fitBounds(linhaFrete.getBounds(), { maxZoom: 15, padding: [20, 20] });
     }
   } catch (erro) {
     resultado.innerHTML = `<p class="loja-selo-vazio">${erro.message}</p>`;
@@ -470,6 +610,11 @@ function renderizarConta() {
       <input id="registrar-documento" required />
       <label for="registrar-senha">Senha</label>
       <input id="registrar-senha" type="password" required minlength="6" />
+      <p class="rodape-form" style="text-align:left">
+        Ao criar sua conta, você concorda com os
+        <a href="/termos-de-uso.html" target="_blank">Termos de Uso</a> e a
+        <a href="/politica-privacidade.html" target="_blank">Política de Privacidade</a>.
+      </p>
       <button type="submit">Criar conta</button>
     </form>`;
 
@@ -578,7 +723,7 @@ async function iniciar() {
     btn.addEventListener("click", () => trocarVista(btn.dataset.vista));
   });
 
-  // Essa empresa pode ter desligado um dos dois módulos (ver
+  // Essa empresa pode ter desligado algum dos módulos (ver
   // Configurações → Módulos) — some com a aba correspondente.
   if (!BRANDING.passagens_habilitado) {
     document.querySelector('.loja-nav-item[data-vista="buscar"]').classList.add("escondido");
@@ -586,8 +731,11 @@ async function iniciar() {
   if (!BRANDING.fretamento_habilitado) {
     document.querySelector('.loja-nav-item[data-vista="fretamento"]').classList.add("escondido");
   }
-  if (!BRANDING.passagens_habilitado && BRANDING.fretamento_habilitado) {
-    trocarVista("fretamento");
+  if (!BRANDING.frete_habilitado) {
+    document.querySelector('.loja-nav-item[data-vista="frete"]').classList.add("escondido");
+  }
+  if (!BRANDING.passagens_habilitado && (BRANDING.fretamento_habilitado || BRANDING.frete_habilitado)) {
+    trocarVista(BRANDING.fretamento_habilitado ? "fretamento" : "frete");
   }
 
   configurarBusca();
@@ -596,13 +744,19 @@ async function iniciar() {
   }
   configurarCompra();
   configurarFretamento();
+  configurarFrete();
   configurarConta();
 
   // Link direto de acompanhamento (ex: compartilhado por WhatsApp), no
-  // formato /loja/{slug}?codigo=XXXX — abre já na aba de rastreio.
-  const codigoNaUrl = new URLSearchParams(window.location.search).get("codigo");
+  // formato /loja/{slug}?codigo=XXXX (fretamento) ou ?frete=XXXX — abre já
+  // na aba de rastreio correspondente.
+  const params = new URLSearchParams(window.location.search);
+  const codigoNaUrl = params.get("codigo");
+  const freteNaUrl = params.get("frete");
   if (codigoNaUrl) {
     abrirAcompanharFretamento(codigoNaUrl.toUpperCase());
+  } else if (freteNaUrl) {
+    abrirAcompanharFrete(freteNaUrl.toUpperCase());
   }
 }
 

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Política de Privacidade</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <meta name="theme-color" content="#08427a" />
+  <style>
+    .doc-legal { max-width: 760px; margin: 0 auto; }
+    .doc-legal h2 { margin-top: 34px; }
+    .doc-legal p, .doc-legal li { line-height: 1.6; color: var(--texto); }
+    .doc-legal ul { padding-left: 22px; margin: 10px 0; }
+    .doc-legal table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    .doc-legal th, .doc-legal td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--borda); font-size: 0.92rem; }
+    .aviso-rascunho {
+      background: #fff3cd; border: 1px solid #ffe69c; border-radius: 8px;
+      padding: 14px 16px; margin-bottom: 28px; font-size: 0.92rem; color: #664d03;
+    }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-linha">
+      <div class="marca">Go<span style="color:#4fd1a5">Tur</span></div>
+    </div>
+  </header>
+  <main class="doc-legal">
+    <h1>Política de Privacidade</h1>
+    <p class="subtitulo">Última atualização: preencher na publicação</p>
+
+    <div class="aviso-rascunho">
+      <strong>Este é um rascunho gerado automaticamente, não é aconselhamento jurídico.</strong>
+      Antes de publicar, um advogado especializado em LGPD (Lei Geral de Proteção de Dados,
+      Lei 13.709/2018) precisa revisar este texto, confirmar as bases legais usadas para cada
+      tratamento de dados, e preencher os campos entre colchetes <code>[assim]</code> com as
+      informações reais da empresa (razão social, CNPJ, encarregado de dados/DPO, canal de
+      contato). Esta política também precisa refletir com precisão o que o sistema realmente
+      faz — revise-a sempre que uma nova integração de dados for adicionada.
+    </div>
+
+    <h2>1. Quem trata seus dados</h2>
+    <p>
+      O GoTur é operado por <strong>[razão social da empresa dona da plataforma]</strong>,
+      CNPJ <strong>[00.000.000/0001-00]</strong>, controladora dos dados coletados através da
+      plataforma. Cada viação que usa o GoTur (a "loja" de cada empresa) também trata os dados
+      dos seus próprios clientes como controladora, para os fins do transporte contratado.
+    </p>
+
+    <h2>2. Encarregado de dados (DPO)</h2>
+    <p>
+      <strong>[Nome do encarregado]</strong> — <strong>[e-mail de contato do encarregado]</strong>
+    </p>
+
+    <h2>3. Quais dados coletamos</h2>
+    <table>
+      <thead><tr><th>Dado</th><th>Quando é coletado</th></tr></thead>
+      <tbody>
+        <tr><td>Nome, e-mail, CPF, telefone</td><td>Ao criar conta ou comprar passagem</td></tr>
+        <tr><td>Senha (armazenada com hash, nunca em texto puro)</td><td>Ao criar conta</td></tr>
+        <tr><td>Dados de fretamento/frete (remetente, destinatário, endereços)</td><td>Ao solicitar fretamento ou envio de encomenda</td></tr>
+        <tr><td>Localização GPS do motorista</td><td>Durante um fretamento/frete em andamento, só do motorista, com consentimento explícito de compartilhar</td></tr>
+        <tr><td>Inscrição de push notification (identificador do navegador)</td><td>Ao ativar "Ativar notificações" numa tela de rastreio</td></tr>
+        <tr><td>Dados de pagamento</td><td>Processados pelo gateway de pagamento (ex: Mercado Pago) — o GoTur não armazena número de cartão</td></tr>
+        <tr><td>Registros de acesso e auditoria (IP, data/hora, ação realizada)</td><td>Continuamente, para segurança e obrigação legal (Marco Civil da Internet)</td></tr>
+      </tbody>
+    </table>
+
+    <h2>4. Para que usamos esses dados</h2>
+    <ul>
+      <li>Processar a compra de passagens, fretamento e envio de encomendas.</li>
+      <li>Autenticar o acesso à conta.</li>
+      <li>Enviar confirmações e atualizações de status por e-mail, WhatsApp ou notificação push.</li>
+      <li>Emitir bilhete e, quando configurado pela viação, nota fiscal de serviço.</li>
+      <li>Prevenir fraude e abuso (ex: limite de tentativas em formulários públicos).</li>
+      <li>Cumprir obrigações legais e regulatórias.</li>
+    </ul>
+
+    <h2>5. Bases legais (LGPD, art. 7º)</h2>
+    <p>
+      O tratamento de dados no GoTur se apoia principalmente em: execução de contrato (venda
+      da passagem/serviço), cumprimento de obrigação legal (guarda de registros fiscais e de
+      acesso), e consentimento (ex: ativar notificações push, compartilhar localização como
+      motorista). <strong>[Revisar e detalhar caso a caso na versão final.]</strong>
+    </p>
+
+    <h2>6. Com quem compartilhamos dados</h2>
+    <ul>
+      <li><strong>A viação contratada</strong> — recebe os dados necessários para prestar o serviço (nome, documento, contato, trecho ou trajeto).</li>
+      <li><strong>Provedor de e-mail/SMTP</strong> — para envio de confirmações, quando configurado.</li>
+      <li><strong>Provedor de WhatsApp</strong> — para envio de notificações, quando configurado.</li>
+      <li><strong>Gateway de pagamento (ex: Mercado Pago)</strong> — para processar cobranças.</li>
+      <li><strong>Serviço de monitoramento de erros (ex: Sentry)</strong> — quando configurado, recebe dados técnicos de falhas do sistema (não inclui senha).</li>
+      <li><strong>Serviço de push notification</strong> — o navegador do próprio usuário (não há terceiro como Firebase envolvido; o GoTur usa Web Push nativo).</li>
+      <li><strong>Autoridades públicas</strong> — quando exigido por lei ou ordem judicial.</li>
+    </ul>
+    <p>Não vendemos dados pessoais a terceiros para fins de marketing.</p>
+
+    <h2>7. Por quanto tempo guardamos os dados</h2>
+    <p>
+      Dados de conta e transações são mantidos enquanto a conta estiver ativa e pelo prazo
+      adicional exigido por obrigações fiscais e legais. Registros de acesso (Marco Civil da
+      Internet) são mantidos pelo prazo mínimo legal de 6 meses. <strong>[Definir prazos
+      exatos por tipo de dado na versão final.]</strong>
+    </p>
+
+    <h2>8. Seus direitos (LGPD, art. 18)</h2>
+    <p>Você pode solicitar, a qualquer momento:</p>
+    <ul>
+      <li>Confirmação de que tratamos seus dados, e acesso a eles;</li>
+      <li>Correção de dados incompletos, inexatos ou desatualizados;</li>
+      <li>Anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em desconformidade com a lei;</li>
+      <li>Portabilidade dos dados a outro fornecedor;</li>
+      <li>Eliminação dos dados tratados com base no seu consentimento;</li>
+      <li>Informação sobre com quem compartilhamos seus dados;</li>
+      <li>Revogação do consentimento, quando aplicável.</li>
+    </ul>
+    <p>Para exercer esses direitos, entre em contato pelo canal indicado na seção 2.</p>
+
+    <h2>9. Segurança</h2>
+    <p>
+      Senhas são armazenadas com hash (nunca em texto puro), o acesso à conta usa
+      autenticação por token, e o acesso aos dados de cada empresa é isolado por empresa
+      (multi-tenant) — uma viação não acessa dados de outra.
+    </p>
+
+    <h2>10. Alterações desta política</h2>
+    <p>
+      Esta política pode ser atualizada periodicamente. A versão vigente estará sempre
+      disponível nesta página, com a data da última atualização.
+    </p>
+
+    <p style="margin-top:40px"><a href="/termos-de-uso.html">Ver também: Termos de Uso</a></p>
+  </main>
+</body>
+</html>

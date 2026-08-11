@@ -140,6 +140,42 @@ O plano gratuito do PythonAnywhere dá 1 tarefa agendada por dia — suficiente
 pra esse backup diário. Se estiver usando Postgres/MySQL (não SQLite), esse
 script não se aplica: use o backup do próprio provedor do banco.
 
+## Gateway de pagamento real (Mercado Pago, opcional)
+
+Sem nada configurado, o sistema roda em modo simulado: Pix gera um código
+de mentira e cartão/dinheiro/outro são aprovados na hora — ótimo para
+testar o fluxo, mas não cobra ninguém de verdade. Pra ativar o Mercado
+Pago de verdade (Pix real):
+1. Crie uma aplicação em [mercadopago.com.br/developers](https://www.mercadopago.com.br/developers/panel/app) e pegue o **Access Token de produção**.
+2. No `.env` do servidor, adicione:
+   ```
+   GOTUR_GATEWAY_API_KEY=APP_USR-SEU-ACCESS-TOKEN
+   ```
+3. Reload na aba Web. A partir daí, toda compra por Pix gera uma cobrança
+   de verdade no Mercado Pago (código copia-e-cola real).
+
+Cartão de crédito **ainda não** funciona com o gateway real — o Mercado
+Pago exige tokenizar o cartão no navegador do cliente (Card Payment Brick)
+antes de cobrar, o que precisa de uma tela de checkout própria. Com a
+chave configurada, escolher "Cartão" na compra dá erro; sem a chave
+(modo simulado), continua aprovando na hora como antes. Ver
+`backend/app/services/pagamento_provider.py` para o ponto exato de
+extensão quando for implementar.
+
+## Nota fiscal de serviço eletrônica (NFS-e, terreno pronto)
+
+NFS-e não tem uma API nacional única — cada prefeitura tem seu próprio
+webservice. O caminho realista é contratar um agregador (Focus NFe, NFE.io,
+PlugNotas, etc.) que fala com as prefeituras por você. Isso **ainda não
+está implementado** — o botão "Emitir NFS-e" (na tela de uma viagem) já
+existe e funciona, mas sem um agregador configurado ele só registra no log
+("emissão simulada"), sem gerar nota nenhuma.
+
+Pra implementar de verdade quando for contratar um agregador:
+1. Configure `GOTUR_NFSE_PROVIDER_URL` e `GOTUR_NFSE_PROVIDER_TOKEN` no `.env`.
+2. Implemente `NfseProviderReal.emitir()` em `backend/app/services/nfse_provider.py`, chamando o endpoint de emissão do agregador escolhido (o payload varia por provedor).
+3. Nenhum outro ponto do sistema precisa mudar.
+
 ## Monitoramento de erro (Sentry, opcional)
 
 Sem nada configurado, erros só aparecem nos logs do PythonAnywhere (aba
@@ -151,6 +187,27 @@ Sem nada configurado, erros só aparecem nos logs do PythonAnywhere (aba
    GOTUR_SENTRY_DSN=https://SUACHAVE@oNNNN.ingest.sentry.io/NNNN
    ```
 4. Reload na aba Web. Pronto — erros não tratados passam a aparecer no painel do Sentry automaticamente.
+
+## Push notification real (Web Push, opcional)
+
+Sem nada configurado, quem acompanha um fretamento/frete pela tela de
+rastreio não vê o botão funcionar de verdade (some com um aviso). Pra
+ativar notificações reais do navegador quando o status muda:
+
+1. Gere o par de chaves VAPID:
+   ```bash
+   cd ~/gotur/backend
+   venv/bin/python scripts/gerar_chaves_vapid.py
+   ```
+2. Copie as três linhas impressas pro `.env` do servidor:
+   ```
+   GOTUR_VAPID_PUBLIC_KEY=...
+   GOTUR_VAPID_PRIVATE_KEY=...
+   GOTUR_VAPID_CLAIMS_EMAIL=seuemail@suaempresa.com
+   ```
+3. Reload na aba Web. O botão "Ativar notificações" nas telas de rastreio
+   (e na loja white-label) passa a funcionar de verdade — sem depender de
+   Firebase ou qualquer serviço pago.
 
 ## Checklist de segurança antes de ir ao ar
 

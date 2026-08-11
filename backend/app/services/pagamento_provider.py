@@ -15,13 +15,19 @@ Para plugar um gateway real (Mercado Pago, Stripe, Asaas etc.) no futuro:
    automaticamente o provider usado nos routers de passagens e faturas.
 """
 
+import json
+import logging
 import secrets
+import urllib.error
+import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from app.config import settings
 from app.models.enums import FormaPagamento
+
+logger = logging.getLogger("gotur.pagamento")
 
 
 @dataclass
@@ -71,21 +77,83 @@ class PagamentoManualProvider(PagamentoProvider):
 
 
 class MercadoPagoProvider(PagamentoProvider):
-    """Esqueleto pronto para a integração real com o Mercado Pago.
+    """Integração real com o Mercado Pago via API REST (Access Token em
+    `GOTUR_GATEWAY_API_KEY` — pegue o de produção em
+    https://www.mercadopago.com.br/developers/panel/app).
 
-    Ainda não implementado: chamar a API do Mercado Pago para criar a
-    cobrança e devolver o `payment_id` como `gateway_ref` (e o código Pix
-    real em `pix_copia_cola` quando a forma de pagamento for Pix).
+    Pix: implementado de verdade — cria a cobrança e devolve o código
+    copia-e-cola real do Mercado Pago. A confirmação ainda depende de
+    consultar o pagamento depois (`consultar_status`) ou de um webhook — o
+    endpoint `/pedidos-pagamento/{id}/confirmar-simulado` fica desabilitado
+    automaticamente quando o gateway real está configurado (ver
+    `modo_simulado()`), porque não faz sentido "confirmar manualmente" um
+    Pix de verdade.
+
+    Cartão: ainda não implementado — o Mercado Pago exige tokenizar o
+    cartão no navegador do cliente com o SDK deles (Card Payment Brick),
+    então precisa de uma tela de checkout própria antes de plugar aqui.
     """
+
+    API_BASE = "https://api.mercadopago.com"
 
     def __init__(self, api_key: str):
         self.api_key = api_key
 
-    def cobrar(self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str) -> ResultadoCobranca:
-        raise NotImplementedError(
-            "Integração com gateway de pagamento ainda não implementada. "
-            "Implemente MercadoPagoProvider.cobrar() antes de configurar GOTUR_GATEWAY_API_KEY."
+    def _chamar(self, metodo: str, caminho: str, corpo: dict | None = None) -> dict:
+        dados = json.dumps(corpo).encode("utf-8") if corpo is not None else None
+        requisicao = urllib.request.Request(
+            f"{self.API_BASE}{caminho}",
+            data=dados,
+            method=metodo,
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+                "X-Idempotency-Key": secrets.token_hex(16),
+            },
         )
+        try:
+            with urllib.request.urlopen(requisicao, timeout=15) as resposta:
+                return json.loads(resposta.read())
+        except urllib.error.HTTPError as erro:
+            corpo_erro = erro.read().decode("utf-8", errors="ignore")
+            logger.error("Mercado Pago recusou a chamada %s %s: %s", metodo, caminho, corpo_erro)
+            raise
+
+    def cobrar(self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str) -> ResultadoCobranca:
+        if forma_pagamento != FormaPagamento.PIX:
+            raise NotImplementedError(
+                "Pagamento por cartão via Mercado Pago ainda não implementado — exige tokenizar o "
+                "cartão no navegador do cliente (Card Payment Brick) antes de chamar a API. "
+                "Pix já funciona de verdade com GOTUR_GATEWAY_API_KEY configurado."
+            )
+
+        resultado = self._chamar(
+            "POST",
+            "/v1/payments",
+            {
+                "transaction_amount": round(float(valor), 2),
+                "description": f"GoTur - {referencia_pedido}",
+                "payment_method_id": "pix",
+                "payer": {"email": f"comprador+{referencia_pedido}@gotur.app"},
+            },
+        )
+
+        dados_pix = resultado.get("point_of_interaction", {}).get("transaction_data", {})
+        expira_em = resultado.get("date_of_expiration")
+
+        return ResultadoCobranca(
+            gateway_ref=str(resultado["id"]),
+            status="pendente" if resultado.get("status") == "pending" else "aprovado",
+            pix_copia_cola=dados_pix.get("qr_code"),
+            pix_expira_em=datetime.fromisoformat(expira_em) if expira_em else datetime.now(timezone.utc) + timedelta(minutes=settings.pix_expiracao_minutos),
+        )
+
+    def consultar_status(self, gateway_ref: str) -> str:
+        """`status` bruto do Mercado Pago: "pending", "approved", "rejected"
+        etc. Use pra checar se um Pix criado por `cobrar()` já caiu, até um
+        webhook de verdade ser implementado."""
+        resultado = self._chamar("GET", f"/v1/payments/{gateway_ref}")
+        return resultado.get("status", "pending")
 
 
 def obter_provider() -> PagamentoProvider:

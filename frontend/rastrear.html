@@ -28,6 +28,8 @@
 
     <div class="cartoes-resumo" id="cartoes-resumo" style="margin-bottom:20px"></div>
 
+    <button type="button" class="secundario" id="btn-ativar-push" style="margin-bottom:16px">Ativar notificações</button>
+
     <div class="cartao">
       <div id="mapa"></div>
       <p class="rodape-form" id="sem-posicao">Ainda não há posição registrada para este fretamento.</p>
@@ -37,9 +39,21 @@
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/push.js"></script>
   <script>
     const params = new URLSearchParams(window.location.search);
     const codigo = (params.get("codigo") || "").toUpperCase();
+
+    document.getElementById("btn-ativar-push").addEventListener("click", async (ev) => {
+      ev.target.disabled = true;
+      try {
+        await ativarPushRastreio(`/api/fretamentos/rastrear/${codigo}/push`);
+        ev.target.textContent = "Notificações ativadas!";
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+        ev.target.disabled = false;
+      }
+    });
 
     function mostrarAlerta(mensagem) {
       document.getElementById("alerta").innerHTML = `<div class="alerta erro">${mensagem}</div>`;
@@ -54,6 +68,14 @@
     };
 
     let mapa, marcador, linha;
+
+    function iconeEmoji(emoji) {
+      return L.divIcon({
+        html: `<div style="font-size:28px;line-height:1;transform:translate(-50%,-100%)">${emoji}</div>`,
+        className: "",
+        iconSize: [0, 0],
+      });
+    }
 
     function iniciarMapa() {
       mapa = L.map("mapa").setView([-14.235, -51.9253], 4);
@@ -85,7 +107,7 @@
         linha.setLatLngs(pontos);
         const ultimo = pontos[pontos.length - 1];
         if (marcador) marcador.setLatLng(ultimo);
-        else marcador = L.marker(ultimo).addTo(mapa);
+        else marcador = L.marker(ultimo, { icon: iconeEmoji(dados.icone_mapa || "🚌") }).addTo(mapa);
         mapa.fitBounds(linha.getBounds(), { maxZoom: 15, padding: [20, 20] });
       }
 

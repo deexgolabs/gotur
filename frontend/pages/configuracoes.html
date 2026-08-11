@@ -31,6 +31,11 @@
           Fretamento (aluguel de ônibus, rastreio ao vivo)
         </label>
         <p class="rodape-form" style="text-align:left;margin:0 0 14px" id="aviso-plano-fretamento"></p>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="modulo-frete" style="width:auto" />
+          Frete (envio de encomendas, rastreio ao vivo)
+        </label>
+        <p class="rodape-form" style="text-align:left;margin:0 0 14px" id="aviso-plano-frete"></p>
         <div class="linha-acoes">
           <button type="submit">Salvar módulos</button>
         </div>
@@ -125,16 +130,23 @@
 
       const permitePassagens = empresa.plano ? empresa.plano.modulo_passagens : true;
       const permiteFretamento = empresa.plano ? empresa.plano.modulo_fretamento : true;
+      const permiteFrete = empresa.plano ? empresa.plano.modulo_frete : true;
       const chkPassagens = document.getElementById("modulo-passagens");
       const chkFretamento = document.getElementById("modulo-fretamento");
+      const chkFrete = document.getElementById("modulo-frete");
       chkPassagens.checked = empresa.passagens_ativo && permitePassagens;
       chkPassagens.disabled = !permitePassagens;
       chkFretamento.checked = empresa.fretamento_ativo && permiteFretamento;
       chkFretamento.disabled = !permiteFretamento;
+      chkFrete.checked = empresa.frete_ativo && permiteFrete;
+      chkFrete.disabled = !permiteFrete;
       document.getElementById("aviso-plano-passagens").textContent = permitePassagens
         ? ""
         : "Seu plano atual não inclui esse módulo.";
       document.getElementById("aviso-plano-fretamento").textContent = permiteFretamento
+        ? ""
+        : "Seu plano atual não inclui esse módulo.";
+      document.getElementById("aviso-plano-frete").textContent = permiteFrete
         ? ""
         : "Seu plano atual não inclui esse módulo.";
 
@@ -154,6 +166,7 @@
         await api("PATCH", "/empresas/minha/modulos", {
           passagens_ativo: document.getElementById("modulo-passagens").checked,
           fretamento_ativo: document.getElementById("modulo-fretamento").checked,
+          frete_ativo: document.getElementById("modulo-frete").checked,
         });
         mostrarAlerta("Módulos atualizados.", "sucesso");
       } catch (erro) {

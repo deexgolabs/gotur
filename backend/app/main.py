@@ -19,9 +19,11 @@ from app.routers import (
     auth,
     avaliacoes,
     checkin,
+    cupons,
     empresas,
     faturas,
     fretamentos,
+    fretes,
     loja,
     onibus,
     passagens,
@@ -29,6 +31,7 @@ from app.routers import (
     planos,
     plataforma,
     poltronas,
+    push,
     relatorios,
     rotas,
     usuarios,
@@ -68,7 +71,10 @@ for router in (
     faturas.router,
     plataforma.router,
     fretamentos.router,
+    fretes.router,
     avaliacoes.router,
+    push.router,
+    cupons.router,
 ):
     api.include_router(router)
 

@@ -200,20 +200,22 @@ def configurar_modulos(
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
-    """Liga/desliga fretamento e gestão de viagens pra essa empresa —
-    dentro do que o plano permitir (ver Empresa.fretamento_habilitado /
-    Empresa.passagens_habilitado)."""
+    """Liga/desliga fretamento, gestão de viagens e frete pra essa empresa
+    — dentro do que o plano permitir (ver Empresa.fretamento_habilitado /
+    Empresa.passagens_habilitado / Empresa.frete_habilitado)."""
     empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
 
     if dados.fretamento_ativo is not None:
         empresa.fretamento_ativo = dados.fretamento_ativo
     if dados.passagens_ativo is not None:
         empresa.passagens_ativo = dados.passagens_ativo
+    if dados.frete_ativo is not None:
+        empresa.frete_ativo = dados.frete_ativo
 
-    if not empresa.fretamento_ativo and not empresa.passagens_ativo:
+    if not empresa.fretamento_ativo and not empresa.passagens_ativo and not empresa.frete_ativo:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Pelo menos um módulo (fretamento ou gestão de viagens) precisa ficar ligado.",
+            detail="Pelo menos um módulo (passagens, fretamento ou frete) precisa ficar ligado.",
         )
 
     db.commit()
@@ -261,6 +263,7 @@ def info_loja_publica(slug: str, db: Session = Depends(get_db)):
         logo_url=empresa.logo_url,
         fretamento_habilitado=empresa.fretamento_habilitado,
         passagens_habilitado=empresa.passagens_habilitado,
+        frete_habilitado=empresa.frete_habilitado,
     )
 
 

@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     gateway_api_key: str | None = None
     pix_expiracao_minutos: int = 15
 
+    # Nota fiscal de serviço eletrônica (NFS-e, ver app/services/nfse_provider.py).
+    # Não existe uma API nacional única (cada prefeitura tem seu próprio
+    # webservice) — o caminho realista é um agregador (Focus NFe, NFE.io,
+    # PlugNotas etc). Sem essas duas variáveis configuradas, a emissão fica
+    # apenas logada (terreno pronto, não implementado de verdade).
+    nfse_provider_url: str | None = None
+    nfse_provider_token: str | None = None
+
     # WhatsApp (Fase 5, ver app/services/whatsapp_service.py). Sem isso
     # configurado, o envio é apenas logado (no-op) — não bloqueia a venda.
     # Pensado para uma API HTTP simples (Z-API, Meta Cloud API, etc): um
@@ -61,6 +69,14 @@ class Settings(BaseSettings):
     # nada é enviado — crie uma conta grátis em sentry.io e cole o DSN do
     # projeto aqui para começar a receber erros de produção automaticamente.
     sentry_dsn: str | None = None
+
+    # Push notification real (Web Push), ver app/services/push_service.py.
+    # Sem as chaves VAPID configuradas, o envio é apenas logado (no-op) — não
+    # bloqueia a mudança de status. Gere o par de chaves com:
+    #   backend/venv/Scripts/python.exe backend/scripts/gerar_chaves_vapid.py
+    vapid_public_key: str | None = None
+    vapid_private_key: str | None = None
+    vapid_claims_email: str = "naoresponda@gotur.com"
 
     @property
     def cors_origins_list(self) -> list[str]:

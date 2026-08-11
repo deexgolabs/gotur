@@ -109,6 +109,7 @@ def confirmar_pagamento_simulado(
         gateway_ref=f"SIMULADO-{pedido.id}",
         hold_para_remover=hold,
         usuario_para_notificar=usuario_do_pedido,
+        codigo_cupom=pedido.codigo_cupom,
     )
 
     pedido.status = StatusPedidoPagamento.CONFIRMADO

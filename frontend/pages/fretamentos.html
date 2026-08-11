@@ -58,6 +58,14 @@
             <input id="motorista" placeholder="Nome do motorista" />
           </div>
           <div>
+            <label for="icone-mapa">Ícone no mapa</label>
+            <select id="icone-mapa">
+              <option value="🚌">🚌 Ônibus</option>
+              <option value="🚐">🚐 Van</option>
+              <option value="🚗">🚗 Carro</option>
+            </select>
+          </div>
+          <div>
             <label for="distancia">Distância prevista (km)</label>
             <input id="distancia" type="number" min="0" step="0.1" />
           </div>
@@ -219,6 +227,7 @@
           data_hora_retorno_prevista: retorno ? new Date(retorno).toISOString() : null,
           onibus_id: document.getElementById("onibus").value ? parseInt(document.getElementById("onibus").value, 10) : null,
           motorista_nome: document.getElementById("motorista").value.trim() || null,
+          icone_mapa: document.getElementById("icone-mapa").value,
           distancia_km: lerNum("distancia"),
           valor_por_km: lerNum("valor-km"),
           valor_total: lerNum("valor-total"),

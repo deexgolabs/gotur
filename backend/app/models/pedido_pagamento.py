@@ -29,6 +29,7 @@ class PedidoPagamento(Base):
     cliente_documento: Mapped[str] = mapped_column(String(30), nullable=False)
     forma_pagamento: Mapped[FormaPagamento] = mapped_column(SAEnum(FormaPagamento), nullable=False)
     valor: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    codigo_cupom: Mapped[str | None] = mapped_column(String(30), nullable=True)
     pix_copia_cola: Mapped[str] = mapped_column(String(300), nullable=False)
     status: Mapped[StatusPedidoPagamento] = mapped_column(
         SAEnum(StatusPedidoPagamento), default=StatusPedidoPagamento.PENDENTE, nullable=False

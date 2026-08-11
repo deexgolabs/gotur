@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — DRE</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#08427a" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <style>
+    .dre-linha { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--borda); }
+    .dre-linha:last-child { border-bottom: none; }
+    .dre-label { color: var(--cinza); }
+    .dre-valor { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .dre-total .dre-label, .dre-total .dre-valor { color: var(--texto); font-weight: 700; }
+    .dre-negativo { color: #c0392b; }
+    .dre-positivo { color: #1e8e5a; }
+  </style>
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>DRE — Demonstração de Resultado</h1>
+    <p class="subtitulo">Resumo simplificado de receita e despesa por período. Não substitui a contabilidade da empresa.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <form id="form-periodo">
+        <div class="grid-form">
+          <div>
+            <label for="inicio">De</label>
+            <input id="inicio" type="date" required />
+          </div>
+          <div>
+            <label for="fim">Até</label>
+            <input id="fim" type="date" required />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Gerar</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="cartao escondido" id="cartao-dre">
+      <h2 style="margin-top:0">Resultado do período</h2>
+
+      <div class="dre-linha"><span class="dre-label">Receita — passagens</span><span class="dre-valor" id="v-passagens"></span></div>
+      <div class="dre-linha"><span class="dre-label">Receita — fretamento</span><span class="dre-valor" id="v-fretamento"></span></div>
+      <div class="dre-linha"><span class="dre-label">Receita — frete</span><span class="dre-valor" id="v-frete"></span></div>
+      <div class="dre-linha dre-total"><span class="dre-label">(=) Receita bruta</span><span class="dre-valor" id="v-bruta"></span></div>
+
+      <div class="dre-linha"><span class="dre-label">(−) Reembolsos</span><span class="dre-valor dre-negativo" id="v-reembolsos"></span></div>
+      <div class="dre-linha"><span class="dre-label">(−) Assinatura GoTur paga no período</span><span class="dre-valor dre-negativo" id="v-assinatura"></span></div>
+
+      <div class="dre-linha dre-total"><span class="dre-label">(=) Receita líquida</span><span class="dre-valor" id="v-liquida"></span></div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+    }
+
+    function reais(v) {
+      return `R$ ${Number(v).toFixed(2)}`;
+    }
+
+    function primeiroEUltimoDiaDoMes() {
+      const hoje = new Date();
+      const primeiro = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const ultimo = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+      const fmt = (d) => d.toISOString().slice(0, 10);
+      return [fmt(primeiro), fmt(ultimo)];
+    }
+
+    async function gerarDre(inicio, fim) {
+      const dre = await api("GET", `/relatorios/dre?inicio=${inicio}&fim=${fim}`);
+      document.getElementById("v-passagens").textContent = reais(dre.receita_passagens);
+      document.getElementById("v-fretamento").textContent = reais(dre.receita_fretamento);
+      document.getElementById("v-frete").textContent = reais(dre.receita_frete);
+      document.getElementById("v-bruta").textContent = reais(dre.receita_bruta_total);
+      document.getElementById("v-reembolsos").textContent = dre.reembolsos > 0 ? "− " + reais(dre.reembolsos) : reais(0);
+      document.getElementById("v-assinatura").textContent = dre.despesa_assinatura_gotur > 0 ? "− " + reais(dre.despesa_assinatura_gotur) : reais(0);
+      const liquida = document.getElementById("v-liquida");
+      liquida.textContent = reais(dre.receita_liquida);
+      liquida.classList.toggle("dre-positivo", dre.receita_liquida >= 0);
+      liquida.classList.toggle("dre-negativo", dre.receita_liquida < 0);
+      document.getElementById("cartao-dre").classList.remove("escondido");
+    }
+
+    document.getElementById("form-periodo").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await gerarDre(document.getElementById("inicio").value, document.getElementById("fim").value);
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    if (auth) {
+      montarTopo("topo");
+      const [inicio, fim] = primeiroEUltimoDiaDoMes();
+      document.getElementById("inicio").value = inicio;
+      document.getElementById("fim").value = fim;
+      gerarDre(inicio, fim).catch((e) => mostrarAlerta(e.message));
+    }
+  </script>
+</body>
+</html>

@@ -36,6 +36,7 @@ class Fretamento(Base):
     valor_total: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     status: Mapped[StatusFretamento] = mapped_column(SAEnum(StatusFretamento), default=StatusFretamento.ORCAMENTO)
+    icone_mapa: Mapped[str] = mapped_column(String(8), default="🚌")
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 

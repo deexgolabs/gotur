@@ -16,11 +16,13 @@ from app.models.poltrona_viagem import PoltronaViagem
 from app.models.usuario import Usuario
 from app.models.viagem import Viagem
 from app.schemas.avaliacao import AvaliacaoOut, AvaliarRequest
-from app.schemas.passagem import PassagemDetalheOut, PassagemOut, VenderPassagemRequest
+from app.schemas.passagem import NfseOut, PassagemDetalheOut, PassagemOut, VenderPassagemRequest
 from app.schemas.pedido_pagamento import CompraPassagemResponse, PedidoPagamentoOut
 from app.schemas.reembolso import ReembolsarRequest, ReembolsoOut
 from app.services.auditoria import registrar as registrar_auditoria
 from app.services.codigo import gerar_localizador
+from app.services.cupom import CupomInvalido, aplicar_cupom
+from app.services.nfse_provider import obter_nfse_provider
 from app.services.notificacoes import enviar_confirmacao_compra
 from app.services.pagamento_provider import obter_provider
 from app.services.trecho import (
@@ -60,6 +62,7 @@ def _criar_passagem_confirmada(
     gateway_ref: str | None,
     hold_para_remover: OcupacaoPoltrona | None,
     usuario_para_notificar: Usuario | None,
+    codigo_cupom: str | None = None,
 ) -> Passagem:
     passagem = Passagem(
         tenant_id=viagem.tenant_id,
@@ -72,6 +75,7 @@ def _criar_passagem_confirmada(
         cliente_documento=cliente_documento,
         vendido_por_usuario_id=vendido_por_usuario_id,
         preco=preco_final,
+        codigo_cupom=codigo_cupom,
         status=StatusPassagem.CONFIRMADA,
         localizador=localizador,
     )
@@ -176,6 +180,15 @@ def vender_passagem(
         2,
     )
 
+    codigo_cupom_aplicado = None
+    if dados.codigo_cupom:
+        try:
+            cupom, desconto = aplicar_cupom(db, tenant_id=viagem.tenant_id, codigo=dados.codigo_cupom, preco_base=preco_final)
+        except CupomInvalido as erro:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(erro))
+        preco_final = round(preco_final - desconto, 2)
+        codigo_cupom_aplicado = cupom.codigo
+
     hold_existente = conflito if (conflito and conflito.tipo == TipoOcupacao.HOLD) else None
 
     resultado_cobranca = obter_provider().cobrar(
@@ -214,6 +227,7 @@ def vender_passagem(
             cliente_documento=dados.cliente_documento,
             forma_pagamento=dados.forma_pagamento,
             valor=preco_final,
+            codigo_cupom=codigo_cupom_aplicado,
             pix_copia_cola=resultado_cobranca.pix_copia_cola,
             expira_em=resultado_cobranca.pix_expira_em,
         )
@@ -238,6 +252,7 @@ def vender_passagem(
         gateway_ref=resultado_cobranca.gateway_ref,
         hold_para_remover=hold_existente,
         usuario_para_notificar=usuario_atual,
+        codigo_cupom=codigo_cupom_aplicado,
     )
     return CompraPassagemResponse(passagem=passagem)
 
@@ -339,6 +354,41 @@ def reembolsar_passagem(
         motivo_reembolso=pagamento.motivo_reembolso,
         reembolsado_em=pagamento.reembolsado_em,
     )
+
+
+@router.post("/{passagem_id}/nfse", response_model=NfseOut)
+def emitir_nfse(
+    viagem_id: int,
+    passagem_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_staff),
+):
+    """Terreno pronto: sem um agregador de NFS-e configurado (ver
+    app/services/nfse_provider.py), só registra no log e devolve
+    status "simulada" — não emite nada de verdade."""
+    passagem = db.get(Passagem, passagem_id)
+    if not passagem or passagem.viagem_id != viagem_id or passagem.tenant_id != usuario_atual.tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Passagem não encontrada")
+
+    resultado = obter_nfse_provider().emitir(
+        referencia=passagem.localizador,
+        valor=float(passagem.preco),
+        cliente_nome=passagem.cliente_nome,
+        cliente_documento=passagem.cliente_documento,
+        descricao=f"Passagem rodoviária — localizador {passagem.localizador}",
+    )
+
+    registrar_auditoria(
+        db,
+        usuario=usuario_atual,
+        acao="emissao_nfse",
+        entidade_tipo="passagem",
+        entidade_id=passagem.id,
+        detalhes=f"Localizador {passagem.localizador}: {resultado.status}",
+        tenant_id=passagem.tenant_id,
+    )
+
+    return NfseOut(numero=resultado.numero, status=resultado.status, url_pdf=resultado.url_pdf, chave_acesso=resultado.chave_acesso)
 
 
 @router.get("", response_model=list[PassagemOut])

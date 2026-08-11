@@ -46,9 +46,12 @@ function linksPorPapel(role) {
       { href: "/pages/onibus.html", label: "Ônibus" },
       { href: "/pages/rotas.html", label: "Rotas", modulo: "passagens" },
       { href: "/pages/viagens.html", label: "Viagens", modulo: "passagens" },
+      { href: "/pages/cupons.html", label: "Cupons", modulo: "passagens" },
       { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento" },
+      { href: "/pages/fretes.html", label: "Fretes", modulo: "frete" },
       { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens" },
       { href: "/pages/relatorios.html", label: "Relatórios" },
+      { href: "/pages/dre.html", label: "DRE" },
       { href: "/pages/avaliacoes.html", label: "Avaliações" },
       { href: "/pages/auditoria.html", label: "Auditoria" },
       { href: "/pages/minhas-faturas.html", label: "Faturas" },
@@ -60,6 +63,7 @@ function linksPorPapel(role) {
       ...base,
       { href: "/pages/viagens.html", label: "Viagens", modulo: "passagens" },
       { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento" },
+      { href: "/pages/fretes.html", label: "Fretes", modulo: "frete" },
       { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens" },
       { href: "/pages/avaliacoes.html", label: "Avaliações" },
     ];
@@ -159,6 +163,9 @@ function montarTopo(containerId) {
         }
         if (!empresa.passagens_habilitado) {
           container.querySelectorAll('[data-modulo="passagens"]').forEach((el) => el.classList.add("escondido"));
+        }
+        if (!empresa.frete_habilitado) {
+          container.querySelectorAll('[data-modulo="frete"]').forEach((el) => el.classList.add("escondido"));
         }
       })
       .catch(() => {});

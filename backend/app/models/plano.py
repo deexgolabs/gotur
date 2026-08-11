@@ -24,5 +24,6 @@ class Plano(Base):
     # dela permitir aqui.
     modulo_fretamento: Mapped[bool] = mapped_column(Boolean, default=True)
     modulo_passagens: Mapped[bool] = mapped_column(Boolean, default=True)
+    modulo_frete: Mapped[bool] = mapped_column(Boolean, default=True)
 
     empresas = relationship("Empresa", back_populates="plano")

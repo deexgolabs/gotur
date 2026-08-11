@@ -6,13 +6,17 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import require_roles
 from app.database import get_db
-from app.models.enums import StatusPassagem, TipoOcupacao, UserRole
+from app.models.enums import StatusFatura, StatusFrete, StatusFretamento, StatusPassagem, TipoOcupacao, UserRole
+from app.models.fatura_empresa import FaturaEmpresa
+from app.models.frete import Frete
+from app.models.fretamento import Fretamento
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
 from app.models.pagamento import Pagamento
 from app.models.passagem import Passagem
 from app.models.poltrona_viagem import PoltronaViagem
 from app.models.usuario import Usuario
 from app.models.viagem import Viagem
+from app.schemas.dre import DreOut
 from app.schemas.relatorio import OcupacaoViagemOut, VendasPorFuncionarioOut, VendasResumoOut
 from app.services.trecho import buscar_paradas_da_rota
 
@@ -140,3 +144,87 @@ def relatorio_por_funcionario(
         )
         for linha in linhas
     ]
+
+
+@router.get("/dre", response_model=DreOut)
+def relatorio_dre(
+    inicio: date,
+    fim: date,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """DRE simplificado: receita bruta (passagens + fretamento + frete)
+    menos reembolsos e a assinatura do GoTur paga no período. Não é uma
+    contabilidade completa (não inclui outras despesas da empresa, como
+    combustível ou salário) — é um resumo pra acompanhar receita líquida."""
+    inicio_dt = datetime.combine(inicio, time.min)
+    fim_dt = datetime.combine(fim, time.max)
+
+    # Não filtra por status CONFIRMADA de propósito: o valor já foi cobrado
+    # na hora da venda, então uma passagem cancelada sem reembolso continua
+    # sendo receita — é o reembolso (linha separada abaixo) que efetivamente
+    # devolve o dinheiro.
+    receita_passagens = (
+        db.query(func.coalesce(func.sum(Passagem.preco), 0))
+        .filter(
+            Passagem.tenant_id == usuario_atual.tenant_id,
+            Passagem.criado_em.between(inicio_dt, fim_dt),
+        )
+        .scalar()
+    )
+
+    receita_fretamento = (
+        db.query(func.coalesce(func.sum(Fretamento.valor_total), 0))
+        .filter(
+            Fretamento.tenant_id == usuario_atual.tenant_id,
+            Fretamento.status != StatusFretamento.CANCELADO,
+            Fretamento.criado_em.between(inicio_dt, fim_dt),
+        )
+        .scalar()
+    )
+
+    receita_frete = (
+        db.query(func.coalesce(func.sum(Frete.valor_total), 0))
+        .filter(
+            Frete.tenant_id == usuario_atual.tenant_id,
+            Frete.status != StatusFrete.CANCELADO,
+            Frete.criado_em.between(inicio_dt, fim_dt),
+        )
+        .scalar()
+    )
+
+    reembolsos = (
+        db.query(func.coalesce(func.sum(Pagamento.valor_reembolsado), 0))
+        .join(Passagem, Passagem.id == Pagamento.passagem_id)
+        .filter(Passagem.tenant_id == usuario_atual.tenant_id, Pagamento.reembolsado_em.between(inicio_dt, fim_dt))
+        .scalar()
+    )
+
+    despesa_assinatura = (
+        db.query(func.coalesce(func.sum(FaturaEmpresa.valor), 0))
+        .filter(
+            FaturaEmpresa.empresa_id == usuario_atual.tenant_id,
+            FaturaEmpresa.status == StatusFatura.PAGA,
+            FaturaEmpresa.pago_em.between(inicio_dt, fim_dt),
+        )
+        .scalar()
+    )
+
+    receita_passagens = round(float(receita_passagens), 2)
+    receita_fretamento = round(float(receita_fretamento), 2)
+    receita_frete = round(float(receita_frete), 2)
+    reembolsos = round(float(reembolsos), 2)
+    despesa_assinatura = round(float(despesa_assinatura), 2)
+    receita_bruta_total = round(receita_passagens + receita_fretamento + receita_frete, 2)
+
+    return DreOut(
+        periodo_inicio=inicio_dt,
+        periodo_fim=fim_dt,
+        receita_passagens=receita_passagens,
+        receita_fretamento=receita_fretamento,
+        receita_frete=receita_frete,
+        receita_bruta_total=receita_bruta_total,
+        reembolsos=reembolsos,
+        despesa_assinatura_gotur=despesa_assinatura,
+        receita_liquida=round(receita_bruta_total - reembolsos - despesa_assinatura, 2),
+    )

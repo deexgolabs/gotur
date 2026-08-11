@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Cupons</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#08427a" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Cupons de desconto</h1>
+    <p class="subtitulo">Códigos que o cliente digita na compra da passagem pra ganhar desconto.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Novo cupom</h2>
+      <form id="form-cupom">
+        <div class="grid-form">
+          <div>
+            <label for="codigo">Código</label>
+            <input id="codigo" placeholder="Ex: PROMO10" required style="text-transform:uppercase" />
+          </div>
+          <div>
+            <label for="tipo">Tipo de desconto</label>
+            <select id="tipo">
+              <option value="percentual">Percentual (%)</option>
+              <option value="fixo">Valor fixo (R$)</option>
+            </select>
+          </div>
+          <div>
+            <label for="valor">Valor</label>
+            <input id="valor" type="number" min="0.01" step="0.01" required placeholder="Ex: 10" />
+          </div>
+          <div>
+            <label for="validade">Válido até (opcional)</label>
+            <input id="validade" type="datetime-local" />
+          </div>
+          <div>
+            <label for="max-usos">Limite de usos (opcional)</label>
+            <input id="max-usos" type="number" min="1" step="1" placeholder="Sem limite" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Cadastrar cupom</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Cupons cadastrados</h2>
+    <div class="cartao">
+      <table>
+        <thead>
+          <tr><th>Código</th><th>Desconto</th><th>Validade</th><th>Usos</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhum cupom cadastrado ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+    }
+
+    function formatarDesconto(c) {
+      return c.tipo === "percentual" ? `${Number(c.valor)}%` : `R$ ${Number(c.valor).toFixed(2)}`;
+    }
+
+    function formatarValidade(iso) {
+      return iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Sem prazo";
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/cupons");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (c) => `
+        <tr>
+          <td>${c.codigo}</td>
+          <td>${formatarDesconto(c)}</td>
+          <td>${formatarValidade(c.valido_ate)}</td>
+          <td>${c.usos_atuais}${c.max_usos != null ? " / " + c.max_usos : ""}</td>
+          <td><span class="selo ${c.ativo ? "livre" : "bloqueada"}">${c.ativo ? "Ativo" : "Desativado"}</span></td>
+          <td>
+            ${c.ativo ? `<button class="perigo" data-desativar="${c.id}">Desativar</button>` : `<button class="secundario" data-ativar="${c.id}">Reativar</button>`}
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/cupons/${btn.dataset.desativar}`, { ativo: false });
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-ativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/cupons/${btn.dataset.ativar}`, { ativo: true });
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-cupom").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const validade = document.getElementById("validade").value;
+        const maxUsos = document.getElementById("max-usos").value.trim();
+        await api("POST", "/cupons", {
+          codigo: document.getElementById("codigo").value.trim().toUpperCase(),
+          tipo: document.getElementById("tipo").value,
+          valor: parseFloat(document.getElementById("valor").value),
+          valido_ate: validade ? new Date(validade).toISOString() : null,
+          max_usos: maxUsos === "" ? null : parseInt(maxUsos, 10),
+        });
+        ev.target.reset();
+        mostrarAlerta("Cupom cadastrado com sucesso.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

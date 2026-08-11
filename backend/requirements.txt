@@ -15,3 +15,5 @@ alembic==1.18.5
 psycopg2-binary==2.9.10
 pymysql==1.1.1
 fpdf2==2.8.2
+pywebpush==2.4.0
+py-vapid==1.9.4

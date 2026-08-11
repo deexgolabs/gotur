@@ -68,6 +68,27 @@ class StatusFretamento(str, enum.Enum):
     CANCELADO = "cancelado"
 
 
+class StatusFrete(str, enum.Enum):
+    SOLICITADO = "solicitado"
+    CONFIRMADO = "confirmado"
+    EM_TRANSITO = "em_transito"
+    ENTREGUE = "entregue"
+    CANCELADO = "cancelado"
+
+
+class TipoCupom(str, enum.Enum):
+    PERCENTUAL = "percentual"
+    FIXO = "fixo"
+
+
+class TipoRastreioPush(str, enum.Enum):
+    """A qual tipo de registro uma inscrição de push notification está
+    vinculada (ver app.models.push_inscricao.PushInscricao)."""
+
+    FRETAMENTO = "fretamento"
+    FRETE = "frete"
+
+
 class StatusPedidoPagamento(str, enum.Enum):
     """Status de uma cobrança Pix pendente de confirmação (compra do
     cliente que ainda não caiu na conta). Cartão, dinheiro e outros meios

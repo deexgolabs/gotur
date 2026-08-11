@@ -22,6 +22,7 @@ class Passagem(Base):
     cliente_documento: Mapped[str] = mapped_column(String(30), nullable=False)
     vendido_por_usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
     preco: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    codigo_cupom: Mapped[str | None] = mapped_column(String(30), nullable=True)
     status: Mapped[StatusPassagem] = mapped_column(SAEnum(StatusPassagem), default=StatusPassagem.CONFIRMADA)
     localizador: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

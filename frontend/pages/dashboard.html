@@ -37,15 +37,19 @@
           { href: "/pages/onibus.html", titulo: "Ônibus", desc: "Cadastre veículos e o layout de poltronas" },
           { href: "/pages/rotas.html", titulo: "Rotas", desc: "Origens e destinos atendidos", modulo: "passagens" },
           { href: "/pages/viagens.html", titulo: "Viagens", desc: "Crie viagens, venda passagens e gerencie poltronas", modulo: "passagens" },
+          { href: "/pages/cupons.html", titulo: "Cupons", desc: "Cupons de desconto pra compra de passagem", modulo: "passagens" },
           { href: "/pages/fretamentos.html", titulo: "Fretamentos", desc: "Aluguel de ônibus com preço por km e rastreio ao vivo", modulo: "fretamento" },
+          { href: "/pages/fretes.html", titulo: "Fretes", desc: "Envio de encomendas com rastreio ao vivo", modulo: "frete" },
           { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem", modulo: "passagens" },
           { href: "/pages/relatorios.html", titulo: "Relatórios", desc: "Ocupação, vendas e desempenho da equipe" },
+          { href: "/pages/dre.html", titulo: "DRE", desc: "Receita líquida do período: passagens, fretamento e frete" },
           { href: "/pages/avaliacoes.html", titulo: "Avaliações", desc: "O que os clientes acharam das viagens e fretamentos" },
           { href: "/pages/minhas-faturas.html", titulo: "Faturas", desc: "Cobranças da assinatura do GoTur" },
         ],
         funcionario: [
           { href: "/pages/viagens.html", titulo: "Viagens", desc: "Venda passagens e gerencie o mapa de poltronas", modulo: "passagens" },
           { href: "/pages/fretamentos.html", titulo: "Fretamentos", desc: "Gerencie fretamentos e compartilhe localização", modulo: "fretamento" },
+          { href: "/pages/fretes.html", titulo: "Fretes", desc: "Gerencie fretes e compartilhe localização", modulo: "frete" },
           { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem", modulo: "passagens" },
           { href: "/pages/avaliacoes.html", titulo: "Avaliações", desc: "O que os clientes acharam das viagens e fretamentos" },
         ],
@@ -82,6 +86,9 @@
             }
             if (!empresa.passagens_habilitado) {
               document.querySelectorAll('[data-modulo="passagens"]').forEach((el) => el.classList.add("escondido"));
+            }
+            if (!empresa.frete_habilitado) {
+              document.querySelectorAll('[data-modulo="frete"]').forEach((el) => el.classList.add("escondido"));
             }
           })
           .catch(() => {});

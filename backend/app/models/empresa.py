@@ -36,6 +36,7 @@ class Empresa(Base):
     # desligar a gestão de viagens, e vice-versa.
     fretamento_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     passagens_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    frete_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     usuarios = relationship("Usuario", back_populates="empresa")
     onibus = relationship("Onibus", back_populates="empresa")
@@ -60,3 +61,9 @@ class Empresa(Base):
         """Só usa gestão de viagens se o plano incluir E a empresa não tiver desligado."""
         permitido_pelo_plano = self.plano.modulo_passagens if self.plano else True
         return permitido_pelo_plano and self.passagens_ativo
+
+    @property
+    def frete_habilitado(self) -> bool:
+        """Só usa frete se o plano incluir E a empresa não tiver desligado."""
+        permitido_pelo_plano = self.plano.modulo_frete if self.plano else True
+        return permitido_pelo_plano and self.frete_ativo
