@@ -19,4 +19,10 @@ class Plano(Base):
     max_viagens_mes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Quais módulos esse plano inclui. Uma empresa só consegue ligar um
+    # módulo pra si (Empresa.fretamento_ativo/passagens_ativo) se o plano
+    # dela permitir aqui.
+    modulo_fretamento: Mapped[bool] = mapped_column(Boolean, default=True)
+    modulo_passagens: Mapped[bool] = mapped_column(Boolean, default=True)
+
     empresas = relationship("Empresa", back_populates="plano")

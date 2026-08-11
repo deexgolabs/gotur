@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     # e app/routers/loja.py). Fica fora do controle de versão.
     media_dir: str = str(BACKEND_DIR / "media")
 
+    # Monitoramento de erro (opcional). Sem GOTUR_SENTRY_DSN configurado,
+    # nada é enviado — crie uma conta grátis em sentry.io e cole o DSN do
+    # projeto aqui para começar a receber erros de produção automaticamente.
+    sentry_dsn: str | None = None
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origem.strip() for origem in self.cors_origins.split(",") if origem.strip()]

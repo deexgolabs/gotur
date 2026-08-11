@@ -8,9 +8,13 @@ from app.models.enums import UserRole
 from app.models.plano import Plano
 from app.models.usuario import Usuario
 from app.schemas.auth import LoginRequest, RegistroCliente, RegistroEmpresa, TokenResponse
+from app.services.rate_limit import limitar_taxa
 from app.services.slug import gerar_slug_unico
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+_limite_registro_empresa = limitar_taxa("registrar-empresa", max_chamadas=3, janela_segundos=1800)
+_limite_registro_cliente = limitar_taxa("registrar-cliente", max_chamadas=5, janela_segundos=600)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -27,7 +31,12 @@ def login(dados: LoginRequest, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/registrar-empresa", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/registrar-empresa",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(_limite_registro_empresa)],
+)
 def registrar_empresa(dados: RegistroEmpresa, db: Session = Depends(get_db)):
     """Cadastro público (onboarding self-service): uma viação nova se
     cadastra sozinha, escolhe o plano e já entra logada como admin da
@@ -67,7 +76,12 @@ def registrar_empresa(dados: RegistroEmpresa, db: Session = Depends(get_db)):
     return TokenResponse(access_token=token, role=admin.role, nome=admin.nome, tenant_id=admin.tenant_id)
 
 
-@router.post("/registrar-cliente", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/registrar-cliente",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(_limite_registro_cliente)],
+)
 def registrar_cliente(dados: RegistroCliente, db: Session = Depends(get_db)):
     if db.query(Usuario).filter(Usuario.email == dados.email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail já cadastrado")

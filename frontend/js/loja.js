@@ -44,6 +44,34 @@ function trocarVista(nome) {
 
 // ---------- Busca ----------
 
+async function configurarCidadesBusca() {
+  let cidades = [];
+  try {
+    cidades = await fetch(`/api/viagens/loja/${SLUG}/cidades`).then((r) => (r.ok ? r.json() : []));
+  } catch (e) {
+    return;
+  }
+  // Sem rotas cadastradas ainda (ou só uma cidade) — mantém os campos de
+  // texto livre, não vale a pena forçar um select com uma opção só.
+  if (cidades.length < 2) return;
+
+  const opcoes = `<option value="">Selecione...</option>` + cidades.map((c) => `<option value="${c}">${c}</option>`).join("");
+
+  const campoOrigem = document.getElementById("busca-origem");
+  const selectOrigem = document.createElement("select");
+  selectOrigem.id = "busca-origem";
+  selectOrigem.required = true;
+  selectOrigem.innerHTML = opcoes;
+  campoOrigem.replaceWith(selectOrigem);
+
+  const campoDestino = document.getElementById("busca-destino");
+  const selectDestino = document.createElement("select");
+  selectDestino.id = "busca-destino";
+  selectDestino.required = true;
+  selectDestino.innerHTML = opcoes;
+  campoDestino.replaceWith(selectDestino);
+}
+
 function configurarBusca() {
   const hoje = new Date().toISOString().slice(0, 10);
   const campoData = document.getElementById("busca-data");
@@ -550,7 +578,22 @@ async function iniciar() {
     btn.addEventListener("click", () => trocarVista(btn.dataset.vista));
   });
 
+  // Essa empresa pode ter desligado um dos dois módulos (ver
+  // Configurações → Módulos) — some com a aba correspondente.
+  if (!BRANDING.passagens_habilitado) {
+    document.querySelector('.loja-nav-item[data-vista="buscar"]').classList.add("escondido");
+  }
+  if (!BRANDING.fretamento_habilitado) {
+    document.querySelector('.loja-nav-item[data-vista="fretamento"]').classList.add("escondido");
+  }
+  if (!BRANDING.passagens_habilitado && BRANDING.fretamento_habilitado) {
+    trocarVista("fretamento");
+  }
+
   configurarBusca();
+  if (BRANDING.passagens_habilitado) {
+    configurarCidadesBusca();
+  }
   configurarCompra();
   configurarFretamento();
   configurarConta();

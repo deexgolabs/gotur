@@ -40,6 +40,8 @@ def criar_viagem(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ônibus não encontrado")
 
     empresa = db.get(Empresa, usuario_atual.tenant_id)
+    if not empresa.passagens_habilitado:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de gestão de viagens não está habilitado para sua empresa")
     verificar_limite_viagens_mes(db, empresa)
 
     viagem = Viagem(
@@ -126,6 +128,26 @@ def reativar_viagem(
     db.commit()
     db.refresh(viagem)
     return viagem
+
+
+@router.get("/loja/{slug}/cidades", response_model=list[str])
+def cidades_atendidas_pela_loja(slug: str, db: Session = Depends(get_db)):
+    """Sem autenticação — nomes de todas as paradas das rotas ativas dessa
+    empresa, pra loja white-label oferecer origem/destino como select em
+    vez de campo de texto livre (só faz sentido se a empresa já cadastrou
+    rotas; a loja volta pro texto livre se a lista vier vazia)."""
+    empresa = db.query(Empresa).filter(Empresa.slug == slug, Empresa.ativo.is_(True)).first()
+    if not empresa:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loja não encontrada")
+
+    nomes = (
+        db.query(Parada.nome)
+        .join(Rota, Parada.rota_id == Rota.id)
+        .filter(Rota.tenant_id == empresa.id, Rota.ativo.is_(True))
+        .distinct()
+        .all()
+    )
+    return sorted({nome for (nome,) in nomes})
 
 
 @router.get("/buscar", response_model=list[ViagemBuscaOut])

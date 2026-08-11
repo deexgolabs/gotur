@@ -67,3 +67,50 @@ def enviar_confirmacao_compra_whatsapp(
             pass
     except (urllib.error.URLError, urllib.error.HTTPError):
         logger.exception("Falha ao enviar WhatsApp de confirmação para %s", telefone)
+
+
+ROTULOS_STATUS_FRETAMENTO = {
+    "orcamento": "Orçamento",
+    "confirmado": "Confirmado",
+    "em_andamento": "Em andamento",
+    "concluido": "Concluído",
+    "cancelado": "Cancelado",
+}
+
+
+def enviar_atualizacao_status_fretamento_whatsapp(
+    *,
+    telefone: str | None,
+    cliente_nome: str,
+    origem: str,
+    destino: str,
+    novo_status: str,
+    link_acompanhar: str,
+) -> None:
+    if not telefone:
+        return
+
+    rotulo = ROTULOS_STATUS_FRETAMENTO.get(novo_status, novo_status)
+    mensagem = (
+        f"Olá, {cliente_nome}! O status do seu fretamento ({origem} -> {destino}) mudou para: {rotulo}.\n"
+        f"Acompanhe por aqui: {link_acompanhar}"
+    )
+
+    if not settings.whatsapp_api_url:
+        logger.info("[WhatsApp não enviado - provedor não configurado] Para: %s\n%s", telefone, mensagem)
+        return
+
+    requisicao = urllib.request.Request(
+        settings.whatsapp_api_url,
+        data=_montar_payload(telefone, mensagem),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {settings.whatsapp_api_token}" if settings.whatsapp_api_token else "",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(requisicao, timeout=10):
+            pass
+    except (urllib.error.URLError, urllib.error.HTTPError):
+        logger.exception("Falha ao enviar WhatsApp de atualização de fretamento para %s", telefone)

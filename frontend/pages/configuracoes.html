@@ -18,6 +18,26 @@
     <div id="alerta"></div>
 
     <div class="cartao">
+      <h2 style="margin-top:0">Módulos</h2>
+      <p class="rodape-form" style="text-align:left;margin-top:-8px">Ligue só o que sua empresa realmente usa.</p>
+      <form id="form-modulos">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="modulo-passagens" style="width:auto" />
+          Gestão de viagens (venda de passagem, mapa de poltronas, check-in)
+        </label>
+        <p class="rodape-form" style="text-align:left;margin:0 0 14px" id="aviso-plano-passagens"></p>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="modulo-fretamento" style="width:auto" />
+          Fretamento (aluguel de ônibus, rastreio ao vivo)
+        </label>
+        <p class="rodape-form" style="text-align:left;margin:0 0 14px" id="aviso-plano-fretamento"></p>
+        <div class="linha-acoes">
+          <button type="submit">Salvar módulos</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="cartao">
       <h2 style="margin-top:0">App da sua empresa (white-label)</h2>
       <p class="rodape-form" style="text-align:left;margin-top:-8px">
         Sua própria loja, com sua cor e seu logo, pra você divulgar pros seus clientes. Eles compram passagem,
@@ -102,6 +122,22 @@
       }
       document.getElementById("preview-logo").src = empresa.logo_url || "/icons/icon-192.png";
       atualizarPreviewLink();
+
+      const permitePassagens = empresa.plano ? empresa.plano.modulo_passagens : true;
+      const permiteFretamento = empresa.plano ? empresa.plano.modulo_fretamento : true;
+      const chkPassagens = document.getElementById("modulo-passagens");
+      const chkFretamento = document.getElementById("modulo-fretamento");
+      chkPassagens.checked = empresa.passagens_ativo && permitePassagens;
+      chkPassagens.disabled = !permitePassagens;
+      chkFretamento.checked = empresa.fretamento_ativo && permiteFretamento;
+      chkFretamento.disabled = !permiteFretamento;
+      document.getElementById("aviso-plano-passagens").textContent = permitePassagens
+        ? ""
+        : "Seu plano atual não inclui esse módulo.";
+      document.getElementById("aviso-plano-fretamento").textContent = permiteFretamento
+        ? ""
+        : "Seu plano atual não inclui esse módulo.";
+
       return empresa;
     }
 
@@ -111,6 +147,19 @@
     }
 
     document.getElementById("slug-loja").addEventListener("input", atualizarPreviewLink);
+
+    document.getElementById("form-modulos").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("PATCH", "/empresas/minha/modulos", {
+          passagens_ativo: document.getElementById("modulo-passagens").checked,
+          fretamento_ativo: document.getElementById("modulo-fretamento").checked,
+        });
+        mostrarAlerta("Módulos atualizados.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
 
     document.getElementById("form-fretamento").addEventListener("submit", async (ev) => {
       ev.preventDefault();

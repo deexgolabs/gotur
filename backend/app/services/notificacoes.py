@@ -64,3 +64,52 @@ def enviar_confirmacao_compra(
             smtp.send_message(mensagem)
     except Exception:
         logger.exception("Falha ao enviar e-mail de confirmação para %s", destinatario_email)
+
+
+ROTULOS_STATUS_FRETAMENTO = {
+    "orcamento": "Orçamento",
+    "confirmado": "Confirmado",
+    "em_andamento": "Em andamento",
+    "concluido": "Concluído",
+    "cancelado": "Cancelado",
+}
+
+
+def enviar_atualizacao_status_fretamento(
+    *,
+    destinatario_email: str | None,
+    cliente_nome: str,
+    origem: str,
+    destino: str,
+    novo_status: str,
+    link_acompanhar: str,
+) -> None:
+    if not destinatario_email:
+        return
+
+    rotulo = ROTULOS_STATUS_FRETAMENTO.get(novo_status, novo_status)
+    corpo = (
+        f"Olá, {cliente_nome}!\n\n"
+        f"O status do seu fretamento ({origem} -> {destino}) mudou para: {rotulo}.\n\n"
+        f"Acompanhe os detalhes e o trajeto por aqui: {link_acompanhar}\n\n"
+        f"GoTur"
+    )
+
+    if not settings.smtp_host:
+        logger.info("[e-mail não enviado - SMTP não configurado] Para: %s\n%s", destinatario_email, corpo)
+        return
+
+    mensagem = EmailMessage()
+    mensagem["Subject"] = f"GoTur - Fretamento atualizado: {rotulo}"
+    mensagem["From"] = settings.smtp_remetente
+    mensagem["To"] = destinatario_email
+    mensagem.set_content(corpo)
+
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
+            smtp.starttls()
+            if settings.smtp_user and settings.smtp_password:
+                smtp.login(settings.smtp_user, settings.smtp_password)
+            smtp.send_message(mensagem)
+    except Exception:
+        logger.exception("Falha ao enviar e-mail de atualização de fretamento para %s", destinatario_email)

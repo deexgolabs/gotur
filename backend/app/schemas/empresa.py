@@ -29,6 +29,11 @@ class ConfiguracaoMarcaRequest(BaseModel):
     cor_primaria: str | None = None
 
 
+class ConfiguracaoModulosRequest(BaseModel):
+    fretamento_ativo: bool | None = None
+    passagens_ativo: bool | None = None
+
+
 class TrocarPlanoRequest(BaseModel):
     plano_id: int
 
@@ -49,6 +54,10 @@ class EmpresaOut(BaseModel):
     slug: str | None = None
     cor_primaria: str | None = None
     logo_url: str | None = None
+    fretamento_ativo: bool = True
+    passagens_ativo: bool = True
+    fretamento_habilitado: bool = True
+    passagens_habilitado: bool = True
 
 
 class LojaInfoOut(BaseModel):
@@ -57,3 +66,5 @@ class LojaInfoOut(BaseModel):
     slug: str
     cor_primaria: str
     logo_url: str | None = None
+    fretamento_habilitado: bool = True
+    passagens_habilitado: bool = True

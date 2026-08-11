@@ -9,6 +9,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 from app import models  # noqa: F401 - garante que os modelos sejam registrados no metadata
 from app.config import settings
+
+if settings.sentry_dsn:
+    import sentry_sdk
+
+    sentry_sdk.init(dsn=settings.sentry_dsn, traces_sample_rate=0.1, environment="debug" if settings.debug else "production")
 from app.routers import (
     auditoria,
     auth,

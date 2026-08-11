@@ -122,11 +122,42 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
+## Backup automático do banco
+
+O script `backend/scripts/backup_db.py` copia o `gotur.db` pra
+`backend/backups/`, com um carimbo de data/hora, e apaga automaticamente
+as cópias mais antigas (mantém as 14 mais recentes por padrão).
+
+Pra rodar todo dia sozinho no PythonAnywhere:
+1. Aba **Tasks**.
+2. Em **Scheduled Tasks**, escolha um horário (ex: 03:00) e cole:
+   ```bash
+   /home/SEU_USUARIO/gotur/backend/venv/bin/python /home/SEU_USUARIO/gotur/backend/scripts/backup_db.py
+   ```
+3. Salve. A partir daí roda todo dia sem precisar mexer em nada.
+
+O plano gratuito do PythonAnywhere dá 1 tarefa agendada por dia — suficiente
+pra esse backup diário. Se estiver usando Postgres/MySQL (não SQLite), esse
+script não se aplica: use o backup do próprio provedor do banco.
+
+## Monitoramento de erro (Sentry, opcional)
+
+Sem nada configurado, erros só aparecem nos logs do PythonAnywhere (aba
+**Web → Log files**). Pra receber alerta automático de erro em produção:
+1. Crie uma conta grátis em [sentry.io](https://sentry.io) e um projeto Python/FastAPI.
+2. Copie o DSN do projeto.
+3. No `.env` do servidor, adicione:
+   ```
+   GOTUR_SENTRY_DSN=https://SUACHAVE@oNNNN.ingest.sentry.io/NNNN
+   ```
+4. Reload na aba Web. Pronto — erros não tratados passam a aparecer no painel do Sentry automaticamente.
+
 ## Checklist de segurança antes de ir ao ar
 
 - [ ] `GOTUR_DEBUG=false` e `GOTUR_JWT_SECRET` configurado com valor forte e único
 - [ ] Senha do super admin trocada (não deixe a do seed em produção)
 - [ ] `GOTUR_CORS_ORIGINS` restrito ao(s) domínio(s) real(is), se o front for servido por fora do PythonAnywhere
 - [ ] Considerar migrar de SQLite para Postgres/MySQL se esperar tráfego alto (`GOTUR_DATABASE_URL` — drivers `psycopg2`/`pymysql` já inclusos no requirements.txt)
-- [ ] Backup periódico do arquivo `gotur.db` (ou do banco externo, se usar um)
+- [ ] Backup automático configurado (ver seção "Backup automático do banco" acima)
+- [ ] Sentry (ou similar) configurado pra saber quando algo quebrar em produção (ver seção acima)
 - [ ] Rodar `pytest` antes de cada deploy para pegar regressões

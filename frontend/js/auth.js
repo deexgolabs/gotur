@@ -44,10 +44,10 @@ function linksPorPapel(role) {
       ...base,
       { href: "/pages/funcionarios.html", label: "Funcionários" },
       { href: "/pages/onibus.html", label: "Ônibus" },
-      { href: "/pages/rotas.html", label: "Rotas" },
-      { href: "/pages/viagens.html", label: "Viagens" },
-      { href: "/pages/fretamentos.html", label: "Fretamentos" },
-      { href: "/pages/checkin.html", label: "Check-in" },
+      { href: "/pages/rotas.html", label: "Rotas", modulo: "passagens" },
+      { href: "/pages/viagens.html", label: "Viagens", modulo: "passagens" },
+      { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento" },
+      { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens" },
       { href: "/pages/relatorios.html", label: "Relatórios" },
       { href: "/pages/avaliacoes.html", label: "Avaliações" },
       { href: "/pages/auditoria.html", label: "Auditoria" },
@@ -58,9 +58,9 @@ function linksPorPapel(role) {
   if (role === "funcionario") {
     return [
       ...base,
-      { href: "/pages/viagens.html", label: "Viagens" },
-      { href: "/pages/fretamentos.html", label: "Fretamentos" },
-      { href: "/pages/checkin.html", label: "Check-in" },
+      { href: "/pages/viagens.html", label: "Viagens", modulo: "passagens" },
+      { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento" },
+      { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens" },
       { href: "/pages/avaliacoes.html", label: "Avaliações" },
     ];
   }
@@ -85,7 +85,10 @@ function montarTopo(containerId) {
   const links = auth ? linksPorPapel(auth.role) : [];
   const caminhoAtual = window.location.pathname;
   const linksHtml = links
-    .map((l) => `<a href="${l.href}" class="link-nav${caminhoAtual === l.href ? " ativo" : ""}">${l.label}</a>`)
+    .map(
+      (l) =>
+        `<a href="${l.href}" class="link-nav${caminhoAtual === l.href ? " ativo" : ""}"${l.modulo ? ` data-modulo="${l.modulo}"` : ""}>${l.label}</a>`
+    )
     .join("");
 
   const usuarioHtml = auth
@@ -144,5 +147,20 @@ function montarTopo(containerId) {
         btnMenu.innerHTML = ICONE_MENU;
       }
     });
+  }
+
+  if (auth && (auth.role === "admin_empresa" || auth.role === "funcionario")) {
+    fetch("/api/empresas/minha", { headers: { Authorization: `Bearer ${auth.access_token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((empresa) => {
+        if (!empresa) return;
+        if (!empresa.fretamento_habilitado) {
+          container.querySelectorAll('[data-modulo="fretamento"]').forEach((el) => el.classList.add("escondido"));
+        }
+        if (!empresa.passagens_habilitado) {
+          container.querySelectorAll('[data-modulo="passagens"]').forEach((el) => el.classList.add("escondido"));
+        }
+      })
+      .catch(() => {});
   }
 }

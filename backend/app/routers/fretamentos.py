@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import require_roles, require_staff
@@ -23,8 +23,13 @@ from app.schemas.fretamento import (
 from app.services.auditoria import registrar as registrar_auditoria
 from app.services.codigo import gerar_localizador
 from app.services.geo import distancia_percorrida_km
+from app.services.notificacoes import enviar_atualizacao_status_fretamento
+from app.services.rate_limit import limitar_taxa
+from app.services.whatsapp_service import enviar_atualizacao_status_fretamento_whatsapp
 
 router = APIRouter(prefix="/fretamentos", tags=["fretamentos"])
+
+_limite_solicitar_orcamento = limitar_taxa("solicitar-fretamento", max_chamadas=5, janela_segundos=600)
 
 
 def _calcular_valor_total(distancia_km: float | None, valor_por_km: float | None, valor_total_manual: float | None) -> float | None:
@@ -75,12 +80,15 @@ def criar_fretamento(
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
+    empresa = db.get(Empresa, usuario_atual.tenant_id)
+    if not empresa.fretamento_habilitado:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de fretamento não está habilitado para sua empresa")
+
     if dados.onibus_id:
         onibus = db.get(Onibus, dados.onibus_id)
         if not onibus or onibus.tenant_id != usuario_atual.tenant_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ônibus não encontrado")
 
-    empresa = db.get(Empresa, usuario_atual.tenant_id)
     valor_por_km = dados.valor_por_km if dados.valor_por_km is not None else empresa.preco_km_fretamento
 
     fretamento = Fretamento(
@@ -116,7 +124,12 @@ def criar_fretamento(
     return _para_out(fretamento)
 
 
-@router.post("/loja/{slug}/solicitar", response_model=RastreioPublicoOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/loja/{slug}/solicitar",
+    response_model=RastreioPublicoOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(_limite_solicitar_orcamento)],
+)
 def solicitar_orcamento_fretamento(slug: str, dados: SolicitarOrcamentoFretamentoRequest, db: Session = Depends(get_db)):
     """Sem autenticação — formulário "Solicitar fretamento" da loja
     white-label. Cria um orçamento (status ORCAMENTO) pra empresa dona do
@@ -124,6 +137,8 @@ def solicitar_orcamento_fretamento(slug: str, dados: SolicitarOrcamentoFretament
     empresa = db.query(Empresa).filter(Empresa.slug == slug, Empresa.ativo.is_(True)).first()
     if not empresa:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loja não encontrada")
+    if not empresa.fretamento_habilitado:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Essa empresa não oferece fretamento")
 
     fretamento = Fretamento(
         tenant_id=empresa.id,
@@ -217,10 +232,45 @@ def editar_fretamento(
     return _para_out(fretamento)
 
 
+def _notificar_mudanca_status(request: Request, db: Session, fretamento: Fretamento) -> None:
+    contato = (fretamento.cliente_contato or "").strip()
+    if not contato:
+        return
+
+    empresa = db.get(Empresa, fretamento.tenant_id)
+    slug = empresa.slug if empresa else None
+    base = str(request.base_url).rstrip("/")
+    link_acompanhar = (
+        f"{base}/loja/{slug}?codigo={fretamento.codigo_rastreio}"
+        if slug
+        else f"{base}/rastrear.html?codigo={fretamento.codigo_rastreio}"
+    )
+
+    if "@" in contato:
+        enviar_atualizacao_status_fretamento(
+            destinatario_email=contato,
+            cliente_nome=fretamento.cliente_nome,
+            origem=fretamento.origem,
+            destino=fretamento.destino,
+            novo_status=fretamento.status.value,
+            link_acompanhar=link_acompanhar,
+        )
+    else:
+        enviar_atualizacao_status_fretamento_whatsapp(
+            telefone=contato,
+            cliente_nome=fretamento.cliente_nome,
+            origem=fretamento.origem,
+            destino=fretamento.destino,
+            novo_status=fretamento.status.value,
+            link_acompanhar=link_acompanhar,
+        )
+
+
 @router.patch("/{fretamento_id}/status", response_model=FretamentoOut)
 def mudar_status_fretamento(
     fretamento_id: int,
     dados: MudarStatusFretamentoRequest,
+    request: Request,
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(require_staff),
 ):
@@ -239,6 +289,7 @@ def mudar_status_fretamento(
 
     db.commit()
     db.refresh(fretamento)
+    _notificar_mudanca_status(request, db, fretamento)
     return _para_out(fretamento)
 
 

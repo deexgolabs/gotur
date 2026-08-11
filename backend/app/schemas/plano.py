@@ -8,6 +8,8 @@ class PlanoCreate(BaseModel):
     max_onibus: int | None = None
     max_funcionarios: int | None = None
     max_viagens_mes: int | None = None
+    modulo_fretamento: bool = True
+    modulo_passagens: bool = True
 
 
 class PlanoUpdate(BaseModel):
@@ -17,6 +19,8 @@ class PlanoUpdate(BaseModel):
     max_onibus: int | None = None
     max_funcionarios: int | None = None
     max_viagens_mes: int | None = None
+    modulo_fretamento: bool | None = None
+    modulo_passagens: bool | None = None
 
 
 class PlanoOut(BaseModel):
@@ -30,3 +34,5 @@ class PlanoOut(BaseModel):
     max_funcionarios: int | None
     max_viagens_mes: int | None
     ativo: bool
+    modulo_fretamento: bool = True
+    modulo_passagens: bool = True

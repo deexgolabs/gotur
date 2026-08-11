@@ -46,6 +46,14 @@
             <input id="descricao" placeholder="Opcional" />
           </div>
         </div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin:12px 0 4px">
+          <input type="checkbox" id="inclui-passagens" checked style="width:auto" />
+          Inclui gestão de viagens
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="inclui-fretamento" checked style="width:auto" />
+          Inclui fretamento
+        </label>
         <div class="linha-acoes">
           <button type="submit">Cadastrar plano</button>
         </div>
@@ -55,7 +63,7 @@
     <h2>Planos cadastrados</h2>
     <div class="cartao">
       <table>
-        <thead><tr><th>Nome</th><th>Preço/mês</th><th>Ônibus</th><th>Funcionários</th><th>Viagens/mês</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Nome</th><th>Preço/mês</th><th>Ônibus</th><th>Funcionários</th><th>Viagens/mês</th><th>Módulos</th><th>Status</th><th></th></tr></thead>
         <tbody id="corpo-tabela"></tbody>
       </table>
       <p class="vazio escondido" id="vazio">Nenhum plano cadastrado ainda.</p>
@@ -90,6 +98,10 @@
           <td>${fmtLimite(p.max_onibus)}</td>
           <td>${fmtLimite(p.max_funcionarios)}</td>
           <td>${fmtLimite(p.max_viagens_mes)}</td>
+          <td>
+            <span class="selo ${p.modulo_passagens ? "livre" : "bloqueada"}" data-toggle-modulo="passagens" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Viagens</span>
+            <span class="selo ${p.modulo_fretamento ? "livre" : "bloqueada"}" data-toggle-modulo="fretamento" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Fretamento</span>
+          </td>
           <td><span class="selo ${p.ativo ? "livre" : "bloqueada"}">${p.ativo ? "Ativo" : "Inativo"}</span></td>
           <td>
             <button class="secundario" data-editar="${p.id}">Editar preço</button>
@@ -135,6 +147,19 @@
           }
         });
       });
+
+      corpo.querySelectorAll("[data-toggle-modulo]").forEach((selo) => {
+        selo.addEventListener("click", async () => {
+          const plano = lista.find((p) => p.id == selo.dataset.plano);
+          const campo = selo.dataset.toggleModulo === "passagens" ? "modulo_passagens" : "modulo_fretamento";
+          try {
+            await api("PATCH", `/planos/${plano.id}`, { [campo]: !plano[campo] });
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
     }
 
     if (auth) {
@@ -156,6 +181,8 @@
           max_funcionarios: lerInt("max-funcionarios"),
           max_viagens_mes: lerInt("max-viagens"),
           descricao: document.getElementById("descricao").value.trim() || null,
+          modulo_passagens: document.getElementById("inclui-passagens").checked,
+          modulo_fretamento: document.getElementById("inclui-fretamento").checked,
         });
         ev.target.reset();
         mostrarAlerta("Plano cadastrado com sucesso.", "sucesso");

@@ -11,6 +11,7 @@ from app.models.usuario import Usuario
 from app.schemas.empresa import (
     ConfiguracaoFretamentoRequest,
     ConfiguracaoMarcaRequest,
+    ConfiguracaoModulosRequest,
     EmpresaCreate,
     EmpresaOut,
     EmpresaUpdate,
@@ -193,6 +194,33 @@ def configurar_marca(
     return empresa
 
 
+@router.patch("/minha/modulos", response_model=EmpresaOut)
+def configurar_modulos(
+    dados: ConfiguracaoModulosRequest,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """Liga/desliga fretamento e gestão de viagens pra essa empresa —
+    dentro do que o plano permitir (ver Empresa.fretamento_habilitado /
+    Empresa.passagens_habilitado)."""
+    empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
+
+    if dados.fretamento_ativo is not None:
+        empresa.fretamento_ativo = dados.fretamento_ativo
+    if dados.passagens_ativo is not None:
+        empresa.passagens_ativo = dados.passagens_ativo
+
+    if not empresa.fretamento_ativo and not empresa.passagens_ativo:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pelo menos um módulo (fretamento ou gestão de viagens) precisa ficar ligado.",
+        )
+
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
 @router.post("/minha/logo", response_model=EmpresaOut)
 async def enviar_logo(
     arquivo: UploadFile = File(...),
@@ -231,6 +259,8 @@ def info_loja_publica(slug: str, db: Session = Depends(get_db)):
         slug=empresa.slug,
         cor_primaria=empresa.cor_primaria or "#0b5fa5",
         logo_url=empresa.logo_url,
+        fretamento_habilitado=empresa.fretamento_habilitado,
+        passagens_habilitado=empresa.passagens_habilitado,
     )
 
 

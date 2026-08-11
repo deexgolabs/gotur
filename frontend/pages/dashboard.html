@@ -35,18 +35,18 @@
         admin_empresa: [
           { href: "/pages/funcionarios.html", titulo: "Funcionários", desc: "Gerencie a equipe da sua empresa" },
           { href: "/pages/onibus.html", titulo: "Ônibus", desc: "Cadastre veículos e o layout de poltronas" },
-          { href: "/pages/rotas.html", titulo: "Rotas", desc: "Origens e destinos atendidos" },
-          { href: "/pages/viagens.html", titulo: "Viagens", desc: "Crie viagens, venda passagens e gerencie poltronas" },
-          { href: "/pages/fretamentos.html", titulo: "Fretamentos", desc: "Aluguel de ônibus com preço por km e rastreio ao vivo" },
-          { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem" },
+          { href: "/pages/rotas.html", titulo: "Rotas", desc: "Origens e destinos atendidos", modulo: "passagens" },
+          { href: "/pages/viagens.html", titulo: "Viagens", desc: "Crie viagens, venda passagens e gerencie poltronas", modulo: "passagens" },
+          { href: "/pages/fretamentos.html", titulo: "Fretamentos", desc: "Aluguel de ônibus com preço por km e rastreio ao vivo", modulo: "fretamento" },
+          { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem", modulo: "passagens" },
           { href: "/pages/relatorios.html", titulo: "Relatórios", desc: "Ocupação, vendas e desempenho da equipe" },
           { href: "/pages/avaliacoes.html", titulo: "Avaliações", desc: "O que os clientes acharam das viagens e fretamentos" },
           { href: "/pages/minhas-faturas.html", titulo: "Faturas", desc: "Cobranças da assinatura do GoTur" },
         ],
         funcionario: [
-          { href: "/pages/viagens.html", titulo: "Viagens", desc: "Venda passagens e gerencie o mapa de poltronas" },
-          { href: "/pages/fretamentos.html", titulo: "Fretamentos", desc: "Gerencie fretamentos e compartilhe localização" },
-          { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem" },
+          { href: "/pages/viagens.html", titulo: "Viagens", desc: "Venda passagens e gerencie o mapa de poltronas", modulo: "passagens" },
+          { href: "/pages/fretamentos.html", titulo: "Fretamentos", desc: "Gerencie fretamentos e compartilhe localização", modulo: "fretamento" },
+          { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem", modulo: "passagens" },
           { href: "/pages/avaliacoes.html", titulo: "Avaliações", desc: "O que os clientes acharam das viagens e fretamentos" },
         ],
         cliente: [
@@ -67,12 +67,25 @@
       document.getElementById("cartoes").innerHTML = cartoes
         .map(
           (c) => `
-        <a class="cartao-resumo" href="${c.href}">
+        <a class="cartao-resumo" href="${c.href}"${c.modulo ? ` data-modulo="${c.modulo}"` : ""}>
           <div class="titulo">${c.titulo}</div>
           <div class="desc">${c.desc}</div>
         </a>`
         )
         .join("");
+
+      if (auth.role === "admin_empresa" || auth.role === "funcionario") {
+        api("GET", "/empresas/minha")
+          .then((empresa) => {
+            if (!empresa.fretamento_habilitado) {
+              document.querySelectorAll('[data-modulo="fretamento"]').forEach((el) => el.classList.add("escondido"));
+            }
+            if (!empresa.passagens_habilitado) {
+              document.querySelectorAll('[data-modulo="passagens"]').forEach((el) => el.classList.add("escondido"));
+            }
+          })
+          .catch(() => {});
+      }
     }
   </script>
 </body>
