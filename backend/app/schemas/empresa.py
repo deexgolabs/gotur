@@ -24,6 +24,13 @@ class ConfiguracaoFretamentoRequest(BaseModel):
     preco_km_fretamento: float | None = None
 
 
+class ConfiguracaoEmpresaRequest(BaseModel):
+    nome: str | None = None
+    email_contato: str | None = None
+    telefone_contato: str | None = None
+    texto_loja: str | None = None
+
+
 class ConfiguracaoMarcaRequest(BaseModel):
     slug: str | None = None
     cor_primaria: str | None = None
@@ -46,6 +53,8 @@ class EmpresaOut(BaseModel):
     nome: str
     cnpj: str
     email_contato: str | None
+    telefone_contato: str | None = None
+    texto_loja: str | None = None
     ativo: bool
     criado_em: datetime
     plano_id: int | None
@@ -69,6 +78,8 @@ class LojaInfoOut(BaseModel):
     slug: str
     cor_primaria: str
     logo_url: str | None = None
+    telefone_contato: str | None = None
+    texto_loja: str | None = None
     fretamento_habilitado: bool = True
     passagens_habilitado: bool = True
     frete_habilitado: bool = True

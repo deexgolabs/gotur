@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,6 +15,11 @@ class Empresa(Base):
     nome: Mapped[str] = mapped_column(String(150), nullable=False)
     cnpj: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     email_contato: Mapped[str] = mapped_column(String(150), nullable=True)
+    telefone_contato: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # Texto livre configurável pela empresa (política de cancelamento,
+    # horário de atendimento, avisos) — exibido pro cliente na loja
+    # white-label (ver LojaInfoOut).
+    texto_loja: Mapped[str | None] = mapped_column(Text, nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 

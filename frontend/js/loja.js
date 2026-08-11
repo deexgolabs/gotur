@@ -742,6 +742,23 @@ async function iniciar() {
   aplicarTema(BRANDING.cor_primaria);
   document.getElementById("link-apple-icon").setAttribute("href", BRANDING.logo_url || "/icons/apple-touch-icon.png");
 
+  if (BRANDING.telefone_contato || BRANDING.texto_loja) {
+    const info = document.getElementById("loja-info");
+    const partes = [];
+    if (BRANDING.texto_loja) {
+      partes.push(`<div>${BRANDING.texto_loja.replace(/\n/g, "<br>")}</div>`);
+    }
+    if (BRANDING.telefone_contato) {
+      const digitos = BRANDING.telefone_contato.replace(/\D/g, "");
+      const numeroWhats = digitos.length <= 11 ? `55${digitos}` : digitos;
+      partes.push(
+        `<div style="margin-top:${BRANDING.texto_loja ? "8px" : "0"}"><a href="https://wa.me/${numeroWhats}" target="_blank" rel="noopener">${BRANDING.telefone_contato}</a></div>`
+      );
+    }
+    info.innerHTML = partes.join("");
+    info.classList.remove("escondido");
+  }
+
   document.getElementById("tela-carregando").classList.add("escondido");
   document.getElementById("app").classList.remove("escondido");
 

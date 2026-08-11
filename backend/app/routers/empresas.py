@@ -9,6 +9,7 @@ from app.models.enums import StatusAssinatura, UserRole
 from app.models.plano import Plano
 from app.models.usuario import Usuario
 from app.schemas.empresa import (
+    ConfiguracaoEmpresaRequest,
     ConfiguracaoFretamentoRequest,
     ConfiguracaoMarcaRequest,
     ConfiguracaoModulosRequest,
@@ -194,6 +195,23 @@ def configurar_marca(
     return empresa
 
 
+@router.patch("/minha/dados", response_model=EmpresaOut)
+def configurar_dados(
+    dados: ConfiguracaoEmpresaRequest,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """Dados cadastrais e textos da loja que a própria empresa pode editar
+    sem depender do super admin — CNPJ fica de fora por ser documento
+    legal (mudança passa pelo suporte)."""
+    empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
+    for campo, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(empresa, campo, valor)
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
 @router.patch("/minha/modulos", response_model=EmpresaOut)
 def configurar_modulos(
     dados: ConfiguracaoModulosRequest,
@@ -261,6 +279,8 @@ def info_loja_publica(slug: str, db: Session = Depends(get_db)):
         slug=empresa.slug,
         cor_primaria=empresa.cor_primaria or "#0b5fa5",
         logo_url=empresa.logo_url,
+        telefone_contato=empresa.telefone_contato,
+        texto_loja=empresa.texto_loja,
         fretamento_habilitado=empresa.fretamento_habilitado,
         passagens_habilitado=empresa.passagens_habilitado,
         frete_habilitado=empresa.frete_habilitado,

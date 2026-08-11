@@ -18,6 +18,48 @@
     <div id="alerta"></div>
 
     <div class="cartao">
+      <h2 style="margin-top:0">Dados da empresa</h2>
+      <p class="rodape-form" style="text-align:left;margin-top:-8px">Nome e contatos que aparecem pro cliente na loja e em documentos.</p>
+      <form id="form-dados">
+        <div class="grid-form">
+          <div>
+            <label for="empresa-nome">Nome</label>
+            <input id="empresa-nome" required />
+          </div>
+          <div>
+            <label for="empresa-cnpj">CNPJ</label>
+            <input id="empresa-cnpj" disabled />
+            <p class="rodape-form" style="text-align:left;margin:4px 0 0">Pra corrigir o CNPJ, fale com o suporte.</p>
+          </div>
+          <div>
+            <label for="empresa-telefone">Telefone / WhatsApp</label>
+            <input id="empresa-telefone" placeholder="(00) 00000-0000" />
+          </div>
+          <div>
+            <label for="empresa-email">E-mail de contato</label>
+            <input id="empresa-email" type="email" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Salvar dados</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Textos da loja</h2>
+      <p class="rodape-form" style="text-align:left;margin-top:-8px">
+        Texto livre exibido pro cliente na sua loja — política de cancelamento, horário de atendimento, avisos gerais.
+      </p>
+      <form id="form-textos">
+        <textarea id="empresa-texto-loja" rows="4" placeholder="Ex: Atendimento de seg a sáb, 8h às 18h. Cancelamentos com até 24h de antecedência têm reembolso integral." style="width:100%;padding:9px 11px;border:1px solid var(--borda);border-radius:6px;font-family:inherit;margin-bottom:12px"></textarea>
+        <div class="linha-acoes">
+          <button type="submit">Salvar textos</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="cartao">
       <h2 style="margin-top:0">Módulos</h2>
       <p class="rodape-form" style="text-align:left;margin-top:-8px">Ligue só o que sua empresa realmente usa.</p>
       <form id="form-modulos">
@@ -116,6 +158,11 @@
 
     async function carregarEmpresa() {
       const empresa = await api("GET", "/empresas/minha");
+      document.getElementById("empresa-nome").value = empresa.nome || "";
+      document.getElementById("empresa-cnpj").value = empresa.cnpj || "";
+      document.getElementById("empresa-telefone").value = empresa.telefone_contato || "";
+      document.getElementById("empresa-email").value = empresa.email_contato || "";
+      document.getElementById("empresa-texto-loja").value = empresa.texto_loja || "";
       if (empresa.preco_km_fretamento != null) {
         document.getElementById("preco-km").value = empresa.preco_km_fretamento;
       }
@@ -159,6 +206,32 @@
     }
 
     document.getElementById("slug-loja").addEventListener("input", atualizarPreviewLink);
+
+    document.getElementById("form-dados").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("PATCH", "/empresas/minha/dados", {
+          nome: document.getElementById("empresa-nome").value.trim(),
+          telefone_contato: document.getElementById("empresa-telefone").value.trim() || null,
+          email_contato: document.getElementById("empresa-email").value.trim() || null,
+        });
+        mostrarAlerta("Dados atualizados.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("form-textos").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("PATCH", "/empresas/minha/dados", {
+          texto_loja: document.getElementById("empresa-texto-loja").value.trim() || null,
+        });
+        mostrarAlerta("Textos da loja atualizados.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
 
     document.getElementById("form-modulos").addEventListener("submit", async (ev) => {
       ev.preventDefault();

@@ -43,6 +43,34 @@ def test_configurar_slug_e_cor_e_loja_publica_reflete(client, db):
     assert publico.json()["id"] == empresa["empresa_id"]
 
 
+def test_configurar_dados_da_empresa_e_textos_da_loja(client, db):
+    empresa = criar_empresa_completa(db, "WLDADOS")
+    token = login(client, empresa["admin_email"], empresa["senha"])
+    headers = auth_header(token)
+
+    resposta = client.patch(
+        "/api/empresas/minha/dados",
+        json={
+            "nome": "Viação Renomeada",
+            "telefone_contato": "(63) 99999-8888",
+            "email_contato": "contato@renomeada.com",
+            "texto_loja": "Atendimento de seg a sáb, 8h às 18h.",
+        },
+        headers=headers,
+    )
+    assert resposta.status_code == 200, resposta.text
+    corpo = resposta.json()
+    assert corpo["nome"] == "Viação Renomeada"
+    assert corpo["telefone_contato"] == "(63) 99999-8888"
+    assert corpo["texto_loja"] == "Atendimento de seg a sáb, 8h às 18h."
+
+    slug = client.patch("/api/empresas/minha/marca", json={"slug": "loja-wldados"}, headers=headers).json()["slug"]
+    publico = client.get(f"/api/empresas/loja/{slug}")
+    assert publico.status_code == 200
+    assert publico.json()["telefone_contato"] == "(63) 99999-8888"
+    assert publico.json()["texto_loja"] == "Atendimento de seg a sáb, 8h às 18h."
+
+
 def test_slug_duplicado_e_rejeitado(client, db):
     empresa_a = criar_empresa_completa(db, "WL3")
     empresa_b = criar_empresa_completa(db, "WL4")
