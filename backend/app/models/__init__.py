@@ -1,6 +1,7 @@
 from app.models.auditoria import RegistroAuditoria
 from app.models.avaliacao import Avaliacao
 from app.models.cupom import Cupom
+from app.models.documento_onibus import DocumentoOnibus
 from app.models.empresa import Empresa
 from app.models.fatura_empresa import FaturaEmpresa
 from app.models.frete import Frete, PosicaoFrete
@@ -24,6 +25,7 @@ __all__ = [
     "RegistroAuditoria",
     "Avaliacao",
     "Cupom",
+    "DocumentoOnibus",
     "Empresa",
     "Plano",
     "FaturaEmpresa",

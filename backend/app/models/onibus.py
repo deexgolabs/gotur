@@ -14,9 +14,11 @@ class Onibus(Base):
     identificacao: Mapped[str] = mapped_column(String(50), nullable=False)  # placa ou número interno
     tipo: Mapped[TipoOnibus] = mapped_column(SAEnum(TipoOnibus), nullable=False)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    quilometragem_atual: Mapped[float | None] = mapped_column(Numeric(10, 1), nullable=True)
 
     empresa = relationship("Empresa", back_populates="onibus")
     poltronas = relationship("PoltronaOnibus", back_populates="onibus", cascade="all, delete-orphan")
+    documentos = relationship("DocumentoOnibus", back_populates="onibus", cascade="all, delete-orphan")
 
 
 class PoltronaOnibus(Base):

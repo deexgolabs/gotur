@@ -48,7 +48,7 @@
     <h2>Frota cadastrada</h2>
     <div class="cartao">
       <table>
-        <thead><tr><th>Identificação</th><th>Tipo</th><th>Poltronas</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Identificação</th><th>Tipo</th><th>Poltronas</th><th>Km</th><th>Documentos</th><th>Status</th><th></th></tr></thead>
         <tbody id="corpo-tabela"></tbody>
       </table>
       <p class="vazio escondido" id="vazio">Nenhum ônibus cadastrado ainda.</p>
@@ -64,15 +64,89 @@
     </div>
   </dialog>
 
+  <dialog id="dialog-manutencao" style="border:none;border-radius:8px;padding:24px;max-width:560px;width:100%">
+    <h2 style="margin-top:0" id="titulo-dialog-manutencao">Manutenção</h2>
+    <form id="form-quilometragem" class="grid-form" style="align-items:end;margin-bottom:16px">
+      <div>
+        <label for="quilometragem">Quilometragem atual (km)</label>
+        <input id="quilometragem" type="number" min="0" step="1" />
+      </div>
+      <div class="linha-acoes" style="margin:0">
+        <button type="submit">Salvar km</button>
+      </div>
+    </form>
+
+    <h3 style="margin-bottom:6px">Novo documento/manutenção</h3>
+    <form id="form-documento" class="grid-form">
+      <div>
+        <label for="doc-tipo">Tipo</label>
+        <select id="doc-tipo">
+          <option value="crlv">CRLV</option>
+          <option value="seguro">Seguro</option>
+          <option value="revisao">Revisão preventiva</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+      <div>
+        <label for="doc-vencimento">Data de vencimento</label>
+        <input id="doc-vencimento" type="date" required />
+      </div>
+      <div>
+        <label for="doc-descricao">Descrição (opcional)</label>
+        <input id="doc-descricao" placeholder="Ex: Seguradora XPTO" />
+      </div>
+      <div class="linha-acoes" style="margin:0">
+        <button type="submit">Adicionar</button>
+      </div>
+    </form>
+
+    <table style="margin-top:14px">
+      <thead><tr><th>Tipo</th><th>Descrição</th><th>Vencimento</th><th></th></tr></thead>
+      <tbody id="corpo-documentos"></tbody>
+    </table>
+    <p class="vazio escondido" id="vazio-documentos">Nenhum documento cadastrado ainda.</p>
+
+    <div class="linha-acoes">
+      <button type="button" class="secundario" id="btn-fechar-manutencao">Fechar</button>
+    </div>
+  </dialog>
+
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/pwa.js"></script>
   <script>
     const auth = exigirPapel("admin_empresa");
     const ROTULOS = { convencional: "Convencional", executivo: "Executivo", leito: "Leito" };
+    const ROTULOS_DOC = { crlv: "CRLV", seguro: "Seguro", revisao: "Revisão", outro: "Outro" };
 
     function mostrarAlerta(mensagem, tipo = "erro") {
       document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    function formatarData(iso) {
+      return iso ? new Date(iso + "T00:00:00").toLocaleDateString("pt-BR") : "-";
+    }
+
+    function nivelVencimento(dataVencimento) {
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      const venc = new Date(dataVencimento + "T00:00:00");
+      const dias = Math.floor((venc - hoje) / (1000 * 60 * 60 * 24));
+      if (dias < 0) return "vencido";
+      if (dias <= 30) return "vencendo";
+      return "ok";
+    }
+
+    function piorNivel(documentos) {
+      if (!documentos.length) return null;
+      const niveis = documentos.map((d) => nivelVencimento(d.data_vencimento));
+      if (niveis.includes("vencido")) return "vencido";
+      if (niveis.includes("vencendo")) return "vencendo";
+      return "ok";
+    }
+
+    function classeSelo(nivel) {
+      return nivel === "vencido" ? "bloqueada" : nivel === "vencendo" ? "hold" : "livre";
     }
 
     async function carregar() {
@@ -80,26 +154,34 @@
       const corpo = document.getElementById("corpo-tabela");
       document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
       corpo.innerHTML = lista
-        .map(
-          (o) => `
+        .map((o) => {
+          const pior = piorNivel(o.documentos);
+          return `
         <tr>
           <td>${o.identificacao}</td>
           <td>${ROTULOS[o.tipo] || o.tipo}</td>
           <td>${o.poltronas.length}</td>
+          <td>${o.quilometragem_atual != null ? Number(o.quilometragem_atual).toLocaleString("pt-BR") + " km" : "—"}</td>
+          <td>${pior ? `<span class="selo ${classeSelo(pior)}">${o.documentos.length} doc.</span>` : "—"}</td>
           <td><span class="selo ${o.ativo ? "livre" : "bloqueada"}">${o.ativo ? "Ativo" : "Inativo"}</span></td>
           <td>
             <button class="secundario" data-editar="${o.id}">Editar</button>
             <button class="secundario" data-poltronas="${o.id}">Categorias</button>
+            <button class="secundario" data-manutencao="${o.id}">Manutenção</button>
             ${o.ativo
               ? `<button class="perigo" data-desativar="${o.id}">Desativar</button>`
               : `<button class="secundario" data-ativar="${o.id}">Reativar</button>`}
           </td>
-        </tr>`
-        )
+        </tr>`;
+        })
         .join("");
 
       corpo.querySelectorAll("button[data-poltronas]").forEach((btn) => {
         btn.addEventListener("click", () => abrirDialogPoltronas(lista.find((o) => o.id == btn.dataset.poltronas)));
+      });
+
+      corpo.querySelectorAll("button[data-manutencao]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirDialogManutencao(lista.find((o) => o.id == btn.dataset.manutencao)));
       });
 
       corpo.querySelectorAll("button[data-editar]").forEach((btn) => {
@@ -198,6 +280,86 @@
     document.getElementById("btn-fechar-poltronas").addEventListener("click", () => {
       document.getElementById("dialog-poltronas").close();
       carregar();
+    });
+
+    let manutencaoOnibusId = null;
+
+    function renderizarDocumentos(documentos) {
+      const corpo = document.getElementById("corpo-documentos");
+      document.getElementById("vazio-documentos").classList.toggle("escondido", documentos.length > 0);
+      corpo.innerHTML = documentos
+        .map((d) => {
+          const nivel = nivelVencimento(d.data_vencimento);
+          return `
+        <tr>
+          <td>${ROTULOS_DOC[d.tipo] || d.tipo}</td>
+          <td>${d.descricao || "—"}</td>
+          <td><span class="selo ${classeSelo(nivel)}">${formatarData(d.data_vencimento)}</span></td>
+          <td><button class="perigo" data-remover-documento="${d.id}">Remover</button></td>
+        </tr>`;
+        })
+        .join("");
+
+      corpo.querySelectorAll("button[data-remover-documento]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("DELETE", `/onibus/${manutencaoOnibusId}/documentos/${btn.dataset.removerDocumento}`);
+            await abrirDialogManutencao({ id: manutencaoOnibusId, identificacao: document.getElementById("titulo-dialog-manutencao").dataset.identificacao }, false);
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    async function abrirDialogManutencao(onibus, abrirModal = true) {
+      manutencaoOnibusId = onibus.id;
+      const titulo = document.getElementById("titulo-dialog-manutencao");
+      titulo.textContent = `Manutenção — ${onibus.identificacao}`;
+      titulo.dataset.identificacao = onibus.identificacao;
+      try {
+        const atual = await api("GET", "/onibus");
+        const encontrado = atual.find((o) => o.id === onibus.id);
+        document.getElementById("quilometragem").value = encontrado.quilometragem_atual ?? "";
+        renderizarDocumentos(encontrado.documentos);
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+      if (abrirModal) document.getElementById("dialog-manutencao").showModal();
+    }
+
+    document.getElementById("btn-fechar-manutencao").addEventListener("click", () => {
+      document.getElementById("dialog-manutencao").close();
+      carregar();
+    });
+
+    document.getElementById("form-quilometragem").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const valor = document.getElementById("quilometragem").value.trim();
+        await api("PATCH", `/onibus/${manutencaoOnibusId}`, {
+          quilometragem_atual: valor === "" ? null : parseFloat(valor),
+        });
+        mostrarAlerta("Quilometragem atualizada.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("form-documento").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("POST", `/onibus/${manutencaoOnibusId}/documentos`, {
+          tipo: document.getElementById("doc-tipo").value,
+          descricao: document.getElementById("doc-descricao").value.trim() || null,
+          data_vencimento: document.getElementById("doc-vencimento").value,
+        });
+        ev.target.reset();
+        mostrarAlerta("Documento adicionado.", "sucesso");
+        await abrirDialogManutencao({ id: manutencaoOnibusId, identificacao: document.getElementById("titulo-dialog-manutencao").dataset.identificacao }, false);
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
     });
 
     if (auth) {

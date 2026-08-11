@@ -3,11 +3,21 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import require_roles
 from app.database import get_db
+from app.models.documento_onibus import DocumentoOnibus
 from app.models.empresa import Empresa
 from app.models.enums import UserRole
 from app.models.onibus import Onibus, PoltronaOnibus
 from app.models.usuario import Usuario
-from app.schemas.onibus import OnibusCreate, OnibusOut, OnibusUpdate, PoltronaOnibusOut, PoltronaOnibusUpdate
+from app.schemas.onibus import (
+    DocumentoOnibusCreate,
+    DocumentoOnibusOut,
+    DocumentoOnibusUpdate,
+    OnibusCreate,
+    OnibusOut,
+    OnibusUpdate,
+    PoltronaOnibusOut,
+    PoltronaOnibusUpdate,
+)
 from app.services.limites_plano import verificar_limite_onibus
 
 router = APIRouter(prefix="/onibus", tags=["onibus"])
@@ -66,7 +76,7 @@ def listar_onibus(
 ):
     return (
         db.query(Onibus)
-        .options(joinedload(Onibus.poltronas))
+        .options(joinedload(Onibus.poltronas), joinedload(Onibus.documentos))
         .filter(Onibus.tenant_id == usuario_atual.tenant_id)
         .order_by(Onibus.identificacao)
         .all()
@@ -146,3 +156,61 @@ def editar_categoria_poltrona(
     db.commit()
     db.refresh(poltrona)
     return poltrona
+
+
+@router.post("/{onibus_id}/documentos", response_model=DocumentoOnibusOut, status_code=status.HTTP_201_CREATED)
+def criar_documento_onibus(
+    onibus_id: int,
+    dados: DocumentoOnibusCreate,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """Registra um documento/manutenção com data de vencimento (CRLV,
+    seguro, revisão preventiva). Renovar é criar um novo registro — o
+    histórico de vencimentos anteriores fica todo visível."""
+    onibus = _buscar_onibus_da_empresa(db, onibus_id, usuario_atual)
+    documento = DocumentoOnibus(
+        tenant_id=usuario_atual.tenant_id,
+        onibus_id=onibus.id,
+        tipo=dados.tipo,
+        descricao=dados.descricao,
+        data_vencimento=dados.data_vencimento,
+    )
+    db.add(documento)
+    db.commit()
+    db.refresh(documento)
+    return documento
+
+
+@router.patch("/{onibus_id}/documentos/{documento_id}", response_model=DocumentoOnibusOut)
+def editar_documento_onibus(
+    onibus_id: int,
+    documento_id: int,
+    dados: DocumentoOnibusUpdate,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    _buscar_onibus_da_empresa(db, onibus_id, usuario_atual)
+    documento = db.get(DocumentoOnibus, documento_id)
+    if not documento or documento.onibus_id != onibus_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento não encontrado")
+    for campo, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(documento, campo, valor)
+    db.commit()
+    db.refresh(documento)
+    return documento
+
+
+@router.delete("/{onibus_id}/documentos/{documento_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remover_documento_onibus(
+    onibus_id: int,
+    documento_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    _buscar_onibus_da_empresa(db, onibus_id, usuario_atual)
+    documento = db.get(DocumentoOnibus, documento_id)
+    if not documento or documento.onibus_id != onibus_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento não encontrado")
+    db.delete(documento)
+    db.commit()

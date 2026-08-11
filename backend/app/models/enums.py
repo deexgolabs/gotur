@@ -111,6 +111,17 @@ class CategoriaPassageiro(str, enum.Enum):
     CRIANCA_COLO = "crianca_colo"
 
 
+class TipoDocumentoOnibus(str, enum.Enum):
+    """Tipo de item com data de vencimento controlado por ônibus (ver
+    app.models.documento_onibus.DocumentoOnibus) — cobre tanto documentos
+    (CRLV, seguro) quanto manutenção preventiva por data."""
+
+    CRLV = "crlv"
+    SEGURO = "seguro"
+    REVISAO = "revisao"
+    OUTRO = "outro"
+
+
 class StatusRepasse(str, enum.Enum):
     """Situação de um repasse de comissão gerado pra um parceiro (ver
     app.models.repasse_parceiro.RepasseParceiro) — o pagamento em si
