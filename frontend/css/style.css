@@ -38,6 +38,19 @@ header.topo {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
+@media (min-width: 861px) {
+  header.topo {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  #topo + main {
+    padding-top: 100px;
+  }
+}
+
 header.topo .topo-linha {
   display: flex;
   align-items: center;
