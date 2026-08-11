@@ -52,6 +52,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def sem_cache_agressivo_no_frontend(request, call_next):
+    """O front (HTML/CSS/JS) é servido sem Cache-Control — por padrão isso
+    deixa o navegador guardar uma cópia por conta própria (cache
+    "heurístico") e usá-la sem nem perguntar ao servidor se mudou algo,
+    então depois de um deploy o usuário pode continuar vendo a versão
+    antiga por um bom tempo (já aconteceu: CSS ficou desatualizado e
+    quebrou o layout). `no-cache` faz o navegador sempre confirmar com o
+    servidor antes de usar a cópia salva — na prática isso costuma virar
+    um 304 rapidinho (via ETag), não um download completo de novo.
+    `/media` fica de fora de propósito: logo/ícones de empresa já têm
+    cache-busting próprio (?v=...) e podem ficar em cache longo."""
+    resposta = await call_next(request)
+    caminho = request.url.path
+    if not caminho.startswith("/api") and not caminho.startswith("/media"):
+        resposta.headers["Cache-Control"] = "no-cache"
+    return resposta
+
 api = FastAPI(title="GoTur API - v1")
 for router in (
     auth.router,

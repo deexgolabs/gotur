@@ -161,3 +161,40 @@ def enviar_atualizacao_status_frete_whatsapp(
             pass
     except (urllib.error.URLError, urllib.error.HTTPError):
         logger.exception("Falha ao enviar WhatsApp de atualização de frete para %s", telefone)
+
+
+def enviar_fatura_gerada_whatsapp(
+    *,
+    telefone: str | None,
+    empresa_nome: str,
+    valor: float,
+    vencimento,
+    link_pagamento: str,
+) -> None:
+    if not telefone:
+        return
+
+    mensagem = (
+        f"Olá, {empresa_nome}! A fatura da sua assinatura do GoTur foi gerada: "
+        f"R$ {valor:.2f}, vencimento {vencimento.strftime('%d/%m/%Y')}.\n"
+        f"Pague por aqui: {link_pagamento}"
+    )
+
+    if not settings.whatsapp_api_url:
+        logger.info("[WhatsApp não enviado - provedor não configurado] Para: %s\n%s", telefone, mensagem)
+        return
+
+    requisicao = urllib.request.Request(
+        settings.whatsapp_api_url,
+        data=_montar_payload(telefone, mensagem),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {settings.whatsapp_api_token}" if settings.whatsapp_api_token else "",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(requisicao, timeout=10):
+            pass
+    except (urllib.error.URLError, urllib.error.HTTPError):
+        logger.exception("Falha ao enviar WhatsApp de fatura gerada para %s", telefone)

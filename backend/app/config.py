@@ -78,6 +78,13 @@ class Settings(BaseSettings):
     vapid_private_key: str | None = None
     vapid_claims_email: str = "naoresponda@gotur.com"
 
+    # Cobrança recorrente (ver app/services/faturamento.py e
+    # scripts/gerar_faturas_mensais.py). Empresa nova fica `trial` sem
+    # cobrança até esses dias passarem desde o cadastro; depois disso o
+    # ciclo é sempre de 30 em 30 dias a partir do vencimento da fatura
+    # anterior.
+    trial_dias_gratis: int = 14
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origem.strip() for origem in self.cors_origins.split(",") if origem.strip()]

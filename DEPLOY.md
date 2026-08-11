@@ -122,23 +122,38 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-## Backup automático do banco
+## Tarefa diária: backup + cobrança recorrente
 
-O script `backend/scripts/backup_db.py` copia o `gotur.db` pra
-`backend/backups/`, com um carimbo de data/hora, e apaga automaticamente
-as cópias mais antigas (mantém as 14 mais recentes por padrão).
+Duas coisas precisam rodar sozinhas todo dia:
 
-Pra rodar todo dia sozinho no PythonAnywhere:
+- **Backup do banco** (`backend/scripts/backup_db.py`) — copia o `gotur.db`
+  pra `backend/backups/` com carimbo de data/hora, e apaga as cópias mais
+  antigas (mantém as 14 mais recentes por padrão). Só cuida de SQLite — se
+  `GOTUR_DATABASE_URL` apontar pra Postgres/MySQL, use o backup do próprio
+  provedor em vez disso.
+- **Cobrança recorrente** (`backend/scripts/gerar_faturas_mensais.py`) —
+  gera a fatura de quem venceu o ciclo (30 dias desde a última, ou o fim do
+  trial pra empresa nova) e atualiza quem ficou inadimplente/suspenso por
+  atraso. Sem isso, é o super admin que precisa entrar no painel e gerar
+  fatura na mão pra cada empresa. Ver `app/services/faturamento.py` pra
+  entender a regra do ciclo.
+
+O plano gratuito do PythonAnywhere só dá **1 tarefa agendada** — por isso
+existe `backend/scripts/tarefas_diarias.py`, que roda as duas em sequência.
+Pra ativar:
 1. Aba **Tasks**.
 2. Em **Scheduled Tasks**, escolha um horário (ex: 03:00) e cole:
    ```bash
-   /home/SEU_USUARIO/gotur/backend/venv/bin/python /home/SEU_USUARIO/gotur/backend/scripts/backup_db.py
+   /home/SEU_USUARIO/gotur/backend/venv/bin/python /home/SEU_USUARIO/gotur/backend/scripts/tarefas_diarias.py --base-url https://SEU_USUARIO.pythonanywhere.com
    ```
+   Troque `--base-url` pelo domínio real — é o que entra no link de
+   pagamento mandado por e-mail/WhatsApp quando uma fatura é gerada.
 3. Salve. A partir daí roda todo dia sem precisar mexer em nada.
 
-O plano gratuito do PythonAnywhere dá 1 tarefa agendada por dia — suficiente
-pra esse backup diário. Se estiver usando Postgres/MySQL (não SQLite), esse
-script não se aplica: use o backup do próprio provedor do banco.
+Se você estiver num plano pago do PythonAnywhere (mais de 1 tarefa
+agendada) ou fora do PythonAnywhere, pode preferir agendar
+`backup_db.py` e `gerar_faturas_mensais.py` como duas tarefas separadas em
+horários diferentes — os dois continuam funcionando sozinhos também.
 
 ## Gateway de pagamento real (Mercado Pago, opcional)
 

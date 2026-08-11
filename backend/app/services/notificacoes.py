@@ -124,6 +124,46 @@ ROTULOS_STATUS_FRETE = {
 }
 
 
+def enviar_fatura_gerada(
+    *,
+    destinatario_email: str | None,
+    empresa_nome: str,
+    valor: float,
+    vencimento,
+    link_pagamento: str,
+) -> None:
+    if not destinatario_email:
+        return
+
+    corpo = (
+        f"Olá, {empresa_nome}!\n\n"
+        f"A fatura da sua assinatura do GoTur foi gerada.\n\n"
+        f"Valor: R$ {valor:.2f}\n"
+        f"Vencimento: {vencimento.strftime('%d/%m/%Y')}\n\n"
+        f"Pague por aqui pra manter sua conta ativa: {link_pagamento}\n\n"
+        f"GoTur"
+    )
+
+    if not settings.smtp_host:
+        logger.info("[e-mail não enviado - SMTP não configurado] Para: %s\n%s", destinatario_email, corpo)
+        return
+
+    mensagem = EmailMessage()
+    mensagem["Subject"] = f"GoTur - Fatura gerada (vence {vencimento.strftime('%d/%m/%Y')})"
+    mensagem["From"] = settings.smtp_remetente
+    mensagem["To"] = destinatario_email
+    mensagem.set_content(corpo)
+
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
+            smtp.starttls()
+            if settings.smtp_user and settings.smtp_password:
+                smtp.login(settings.smtp_user, settings.smtp_password)
+            smtp.send_message(mensagem)
+    except Exception:
+        logger.exception("Falha ao enviar e-mail de fatura gerada para %s", destinatario_email)
+
+
 def enviar_atualizacao_status_frete(
     *,
     destinatario_email: str | None,
