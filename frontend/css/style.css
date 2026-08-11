@@ -48,6 +48,17 @@ header.topo .marca {
   font-weight: 700;
   font-size: 1.3rem;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+header.topo .marca-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--branco);
 }
 
 .btn-menu-mobile {
@@ -109,6 +120,17 @@ header.topo nav .link-nav.ativo {
   flex-shrink: 0;
 }
 
+.nav-grupo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.nav-rotulo-grupo {
+  display: none;
+}
+
 .nav-usuario {
   display: flex;
   align-items: center;
@@ -147,6 +169,21 @@ header.topo nav .link-nav.ativo {
 
   header.topo nav .link-nav {
     padding: 13px 14px;
+  }
+
+  .nav-grupo {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1px;
+  }
+
+  .nav-rotulo-grupo {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    opacity: 0.55;
+    padding: 10px 14px 2px;
   }
 
   .nav-separador {

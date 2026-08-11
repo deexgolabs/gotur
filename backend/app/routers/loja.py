@@ -55,7 +55,7 @@ def manifest_loja(slug: str, db: Session = Depends(get_db)):
         "start_url": f"/loja/{slug}",
         "scope": f"/loja/{slug}",
         "display": "standalone",
-        "background_color": "#ffffff",
+        "background_color": cor,
         "theme_color": cor,
         "orientation": "portrait-primary",
         "lang": "pt-BR",

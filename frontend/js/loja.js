@@ -692,13 +692,43 @@ function aposLogin() {
 
 // ---------- Bootstrap ----------
 
+function chaveCacheMarca() {
+  return `gotur_marca_${SLUG}`;
+}
+
+function aplicarSplash(marca) {
+  if (!marca) return;
+  document.getElementById("splash-nome").textContent = marca.nome || "";
+  if (marca.logo_url) {
+    const img = document.getElementById("splash-logo");
+    img.src = marca.logo_url;
+    img.classList.remove("escondido");
+  }
+}
+
 async function iniciar() {
+  // Numa visita anterior já vimos o logo/nome dessa loja — mostra na hora
+  // (splash instantâneo, estilo app nativo) enquanto busca os dados
+  // frescos, em vez de deixar a tela em branco/genérica até a rede
+  // responder.
+  try {
+    const cache = JSON.parse(localStorage.getItem(chaveCacheMarca()) || "null");
+    aplicarSplash(cache);
+  } catch (e) {
+    // cache corrompido — ignora e segue com a tela padrão
+  }
+
   try {
     const resposta = await fetch(`/api/empresas/loja/${SLUG}`);
     if (!resposta.ok) throw new Error("not found");
     BRANDING = await resposta.json();
+    localStorage.setItem(chaveCacheMarca(), JSON.stringify({ nome: BRANDING.nome, logo_url: BRANDING.logo_url }));
   } catch (e) {
-    document.getElementById("tela-carregando").textContent = "Essa loja não foi encontrada. Confira o link com a viação.";
+    document.getElementById("splash-spinner").classList.add("escondido");
+    const erro = document.createElement("p");
+    erro.className = "erro-splash";
+    erro.textContent = "Essa loja não foi encontrada. Confira o link com a viação.";
+    document.getElementById("tela-carregando").appendChild(erro);
     return;
   }
 

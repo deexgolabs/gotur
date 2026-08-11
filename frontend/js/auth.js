@@ -42,29 +42,29 @@ function linksPorPapel(role) {
   if (role === "admin_empresa") {
     return [
       ...base,
-      { href: "/pages/funcionarios.html", label: "Funcionários" },
-      { href: "/pages/onibus.html", label: "Ônibus" },
-      { href: "/pages/rotas.html", label: "Rotas", modulo: "passagens" },
-      { href: "/pages/viagens.html", label: "Viagens", modulo: "passagens" },
-      { href: "/pages/cupons.html", label: "Cupons", modulo: "passagens" },
-      { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento" },
-      { href: "/pages/fretes.html", label: "Fretes", modulo: "frete" },
-      { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens" },
-      { href: "/pages/relatorios.html", label: "Relatórios" },
-      { href: "/pages/dre.html", label: "DRE" },
-      { href: "/pages/avaliacoes.html", label: "Avaliações" },
-      { href: "/pages/auditoria.html", label: "Auditoria" },
-      { href: "/pages/minhas-faturas.html", label: "Faturas" },
+      { href: "/pages/viagens.html", label: "Viagens", modulo: "passagens", grupo: "Vendas" },
+      { href: "/pages/cupons.html", label: "Cupons", modulo: "passagens", grupo: "Vendas" },
+      { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens", grupo: "Vendas" },
+      { href: "/pages/onibus.html", label: "Ônibus", grupo: "Frota" },
+      { href: "/pages/rotas.html", label: "Rotas", modulo: "passagens", grupo: "Frota" },
+      { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento", grupo: "Fretamento e frete" },
+      { href: "/pages/fretes.html", label: "Fretes", modulo: "frete", grupo: "Fretamento e frete" },
+      { href: "/pages/relatorios.html", label: "Relatórios", grupo: "Financeiro" },
+      { href: "/pages/dre.html", label: "DRE", grupo: "Financeiro" },
+      { href: "/pages/minhas-faturas.html", label: "Faturas", grupo: "Financeiro" },
+      { href: "/pages/funcionarios.html", label: "Funcionários", grupo: "Equipe" },
+      { href: "/pages/avaliacoes.html", label: "Avaliações", grupo: "Equipe" },
+      { href: "/pages/auditoria.html", label: "Auditoria", grupo: "Equipe" },
       { href: "/pages/configuracoes.html", label: "Configurações" },
     ];
   }
   if (role === "funcionario") {
     return [
       ...base,
-      { href: "/pages/viagens.html", label: "Viagens", modulo: "passagens" },
-      { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento" },
-      { href: "/pages/fretes.html", label: "Fretes", modulo: "frete" },
-      { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens" },
+      { href: "/pages/viagens.html", label: "Viagens", modulo: "passagens", grupo: "Vendas" },
+      { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens", grupo: "Vendas" },
+      { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento", grupo: "Fretamento e frete" },
+      { href: "/pages/fretes.html", label: "Fretes", modulo: "frete", grupo: "Fretamento e frete" },
       { href: "/pages/avaliacoes.html", label: "Avaliações" },
     ];
   }
@@ -78,6 +78,22 @@ function linksPorPapel(role) {
   return base;
 }
 
+function agruparLinks(links) {
+  // Junta em blocos os links consecutivos que têm o mesmo `grupo`, na
+  // ordem em que já vêm de linksPorPapel() — não reordena nada, só junta
+  // pra desenhar o rótulo da seção uma vez só por bloco.
+  const blocos = [];
+  for (const link of links) {
+    const ultimo = blocos[blocos.length - 1];
+    if (ultimo && ultimo.grupo === (link.grupo || null)) {
+      ultimo.links.push(link);
+    } else {
+      blocos.push({ grupo: link.grupo || null, links: [link] });
+    }
+  }
+  return blocos;
+}
+
 const ICONE_MENU = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
 const ICONE_FECHAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>`;
 
@@ -88,11 +104,19 @@ function montarTopo(containerId) {
 
   const links = auth ? linksPorPapel(auth.role) : [];
   const caminhoAtual = window.location.pathname;
-  const linksHtml = links
-    .map(
-      (l) =>
-        `<a href="${l.href}" class="link-nav${caminhoAtual === l.href ? " ativo" : ""}"${l.modulo ? ` data-modulo="${l.modulo}"` : ""}>${l.label}</a>`
-    )
+  const blocos = agruparLinks(links);
+  const navHtml = blocos
+    .map((bloco, indice) => {
+      const rotulo = bloco.grupo ? `<span class="nav-rotulo-grupo">${bloco.grupo}</span>` : "";
+      const linksDoBloco = bloco.links
+        .map(
+          (l) =>
+            `<a href="${l.href}" class="link-nav${caminhoAtual === l.href ? " ativo" : ""}"${l.modulo ? ` data-modulo="${l.modulo}"` : ""}>${l.label}</a>`
+        )
+        .join("");
+      const separador = indice > 0 ? '<div class="nav-separador"></div>' : "";
+      return `${separador}<div class="nav-grupo">${rotulo}${linksDoBloco}</div>`;
+    })
     .join("");
 
   const usuarioHtml = auth
@@ -106,11 +130,14 @@ function montarTopo(containerId) {
   container.innerHTML = `
     <header class="topo">
       <div class="topo-linha">
-        <div class="marca">Go<span style="color:#4fd1a5">Tur</span></div>
+        <div class="marca">
+          <img id="logo-empresa-topo" alt="" class="marca-logo escondido" />
+          Go<span style="color:#4fd1a5">Tur</span>
+        </div>
         <button type="button" class="btn-menu-mobile" id="btn-menu-mobile" aria-label="Abrir menu" aria-expanded="false">${ICONE_MENU}</button>
       </div>
       <nav id="nav-principal">
-        ${linksHtml}
+        ${navHtml}
         <button type="button" id="btn-instalar-pwa" class="link-nav escondido" style="background:none;border:1px solid currentColor;padding:5px 10px;width:auto">Instalar app</button>
         ${links.length ? '<div class="nav-separador"></div>' : ""}
         ${usuarioHtml}
@@ -166,6 +193,13 @@ function montarTopo(containerId) {
         }
         if (!empresa.frete_habilitado) {
           container.querySelectorAll('[data-modulo="frete"]').forEach((el) => el.classList.add("escondido"));
+        }
+        if (empresa.logo_url) {
+          const logo = document.getElementById("logo-empresa-topo");
+          if (logo) {
+            logo.src = empresa.logo_url;
+            logo.classList.remove("escondido");
+          }
         }
       })
       .catch(() => {});

@@ -10,6 +10,45 @@
   <link rel="manifest" id="link-manifest" />
   <meta name="theme-color" id="meta-theme-color" content="#0b5fa5" />
   <link rel="apple-touch-icon" id="link-apple-icon" />
+  <style>
+    #tela-carregando {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 20px;
+      text-align: center;
+    }
+    #tela-carregando img {
+      width: 84px;
+      height: 84px;
+      border-radius: 20px;
+      object-fit: cover;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+    #tela-carregando .nome-splash {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--texto);
+    }
+    #tela-carregando .spinner {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 3px solid var(--azul-claro, #e8f1fb);
+      border-top-color: var(--azul, #0b5fa5);
+      animation: girar 0.8s linear infinite;
+    }
+    #tela-carregando .erro-splash {
+      color: var(--cinza);
+      max-width: 320px;
+    }
+    @keyframes girar {
+      to { transform: rotate(360deg); }
+    }
+  </style>
   <script>
     (function () {
       var slug = location.pathname.replace(/\/+$/, "").split("/")[2];
@@ -19,7 +58,11 @@
   </script>
 </head>
 <body>
-  <p id="tela-carregando" style="text-align:center;padding:60px 20px;color:var(--cinza)">Carregando...</p>
+  <div id="tela-carregando">
+    <img id="splash-logo" alt="" class="escondido" />
+    <div class="nome-splash" id="splash-nome"></div>
+    <div class="spinner" id="splash-spinner"></div>
+  </div>
 
   <div id="app" class="escondido">
     <header class="loja-header">
