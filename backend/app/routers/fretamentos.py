@@ -7,6 +7,7 @@ from app.models.avaliacao import Avaliacao
 from app.models.empresa import Empresa
 from app.models.enums import StatusFretamento, TipoRastreioPush, UserRole
 from app.models.fretamento import Fretamento, PosicaoFretamento
+from app.models.motorista import Motorista
 from app.models.onibus import Onibus
 from app.models.parceiro import Parceiro
 from app.models.usuario import Usuario
@@ -52,6 +53,19 @@ def _gerar_codigo_rastreio(db: Session) -> str:
     return codigo
 
 
+def _resolver_motorista_nome(db: Session, motorista_id: int | None, motorista_nome: str | None, tenant_id: int) -> str | None:
+    """Se `motorista_id` foi informado, valida que pertence à empresa e
+    devolve o nome dele (sobrepondo qualquer texto livre) — assim o
+    sistema de jornada, que ainda lê `motorista_nome`, continua
+    funcionando sem alteração."""
+    if motorista_id is None:
+        return motorista_nome
+    motorista = db.get(Motorista, motorista_id)
+    if not motorista or motorista.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Motorista não encontrado")
+    return motorista.nome
+
+
 def _para_out(fretamento: Fretamento) -> FretamentoOut:
     pontos = [(float(p.latitude), float(p.longitude)) for p in fretamento.posicoes]
     ultima = fretamento.posicoes[-1] if fretamento.posicoes else None
@@ -68,6 +82,7 @@ def _para_out(fretamento: Fretamento) -> FretamentoOut:
         onibus_id=fretamento.onibus_id,
         onibus_identificacao=fretamento.onibus.identificacao if fretamento.onibus else None,
         motorista_nome=fretamento.motorista_nome,
+        motorista_id=fretamento.motorista_id,
         distancia_km=float(fretamento.distancia_km) if fretamento.distancia_km is not None else None,
         valor_por_km=float(fretamento.valor_por_km) if fretamento.valor_por_km is not None else None,
         valor_total=float(fretamento.valor_total) if fretamento.valor_total is not None else None,
@@ -102,6 +117,7 @@ def criar_fretamento(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parceiro inválido")
 
     valor_por_km = dados.valor_por_km if dados.valor_por_km is not None else empresa.preco_km_fretamento
+    motorista_nome = _resolver_motorista_nome(db, dados.motorista_id, dados.motorista_nome, usuario_atual.tenant_id)
 
     fretamento = Fretamento(
         tenant_id=usuario_atual.tenant_id,
@@ -114,7 +130,8 @@ def criar_fretamento(
         data_hora_saida=dados.data_hora_saida,
         data_hora_retorno_prevista=dados.data_hora_retorno_prevista,
         onibus_id=dados.onibus_id,
-        motorista_nome=dados.motorista_nome,
+        motorista_nome=motorista_nome,
+        motorista_id=dados.motorista_id,
         icone_mapa=dados.icone_mapa or "🚌",
         distancia_km=dados.distancia_km,
         valor_por_km=valor_por_km,
@@ -236,6 +253,10 @@ def editar_fretamento(
 
     campos = dados.model_dump(exclude_unset=True)
     valor_total_manual = campos.pop("valor_total", None)
+    if "motorista_id" in campos:
+        campos["motorista_nome"] = _resolver_motorista_nome(
+            db, campos["motorista_id"], campos.get("motorista_nome"), usuario_atual.tenant_id
+        )
     for campo, valor in campos.items():
         setattr(fretamento, campo, valor)
 

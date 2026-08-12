@@ -12,12 +12,14 @@ class ViagemCreate(BaseModel):
     data_hora_partida: datetime
     preco: float
     motorista_nome: str | None = None
+    motorista_id: int | None = None
 
 
 class ViagemUpdate(BaseModel):
     data_hora_partida: datetime | None = None
     preco: float | None = None
     motorista_nome: str | None = None
+    motorista_id: int | None = None
 
 
 class ViagemOut(BaseModel):
@@ -29,6 +31,7 @@ class ViagemOut(BaseModel):
     preco: float
     ativo: bool
     motorista_nome: str | None = None
+    motorista_id: int | None = None
     rota: RotaOut
     onibus: OnibusOut
 

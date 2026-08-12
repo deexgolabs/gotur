@@ -59,7 +59,9 @@
           </div>
           <div>
             <label for="motorista">Motorista</label>
-            <input id="motorista" placeholder="Nome do motorista" />
+            <select id="motorista">
+              <option value="">Não definido</option>
+            </select>
           </div>
           <div>
             <label for="veiculo">Veículo</label>
@@ -240,6 +242,12 @@
       }
     }
 
+    async function carregarMotoristas() {
+      const lista = await api("GET", "/motoristas?apenas_ativos=true");
+      document.getElementById("motorista").innerHTML =
+        `<option value="">Não definido</option>` + lista.map((m) => `<option value="${m.id}">${m.nome}</option>`).join("");
+    }
+
     if (auth) {
       montarTopo("topo");
       if (ehAdmin) document.getElementById("cartao-novo").classList.remove("escondido");
@@ -247,6 +255,7 @@
         .then((empresa) => (empresaSlug = empresa.slug))
         .catch(() => {});
       carregar().catch((e) => mostrarAlerta(e.message));
+      carregarMotoristas().catch((e) => mostrarAlerta(e.message));
       if (ehAdmin) carregarParceiros();
     }
 
@@ -269,7 +278,7 @@
           destino: document.getElementById("destino").value.trim(),
           data_hora_coleta: new Date(coleta).toISOString(),
           data_hora_entrega_prevista: entregaPrevista ? new Date(entregaPrevista).toISOString() : null,
-          motorista_nome: document.getElementById("motorista").value.trim() || null,
+          motorista_id: document.getElementById("motorista").value ? parseInt(document.getElementById("motorista").value, 10) : null,
           veiculo_descricao: document.getElementById("veiculo").value.trim() || null,
           icone_mapa: document.getElementById("icone-mapa").value,
           distancia_km: lerNum("distancia"),

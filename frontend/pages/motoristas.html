@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Motoristas</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#08427a" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Motoristas</h1>
+    <p class="subtitulo">Cadastro de motoristas — depois é só selecionar pelo nome ao criar uma viagem, fretamento ou frete.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Novo motorista</h2>
+      <form id="form-motorista">
+        <div class="grid-form">
+          <div>
+            <label for="nome">Nome</label>
+            <input id="nome" required />
+          </div>
+          <div>
+            <label for="cnh">CNH (opcional)</label>
+            <input id="cnh" />
+          </div>
+          <div>
+            <label for="categoria-cnh">Categoria CNH (opcional)</label>
+            <select id="categoria-cnh">
+              <option value="">—</option>
+              <option value="a">A</option>
+              <option value="b">B</option>
+              <option value="c">C</option>
+              <option value="d">D</option>
+              <option value="e">E</option>
+            </select>
+          </div>
+          <div>
+            <label for="telefone">Telefone (opcional)</label>
+            <input id="telefone" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Cadastrar motorista</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Motoristas cadastrados</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Nome</th><th>CNH</th><th>Categoria</th><th>Telefone</th><th>Status</th><th></th></tr></thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhum motorista cadastrado ainda.</p>
+    </div>
+  </main>
+
+  <dialog id="dialog-editar-motorista" style="border:none;border-radius:8px;padding:24px;max-width:520px;width:100%">
+    <h2 style="margin-top:0">Editar motorista</h2>
+    <form id="form-editar-motorista">
+      <div class="grid-form">
+        <div>
+          <label for="edit-nome">Nome</label>
+          <input id="edit-nome" required />
+        </div>
+        <div>
+          <label for="edit-cnh">CNH</label>
+          <input id="edit-cnh" />
+        </div>
+        <div>
+          <label for="edit-categoria-cnh">Categoria CNH</label>
+          <select id="edit-categoria-cnh">
+            <option value="">—</option>
+            <option value="a">A</option>
+            <option value="b">B</option>
+            <option value="c">C</option>
+            <option value="d">D</option>
+            <option value="e">E</option>
+          </select>
+        </div>
+        <div>
+          <label for="edit-telefone">Telefone</label>
+          <input id="edit-telefone" />
+        </div>
+      </div>
+      <div class="linha-acoes">
+        <button type="button" class="secundario" id="btn-fechar-editar-motorista">Cancelar</button>
+        <button type="submit">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+    const ROTULOS_CATEGORIA = { a: "A", b: "B", c: "C", d: "D", e: "E" };
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+    }
+
+    let motoristaEditandoId = null;
+
+    async function carregar() {
+      const lista = await api("GET", "/motoristas");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (m) => `
+        <tr>
+          <td>${m.nome}</td>
+          <td>${m.cnh || "—"}</td>
+          <td>${m.categoria_cnh ? ROTULOS_CATEGORIA[m.categoria_cnh] || m.categoria_cnh : "—"}</td>
+          <td>${m.telefone || "—"}</td>
+          <td><span class="selo ${m.ativo ? "livre" : "bloqueada"}">${m.ativo ? "Ativo" : "Desativado"}</span></td>
+          <td>
+            <button class="secundario" data-editar="${m.id}">Editar</button>
+            ${m.ativo ? `<button class="perigo" data-desativar="${m.id}">Desativar</button>` : `<button class="secundario" data-ativar="${m.id}">Reativar</button>`}
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-editar]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirDialogEditar(lista.find((m) => m.id == btn.dataset.editar)));
+      });
+
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/motoristas/${btn.dataset.desativar}`, { ativo: false });
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-ativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/motoristas/${btn.dataset.ativar}`, { ativo: true });
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    function abrirDialogEditar(motorista) {
+      motoristaEditandoId = motorista.id;
+      document.getElementById("edit-nome").value = motorista.nome;
+      document.getElementById("edit-cnh").value = motorista.cnh || "";
+      document.getElementById("edit-categoria-cnh").value = motorista.categoria_cnh || "";
+      document.getElementById("edit-telefone").value = motorista.telefone || "";
+      document.getElementById("dialog-editar-motorista").showModal();
+    }
+
+    document.getElementById("btn-fechar-editar-motorista").addEventListener("click", () => {
+      document.getElementById("dialog-editar-motorista").close();
+    });
+
+    document.getElementById("form-editar-motorista").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("PATCH", `/motoristas/${motoristaEditandoId}`, {
+          nome: document.getElementById("edit-nome").value.trim(),
+          cnh: document.getElementById("edit-cnh").value.trim() || null,
+          categoria_cnh: document.getElementById("edit-categoria-cnh").value || null,
+          telefone: document.getElementById("edit-telefone").value.trim() || null,
+        });
+        document.getElementById("dialog-editar-motorista").close();
+        mostrarAlerta("Motorista atualizado.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-motorista").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("POST", "/motoristas", {
+          nome: document.getElementById("nome").value.trim(),
+          cnh: document.getElementById("cnh").value.trim() || null,
+          categoria_cnh: document.getElementById("categoria-cnh").value || null,
+          telefone: document.getElementById("telefone").value.trim() || null,
+        });
+        ev.target.reset();
+        mostrarAlerta("Motorista cadastrado com sucesso.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

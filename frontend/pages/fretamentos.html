@@ -55,7 +55,9 @@
           </div>
           <div>
             <label for="motorista">Motorista</label>
-            <input id="motorista" placeholder="Nome do motorista" />
+            <select id="motorista">
+              <option value="">Não definido</option>
+            </select>
           </div>
           <div>
             <label for="icone-mapa">Ícone no mapa</label>
@@ -145,6 +147,12 @@
         `<option value="">Não definido ainda</option>` + lista.map((o) => `<option value="${o.id}">${o.identificacao}</option>`).join("");
     }
 
+    async function carregarMotoristas() {
+      const lista = await api("GET", "/motoristas?apenas_ativos=true");
+      document.getElementById("motorista").innerHTML =
+        `<option value="">Não definido</option>` + lista.map((m) => `<option value="${m.id}">${m.nome}</option>`).join("");
+    }
+
     async function carregar() {
       const lista = await api("GET", "/fretamentos");
       const corpo = document.getElementById("corpo-tabela");
@@ -232,6 +240,7 @@
         .then((empresa) => (empresaSlug = empresa.slug))
         .catch(() => {});
       carregarOnibus().catch((e) => mostrarAlerta(e.message));
+      carregarMotoristas().catch((e) => mostrarAlerta(e.message));
       carregar().catch((e) => mostrarAlerta(e.message));
       if (ehAdmin) carregarParceiros();
     }
@@ -254,7 +263,7 @@
           data_hora_saida: new Date(saida).toISOString(),
           data_hora_retorno_prevista: retorno ? new Date(retorno).toISOString() : null,
           onibus_id: document.getElementById("onibus").value ? parseInt(document.getElementById("onibus").value, 10) : null,
-          motorista_nome: document.getElementById("motorista").value.trim() || null,
+          motorista_id: document.getElementById("motorista").value ? parseInt(document.getElementById("motorista").value, 10) : null,
           icone_mapa: document.getElementById("icone-mapa").value,
           distancia_km: lerNum("distancia"),
           valor_por_km: lerNum("valor-km"),

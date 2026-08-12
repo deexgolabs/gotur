@@ -39,7 +39,9 @@
           </div>
           <div>
             <label for="motorista">Motorista (opcional)</label>
-            <input id="motorista" placeholder="Nome do motorista" />
+            <select id="motorista">
+              <option value="">Não definido</option>
+            </select>
           </div>
         </div>
         <div class="linha-acoes">
@@ -76,13 +78,19 @@
     }
 
     async function carregarSelects() {
-      const [rotas, onibusLista] = await Promise.all([api("GET", "/rotas"), api("GET", "/onibus")]);
+      const [rotas, onibusLista, motoristas] = await Promise.all([
+        api("GET", "/rotas"),
+        api("GET", "/onibus"),
+        api("GET", "/motoristas?apenas_ativos=true"),
+      ]);
       document.getElementById("rota").innerHTML = rotas
         .map((r) => `<option value="${r.id}">${r.origem} → ${r.destino}</option>`)
         .join("");
       document.getElementById("onibus").innerHTML = onibusLista
         .map((o) => `<option value="${o.id}">${o.identificacao} (${o.poltronas.length} poltronas)</option>`)
         .join("");
+      document.getElementById("motorista").innerHTML =
+        `<option value="">Não definido</option>` + motoristas.map((m) => `<option value="${m.id}">${m.nome}</option>`).join("");
     }
 
     async function carregarViagens() {
@@ -183,7 +191,7 @@
           onibus_id: parseInt(document.getElementById("onibus").value, 10),
           data_hora_partida: new Date(dataHora).toISOString(),
           preco: parseFloat(document.getElementById("preco").value),
-          motorista_nome: document.getElementById("motorista").value.trim() || null,
+          motorista_id: document.getElementById("motorista").value ? parseInt(document.getElementById("motorista").value, 10) : null,
         });
         ev.target.reset();
         mostrarAlerta("Viagem criada com sucesso.", "sucesso");

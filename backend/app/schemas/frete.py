@@ -17,6 +17,7 @@ class FreteCreate(BaseModel):
     data_hora_coleta: datetime
     data_hora_entrega_prevista: datetime | None = None
     motorista_nome: str | None = None
+    motorista_id: int | None = None
     veiculo_descricao: str | None = None
     icone_mapa: str | None = None
     distancia_km: float | None = Field(default=None, ge=0)
@@ -59,6 +60,7 @@ class FreteUpdate(BaseModel):
     data_hora_coleta: datetime | None = None
     data_hora_entrega_prevista: datetime | None = None
     motorista_nome: str | None = None
+    motorista_id: int | None = None
     veiculo_descricao: str | None = None
     distancia_km: float | None = Field(default=None, ge=0)
     valor_por_km: float | None = Field(default=None, ge=0)
@@ -90,6 +92,7 @@ class FreteOut(BaseModel):
     data_hora_coleta: datetime
     data_hora_entrega_prevista: datetime | None
     motorista_nome: str | None
+    motorista_id: int | None = None
     veiculo_descricao: str | None
     distancia_km: float | None
     valor_por_km: float | None

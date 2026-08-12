@@ -30,6 +30,7 @@ class Fretamento(Base):
 
     onibus_id: Mapped[int | None] = mapped_column(ForeignKey("onibus.id"), nullable=True)
     motorista_nome: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    motorista_id: Mapped[int | None] = mapped_column(ForeignKey("motoristas.id"), nullable=True)
 
     distancia_km: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
     valor_por_km: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
@@ -42,6 +43,7 @@ class Fretamento(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     onibus = relationship("Onibus")
+    motorista = relationship("Motorista")
     posicoes = relationship(
         "PosicaoFretamento", back_populates="fretamento", cascade="all, delete-orphan", order_by="PosicaoFretamento.registrado_em"
     )

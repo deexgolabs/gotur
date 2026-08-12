@@ -15,6 +15,7 @@ class FretamentoCreate(BaseModel):
     data_hora_retorno_prevista: datetime | None = None
     onibus_id: int | None = None
     motorista_nome: str | None = None
+    motorista_id: int | None = None
     icone_mapa: str | None = None
     distancia_km: float | None = Field(default=None, ge=0)
     valor_por_km: float | None = Field(default=None, ge=0)
@@ -47,6 +48,7 @@ class FretamentoUpdate(BaseModel):
     data_hora_retorno_prevista: datetime | None = None
     onibus_id: int | None = None
     motorista_nome: str | None = None
+    motorista_id: int | None = None
     distancia_km: float | None = Field(default=None, ge=0)
     valor_por_km: float | None = Field(default=None, ge=0)
     valor_total: float | None = Field(default=None, ge=0)
@@ -87,6 +89,7 @@ class FretamentoOut(BaseModel):
     onibus_id: int | None
     onibus_identificacao: str | None = None
     motorista_nome: str | None
+    motorista_id: int | None = None
     distancia_km: float | None
     valor_por_km: float | None
     valor_total: float | None

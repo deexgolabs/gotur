@@ -26,6 +26,7 @@ from app.routers import (
     fretes,
     jornadas,
     loja,
+    motoristas,
     onibus,
     parceiros,
     passagens,
@@ -98,6 +99,7 @@ for router in (
     cupons.router,
     parceiros.router,
     jornadas.router,
+    motoristas.router,
 ):
     api.include_router(router)
 

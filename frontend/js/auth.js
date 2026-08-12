@@ -47,6 +47,7 @@ function linksPorPapel(role) {
       { href: "/pages/cupons.html", label: "Cupons", modulo: "passagens", grupo: "Vendas" },
       { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens", grupo: "Vendas" },
       { href: "/pages/onibus.html", label: "Ônibus", grupo: "Frota" },
+      { href: "/pages/motoristas.html", label: "Motoristas", grupo: "Frota" },
       { href: "/pages/rotas.html", label: "Rotas", modulo: "passagens", grupo: "Frota" },
       { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento", grupo: "Fretamento e frete" },
       { href: "/pages/fretes.html", label: "Fretes", modulo: "frete", grupo: "Fretamento e frete" },

@@ -7,6 +7,7 @@ from app.core.deps import require_roles
 from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.enums import CategoriaPassageiro, StatusPassagem, StatusPoltrona, TipoDocumento, UserRole
+from app.models.motorista import Motorista
 from app.models.onibus import Onibus, PoltronaOnibus
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
 from app.models.parada import Parada
@@ -43,6 +44,19 @@ ROTULOS_CATEGORIA_PASSAGEIRO = {
 router = APIRouter(prefix="/viagens", tags=["viagens"])
 
 
+def _resolver_motorista_nome(db: Session, motorista_id: int | None, motorista_nome: str | None, tenant_id: int) -> str | None:
+    """Se `motorista_id` foi informado, valida que pertence à empresa e
+    devolve o nome dele (sobrepondo qualquer texto livre) — assim o
+    sistema de jornada/manifesto, que ainda lê `motorista_nome`, continua
+    funcionando sem alteração."""
+    if motorista_id is None:
+        return motorista_nome
+    motorista = db.get(Motorista, motorista_id)
+    if not motorista or motorista.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Motorista não encontrado")
+    return motorista.nome
+
+
 @router.post("", response_model=ViagemOut, status_code=status.HTTP_201_CREATED)
 def criar_viagem(
     dados: ViagemCreate,
@@ -61,13 +75,16 @@ def criar_viagem(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de gestão de viagens não está habilitado para sua empresa")
     verificar_limite_viagens_mes(db, empresa)
 
+    motorista_nome = _resolver_motorista_nome(db, dados.motorista_id, dados.motorista_nome, usuario_atual.tenant_id)
+
     viagem = Viagem(
         tenant_id=usuario_atual.tenant_id,
         rota_id=dados.rota_id,
         onibus_id=dados.onibus_id,
         data_hora_partida=dados.data_hora_partida,
         preco=dados.preco,
-        motorista_nome=dados.motorista_nome,
+        motorista_nome=motorista_nome,
+        motorista_id=dados.motorista_id,
     )
     db.add(viagem)
     db.flush()
@@ -113,7 +130,12 @@ def editar_viagem(
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
     viagem = _buscar_viagem_da_empresa(db, viagem_id, usuario_atual)
-    for campo, valor in dados.model_dump(exclude_unset=True).items():
+    campos = dados.model_dump(exclude_unset=True)
+    if "motorista_id" in campos:
+        campos["motorista_nome"] = _resolver_motorista_nome(
+            db, campos["motorista_id"], campos.get("motorista_nome"), usuario_atual.tenant_id
+        )
+    for campo, valor in campos.items():
         setattr(viagem, campo, valor)
     db.commit()
     db.refresh(viagem)

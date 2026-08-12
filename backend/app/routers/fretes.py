@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.enums import TipoRastreioPush, UserRole
 from app.models.frete import Frete, PosicaoFrete
+from app.models.motorista import Motorista
 from app.models.parceiro import Parceiro
 from app.models.usuario import Usuario
 from app.schemas.fretamento import PosicaoCreate, PosicaoOut
@@ -48,6 +49,17 @@ def _gerar_codigo_rastreio(db: Session) -> str:
     return codigo
 
 
+def _resolver_motorista_nome(db: Session, motorista_id: int | None, motorista_nome: str | None, tenant_id: int) -> str | None:
+    """Se `motorista_id` foi informado, valida que pertence à empresa e
+    devolve o nome dele (sobrepondo qualquer texto livre)."""
+    if motorista_id is None:
+        return motorista_nome
+    motorista = db.get(Motorista, motorista_id)
+    if not motorista or motorista.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Motorista não encontrado")
+    return motorista.nome
+
+
 def _para_out(frete: Frete) -> FreteOut:
     pontos = [(float(p.latitude), float(p.longitude)) for p in frete.posicoes]
     ultima = frete.posicoes[-1] if frete.posicoes else None
@@ -64,6 +76,7 @@ def _para_out(frete: Frete) -> FreteOut:
         data_hora_coleta=frete.data_hora_coleta,
         data_hora_entrega_prevista=frete.data_hora_entrega_prevista,
         motorista_nome=frete.motorista_nome,
+        motorista_id=frete.motorista_id,
         veiculo_descricao=frete.veiculo_descricao,
         distancia_km=float(frete.distancia_km) if frete.distancia_km is not None else None,
         valor_por_km=float(frete.valor_por_km) if frete.valor_por_km is not None else None,
@@ -96,6 +109,8 @@ def criar_frete(
         if not parceiro or parceiro.tenant_id != usuario_atual.tenant_id or not parceiro.despacha_frete:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parceiro inválido para despacho de frete")
 
+    motorista_nome = _resolver_motorista_nome(db, dados.motorista_id, dados.motorista_nome, usuario_atual.tenant_id)
+
     frete = Frete(
         tenant_id=usuario_atual.tenant_id,
         codigo_rastreio=_gerar_codigo_rastreio(db),
@@ -108,7 +123,8 @@ def criar_frete(
         destino=dados.destino,
         data_hora_coleta=dados.data_hora_coleta,
         data_hora_entrega_prevista=dados.data_hora_entrega_prevista,
-        motorista_nome=dados.motorista_nome,
+        motorista_nome=motorista_nome,
+        motorista_id=dados.motorista_id,
         veiculo_descricao=dados.veiculo_descricao,
         icone_mapa=dados.icone_mapa or "🚚",
         distancia_km=dados.distancia_km,
@@ -230,6 +246,10 @@ def editar_frete(
 
     campos = dados.model_dump(exclude_unset=True)
     valor_total_manual = campos.pop("valor_total", None)
+    if "motorista_id" in campos:
+        campos["motorista_nome"] = _resolver_motorista_nome(
+            db, campos["motorista_id"], campos.get("motorista_nome"), usuario_atual.tenant_id
+        )
     for campo, valor in campos.items():
         setattr(frete, campo, valor)
 

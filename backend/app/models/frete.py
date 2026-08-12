@@ -34,6 +34,7 @@ class Frete(Base):
     data_hora_entrega_prevista: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     motorista_nome: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    motorista_id: Mapped[int | None] = mapped_column(ForeignKey("motoristas.id"), nullable=True)
     veiculo_descricao: Mapped[str | None] = mapped_column(String(150), nullable=True)
 
     distancia_km: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
@@ -50,6 +51,7 @@ class Frete(Base):
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    motorista = relationship("Motorista")
     posicoes = relationship(
         "PosicaoFrete", back_populates="frete", cascade="all, delete-orphan", order_by="PosicaoFrete.registrado_em"
     )

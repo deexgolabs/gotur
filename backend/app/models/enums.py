@@ -15,6 +15,18 @@ class TipoOnibus(str, enum.Enum):
     LEITO = "leito"
 
 
+class CategoriaCNH(str, enum.Enum):
+    """Categoria da CNH (Código de Trânsito Brasileiro) — D e E são as
+    relevantes pra dirigir ônibus/caminhão, mas deixamos as outras
+    disponíveis pro cadastro cobrir qualquer motorista da empresa."""
+
+    A = "a"
+    B = "b"
+    C = "c"
+    D = "d"
+    E = "e"
+
+
 class StatusPoltrona(str, enum.Enum):
     LIVRE = "livre"
     HOLD = "hold"
