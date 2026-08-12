@@ -10,6 +10,7 @@ class PlanoCreate(BaseModel):
     max_viagens_mes: int | None = None
     modulo_fretamento: bool = True
     modulo_passagens: bool = True
+    modulo_frete: bool = True
 
 
 class PlanoUpdate(BaseModel):
@@ -21,6 +22,7 @@ class PlanoUpdate(BaseModel):
     max_viagens_mes: int | None = None
     modulo_fretamento: bool | None = None
     modulo_passagens: bool | None = None
+    modulo_frete: bool | None = None
 
 
 class PlanoOut(BaseModel):
@@ -36,3 +38,4 @@ class PlanoOut(BaseModel):
     ativo: bool
     modulo_fretamento: bool = True
     modulo_passagens: bool = True
+    modulo_frete: bool = True

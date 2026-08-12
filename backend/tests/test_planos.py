@@ -168,3 +168,56 @@ def test_cadastro_publico_de_empresa_cria_admin_logado(client, db):
     corpo = resposta.json()
     assert corpo["role"] == "admin_empresa"
     assert corpo["access_token"]
+
+
+def test_criar_plano_sem_modulo_frete_persiste_desligado(client, db):
+    super_admin = criar_super_admin(db, "P7")
+    headers = auth_header(login(client, super_admin["email"], super_admin["senha"]))
+
+    plano = _criar_plano(client, headers, nome="Só Passagem", modulo_frete=False)
+    assert plano["modulo_frete"] is False
+
+    lista = client.get("/api/planos", headers=headers).json()
+    encontrado = next(p for p in lista if p["id"] == plano["id"])
+    assert encontrado["modulo_frete"] is False
+
+
+def test_editar_plano_liga_e_desliga_modulo_frete(client, db):
+    super_admin = criar_super_admin(db, "P8")
+    headers = auth_header(login(client, super_admin["email"], super_admin["senha"]))
+    plano = _criar_plano(client, headers, modulo_frete=True)
+
+    desligado = client.patch(f"/api/planos/{plano['id']}", json={"modulo_frete": False}, headers=headers)
+    assert desligado.status_code == 200, desligado.text
+    assert desligado.json()["modulo_frete"] is False
+
+    religado = client.patch(f"/api/planos/{plano['id']}", json={"modulo_frete": True}, headers=headers)
+    assert religado.status_code == 200
+    assert religado.json()["modulo_frete"] is True
+
+
+def test_editar_detalhes_do_plano(client, db):
+    super_admin = criar_super_admin(db, "P9")
+    headers = auth_header(login(client, super_admin["email"], super_admin["senha"]))
+    plano = _criar_plano(client, headers)
+
+    resposta = client.patch(
+        f"/api/planos/{plano['id']}",
+        json={
+            "nome": "Plano Renomeado",
+            "descricao": "Nova descrição",
+            "preco_mensal": 149.9,
+            "max_onibus": 3,
+            "max_funcionarios": 5,
+            "max_viagens_mes": 10,
+        },
+        headers=headers,
+    )
+    assert resposta.status_code == 200, resposta.text
+    corpo = resposta.json()
+    assert corpo["nome"] == "Plano Renomeado"
+    assert corpo["descricao"] == "Nova descrição"
+    assert corpo["preco_mensal"] == 149.9
+    assert corpo["max_onibus"] == 3
+    assert corpo["max_funcionarios"] == 5
+    assert corpo["max_viagens_mes"] == 10

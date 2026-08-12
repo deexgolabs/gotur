@@ -74,6 +74,54 @@
     </div>
   </main>
 
+  <dialog id="dialog-editar-plano" style="border:none;border-radius:8px;padding:24px;max-width:520px;width:100%">
+    <h2 style="margin-top:0">Editar plano</h2>
+    <form id="form-editar-plano">
+      <div class="grid-form">
+        <div>
+          <label for="editar-nome">Nome</label>
+          <input id="editar-nome" required />
+        </div>
+        <div>
+          <label for="editar-preco">Preço mensal (R$)</label>
+          <input id="editar-preco" type="number" min="0" step="0.01" required />
+        </div>
+        <div>
+          <label for="editar-max-onibus">Limite de ônibus</label>
+          <input id="editar-max-onibus" type="number" min="0" placeholder="Vazio = ilimitado" />
+        </div>
+        <div>
+          <label for="editar-max-funcionarios">Limite de funcionários</label>
+          <input id="editar-max-funcionarios" type="number" min="0" placeholder="Vazio = ilimitado" />
+        </div>
+        <div>
+          <label for="editar-max-viagens">Limite de viagens/mês</label>
+          <input id="editar-max-viagens" type="number" min="0" placeholder="Vazio = ilimitado" />
+        </div>
+        <div>
+          <label for="editar-descricao">Descrição</label>
+          <input id="editar-descricao" placeholder="Opcional" />
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin:12px 0 4px">
+        <input type="checkbox" id="editar-inclui-passagens" style="width:auto" />
+        Inclui gestão de viagens
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+        <input type="checkbox" id="editar-inclui-fretamento" style="width:auto" />
+        Inclui fretamento
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+        <input type="checkbox" id="editar-inclui-frete" style="width:auto" />
+        Inclui frete
+      </label>
+      <div class="linha-acoes">
+        <button type="submit">Salvar alterações</button>
+        <button type="button" class="secundario" id="btn-fechar-editar-plano">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/pwa.js"></script>
@@ -109,7 +157,7 @@
           </td>
           <td><span class="selo ${p.ativo ? "livre" : "bloqueada"}">${p.ativo ? "Ativo" : "Inativo"}</span></td>
           <td>
-            <button class="secundario" data-editar="${p.id}">Editar preço</button>
+            <button class="secundario" data-editar="${p.id}">Editar</button>
             ${p.ativo ? `<button class="perigo" data-desativar="${p.id}">Desativar</button>` : `<button class="secundario" data-ativar="${p.id}">Reativar</button>`}
           </td>
         </tr>`
@@ -117,18 +165,7 @@
         .join("");
 
       corpo.querySelectorAll("button[data-editar]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const plano = lista.find((p) => p.id == btn.dataset.editar);
-          const novoPreco = prompt("Novo preço mensal (R$):", Number(plano.preco_mensal).toFixed(2));
-          if (novoPreco === null) return;
-          try {
-            await api("PATCH", `/planos/${plano.id}`, { preco_mensal: parseFloat(novoPreco) });
-            mostrarAlerta("Plano atualizado.", "sucesso");
-            carregar();
-          } catch (erro) {
-            mostrarAlerta(erro.message);
-          }
-        });
+        btn.addEventListener("click", () => abrirDialogEditar(lista.find((p) => p.id == btn.dataset.editar)));
       });
 
       corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
@@ -166,6 +203,52 @@
         });
       });
     }
+
+    let planoEditandoId = null;
+
+    function abrirDialogEditar(plano) {
+      planoEditandoId = plano.id;
+      document.getElementById("editar-nome").value = plano.nome;
+      document.getElementById("editar-preco").value = Number(plano.preco_mensal).toFixed(2);
+      document.getElementById("editar-max-onibus").value = plano.max_onibus ?? "";
+      document.getElementById("editar-max-funcionarios").value = plano.max_funcionarios ?? "";
+      document.getElementById("editar-max-viagens").value = plano.max_viagens_mes ?? "";
+      document.getElementById("editar-descricao").value = plano.descricao || "";
+      document.getElementById("editar-inclui-passagens").checked = plano.modulo_passagens;
+      document.getElementById("editar-inclui-fretamento").checked = plano.modulo_fretamento;
+      document.getElementById("editar-inclui-frete").checked = plano.modulo_frete;
+      document.getElementById("dialog-editar-plano").showModal();
+    }
+
+    document.getElementById("btn-fechar-editar-plano").addEventListener("click", () => {
+      document.getElementById("dialog-editar-plano").close();
+    });
+
+    document.getElementById("form-editar-plano").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const lerInt = (id) => {
+          const v = document.getElementById(id).value.trim();
+          return v === "" ? null : parseInt(v, 10);
+        };
+        await api("PATCH", `/planos/${planoEditandoId}`, {
+          nome: document.getElementById("editar-nome").value.trim(),
+          preco_mensal: parseFloat(document.getElementById("editar-preco").value),
+          max_onibus: lerInt("editar-max-onibus"),
+          max_funcionarios: lerInt("editar-max-funcionarios"),
+          max_viagens_mes: lerInt("editar-max-viagens"),
+          descricao: document.getElementById("editar-descricao").value.trim() || null,
+          modulo_passagens: document.getElementById("editar-inclui-passagens").checked,
+          modulo_fretamento: document.getElementById("editar-inclui-fretamento").checked,
+          modulo_frete: document.getElementById("editar-inclui-frete").checked,
+        });
+        document.getElementById("dialog-editar-plano").close();
+        mostrarAlerta("Plano atualizado.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
 
     if (auth) {
       montarTopo("topo");
