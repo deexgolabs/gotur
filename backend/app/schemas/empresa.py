@@ -48,6 +48,15 @@ class ConfiguracaoFidelidadeRequest(BaseModel):
     fidelidade_desconto_percentual: float | None = None
 
 
+class ConfiguracaoPagamentoRequest(BaseModel):
+    """Credenciais do Mercado Pago da PRÓPRIA empresa. Envie apenas os
+    campos que quer alterar (deixe de fora pra manter o que já está salvo);
+    envie string vazia pra apagar um campo já salvo."""
+
+    mercadopago_access_token: str | None = None
+    mercadopago_public_key: str | None = None
+
+
 class TrocarPlanoRequest(BaseModel):
     plano_id: int
 
@@ -79,6 +88,8 @@ class EmpresaOut(BaseModel):
     fidelidade_ativa: bool = False
     fidelidade_passagens_necessarias: int | None = None
     fidelidade_desconto_percentual: float | None = None
+    mercadopago_public_key: str | None = None
+    mercadopago_configurado: bool = False
 
 
 class LojaInfoOut(BaseModel):

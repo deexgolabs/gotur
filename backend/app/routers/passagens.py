@@ -219,7 +219,8 @@ def vender_passagem(
 
     hold_existente = conflito if (conflito and conflito.tipo == TipoOcupacao.HOLD) else None
 
-    resultado_cobranca = obter_provider().cobrar(
+    empresa_da_viagem = db.get(Empresa, viagem.tenant_id)
+    resultado_cobranca = obter_provider(empresa_da_viagem).cobrar(
         forma_pagamento=dados.forma_pagamento,
         valor=preco_final,
         referencia_pedido=f"viagem-{viagem_id}-poltrona-{poltrona.id}",

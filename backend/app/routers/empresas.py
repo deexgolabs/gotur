@@ -14,6 +14,7 @@ from app.schemas.empresa import (
     ConfiguracaoFretamentoRequest,
     ConfiguracaoMarcaRequest,
     ConfiguracaoModulosRequest,
+    ConfiguracaoPagamentoRequest,
     EmpresaCreate,
     EmpresaOut,
     EmpresaUpdate,
@@ -255,6 +256,24 @@ def configurar_fidelidade(
     empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
     for campo, valor in dados.model_dump(exclude_unset=True).items():
         setattr(empresa, campo, valor)
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
+@router.patch("/minha/pagamento", response_model=EmpresaOut)
+def configurar_pagamento(
+    dados: ConfiguracaoPagamentoRequest,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """Credenciais do Mercado Pago da própria empresa (ver
+    app/services/pagamento_provider.py) — com isso configurado, as vendas
+    de passagem/frete/fretamento passam a cobrar de verdade via Pix e cair
+    direto na conta Mercado Pago da empresa, em vez do modo simulado."""
+    empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
+    for campo, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(empresa, campo, valor or None)
     db.commit()
     db.refresh(empresa)
     return empresa

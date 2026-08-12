@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
 from app.database import get_db
+from app.models.empresa import Empresa
 from app.models.enums import StatusPedidoPagamento, TipoOcupacao, UserRole
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
 from app.models.parada import Parada
@@ -59,13 +60,15 @@ def confirmar_pagamento_simulado(
     conta. Só existe em modo simulado (sem GOTUR_GATEWAY_API_KEY) — com um
     gateway real configurado, é o próprio gateway que confirma o pagamento,
     não o usuário clicando num botão."""
-    if not modo_simulado():
+    pedido = _buscar_pedido_do_usuario(db, pedido_id, usuario_atual)
+
+    empresa_do_pedido = db.get(Empresa, pedido.tenant_id)
+    if not modo_simulado(empresa_do_pedido):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Confirmação manual desabilitada: um gateway de pagamento real está configurado.",
         )
 
-    pedido = _buscar_pedido_do_usuario(db, pedido_id, usuario_atual)
     if pedido.status == StatusPedidoPagamento.CONFIRMADO:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Pedido já confirmado")
     if pedido.status != StatusPedidoPagamento.PENDENTE:

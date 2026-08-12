@@ -19,6 +19,7 @@ from app.routers import (
     auth,
     avaliacoes,
     checkin,
+    checklists,
     cupons,
     empresas,
     faturas,
@@ -100,6 +101,7 @@ for router in (
     parceiros.router,
     jornadas.router,
     motoristas.router,
+    checklists.router,
 ):
     api.include_router(router)
 

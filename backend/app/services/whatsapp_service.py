@@ -17,7 +17,7 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import date, datetime
 
 from app.config import settings
 
@@ -144,5 +144,22 @@ def enviar_fatura_gerada_whatsapp(
         f"Olá, {empresa_nome}! A fatura da sua assinatura do GoTur foi gerada: "
         f"R$ {valor:.2f}, vencimento {vencimento.strftime('%d/%m/%Y')}.\n"
         f"Pague por aqui: {link_pagamento}"
+    )
+    _enviar(telefone, mensagem)
+
+
+def enviar_alerta_documentos_vencendo_whatsapp(
+    *,
+    telefone: str | None,
+    empresa_nome: str,
+    itens: list[tuple[str, str, date]],
+) -> None:
+    """`itens`: lista de (identificação do ônibus, tipo do documento, data de
+    vencimento) — uma mensagem só, agrupando tudo que está vencendo."""
+    linhas = "\n".join(f"- {onibus}: {tipo}, vence em {venc.strftime('%d/%m/%Y')}" for onibus, tipo, venc in itens)
+    mensagem = (
+        f"Olá, {empresa_nome}! {len(itens)} documento(s) da sua frota estão perto de vencer:\n"
+        f"{linhas}\n"
+        f"Acesse Ônibus > Manutenção no painel do GoTur pra renovar."
     )
     _enviar(telefone, mensagem)

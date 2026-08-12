@@ -111,6 +111,32 @@
     </div>
 
     <div class="cartao">
+      <h2 style="margin-top:0">Pagamento (Mercado Pago)</h2>
+      <p class="rodape-form" style="text-align:left;margin-top:-8px">
+        Configure sua própria conta Mercado Pago pra receber direto o dinheiro das passagens, fretes e fretamentos
+        vendidos pela sua empresa — sem isso, o sistema roda em modo simulado (Pix de mentira). Pegue o Access Token
+        de produção em <strong>mercadopago.com.br/developers/panel/app</strong>.
+      </p>
+      <p id="status-mercadopago" class="rodape-form" style="text-align:left;font-weight:600"></p>
+      <form id="form-pagamento">
+        <div class="grid-form">
+          <div>
+            <label for="mp-access-token">Access Token</label>
+            <input id="mp-access-token" type="password" placeholder="Deixe em branco para manter o atual" autocomplete="off" />
+          </div>
+          <div>
+            <label for="mp-public-key">Public Key (opcional)</label>
+            <input id="mp-public-key" placeholder="Usada futuramente pra pagamento com cartão" autocomplete="off" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Salvar credenciais</button>
+          <button type="button" class="perigo" id="btn-remover-mercadopago">Remover e voltar ao modo simulado</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="cartao">
       <h2 style="margin-top:0">App da sua empresa (white-label)</h2>
       <p class="rodape-form" style="text-align:left;margin-top:-8px">
         Sua própria loja, com sua cor e seu logo, pra você divulgar pros seus clientes. Eles compram passagem,
@@ -205,6 +231,11 @@
       document.getElementById("fidelidade-passagens").value = empresa.fidelidade_passagens_necessarias ?? "";
       document.getElementById("fidelidade-desconto").value = empresa.fidelidade_desconto_percentual ?? "";
 
+      document.getElementById("mp-public-key").value = empresa.mercadopago_public_key || "";
+      document.getElementById("status-mercadopago").textContent = empresa.mercadopago_configurado
+        ? "✅ Conectado — cobrando de verdade na sua conta Mercado Pago."
+        : "⚠️ Não configurado — vendas rodando em modo simulado (Pix de mentira).";
+
       const permitePassagens = empresa.plano ? empresa.plano.modulo_passagens : true;
       const permiteFretamento = empresa.plano ? empresa.plano.modulo_fretamento : true;
       const permiteFrete = empresa.plano ? empresa.plano.modulo_frete : true;
@@ -274,6 +305,36 @@
           fidelidade_desconto_percentual: desconto === "" ? null : parseFloat(desconto),
         });
         mostrarAlerta("Programa de fidelidade atualizado.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("form-pagamento").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const corpo = { mercadopago_public_key: document.getElementById("mp-public-key").value.trim() || null };
+        const token = document.getElementById("mp-access-token").value.trim();
+        if (token) corpo.mercadopago_access_token = token;
+        const empresa = await api("PATCH", "/empresas/minha/pagamento", corpo);
+        document.getElementById("mp-access-token").value = "";
+        document.getElementById("status-mercadopago").textContent = empresa.mercadopago_configurado
+          ? "✅ Conectado — cobrando de verdade na sua conta Mercado Pago."
+          : "⚠️ Não configurado — vendas rodando em modo simulado (Pix de mentira).";
+        mostrarAlerta("Credenciais de pagamento atualizadas.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("btn-remover-mercadopago").addEventListener("click", async () => {
+      if (!confirm("Remover as credenciais do Mercado Pago? As vendas voltam a rodar em modo simulado.")) return;
+      try {
+        const empresa = await api("PATCH", "/empresas/minha/pagamento", { mercadopago_access_token: "", mercadopago_public_key: "" });
+        document.getElementById("mp-access-token").value = "";
+        document.getElementById("mp-public-key").value = "";
+        document.getElementById("status-mercadopago").textContent = "⚠️ Não configurado — vendas rodando em modo simulado (Pix de mentira).";
+        mostrarAlerta("Credenciais removidas.", "sucesso");
       } catch (erro) {
         mostrarAlerta(erro.message);
       }

@@ -8,7 +8,7 @@ credenciais de um provedor SMTP real (ex: SendGrid, Amazon SES, Gmail).
 
 import logging
 import smtplib
-from datetime import datetime
+from datetime import date, datetime
 from email.message import EmailMessage
 
 from app.config import settings
@@ -202,3 +202,44 @@ def enviar_atualizacao_status_frete(
             smtp.send_message(mensagem)
     except Exception:
         logger.exception("Falha ao enviar e-mail de atualização de frete para %s", destinatario_email)
+
+
+def enviar_alerta_documentos_vencendo(
+    *,
+    destinatario_email: str | None,
+    empresa_nome: str,
+    itens: list[tuple[str, str, date]],
+) -> None:
+    """`itens`: lista de (identificação do ônibus, tipo do documento, data de
+    vencimento) — um e-mail só, agrupando tudo que está vencendo, em vez de
+    um por documento."""
+    if not destinatario_email:
+        return
+
+    linhas = "\n".join(f"- {onibus}: {tipo}, vence em {venc.strftime('%d/%m/%Y')}" for onibus, tipo, venc in itens)
+    corpo = (
+        f"Olá, {empresa_nome}!\n\n"
+        f"Os seguintes documentos da sua frota estão perto de vencer:\n\n"
+        f"{linhas}\n\n"
+        f"Acesse Ônibus > Manutenção no painel do GoTur pra renovar.\n\n"
+        f"GoTur"
+    )
+
+    if not settings.smtp_host:
+        logger.info("[e-mail não enviado - SMTP não configurado] Para: %s\n%s", destinatario_email, corpo)
+        return
+
+    mensagem = EmailMessage()
+    mensagem["Subject"] = f"GoTur - {len(itens)} documento(s) da frota vencendo"
+    mensagem["From"] = settings.smtp_remetente
+    mensagem["To"] = destinatario_email
+    mensagem.set_content(corpo)
+
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
+            smtp.starttls()
+            if settings.smtp_user and settings.smtp_password:
+                smtp.login(settings.smtp_user, settings.smtp_password)
+            smtp.send_message(mensagem)
+    except Exception:
+        logger.exception("Falha ao enviar e-mail de alerta de documentos vencendo para %s", destinatario_email)

@@ -112,6 +112,7 @@
   <script src="/js/auth.js"></script>
   <script src="/js/pwa.js"></script>
   <script src="/js/jornada.js"></script>
+  <script src="/js/checklist.js"></script>
   <script>
     const auth = exigirPapel("admin_empresa", "funcionario");
     const ehAdmin = auth && auth.role === "admin_empresa";
@@ -173,6 +174,9 @@
             <a href="/pages/mapa-fretamento.html?id=${f.id}"><button class="secundario">Mapa</button></a>
             <button class="secundario" data-status="${f.id}">Status</button>
             <button class="secundario" data-jornada="${f.id}" data-motorista="${f.motorista_nome || ""}">Jornada</button>
+            <button class="secundario" data-checklist="${f.id}" data-motorista="${f.motorista_nome || ""}">Checklist</button>
+            ${f.status !== "orcamento" ? `<button class="secundario" data-contrato="${f.id}">Contrato PDF</button>` : ""}
+            ${f.status === "concluido" ? `<button class="secundario" data-nfse="${f.id}">Emitir NFS-e</button>` : ""}
             <button class="secundario" data-copiar="${f.codigo_rastreio}">Copiar link p/ cliente</button>
           </td>
         </tr>`
@@ -201,6 +205,31 @@
 
       corpo.querySelectorAll("button[data-jornada]").forEach((btn) => {
         btn.addEventListener("click", () => abrirDialogJornada("fretamento", parseInt(btn.dataset.jornada, 10), btn.dataset.motorista));
+      });
+
+      corpo.querySelectorAll("button[data-checklist]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirDialogChecklist("fretamento", parseInt(btn.dataset.checklist, 10), btn.dataset.motorista));
+      });
+
+      corpo.querySelectorAll("button[data-contrato]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          abrirArquivoAutenticado(`/fretamentos/${btn.dataset.contrato}/contrato.pdf`, "contrato").catch((e) => mostrarAlerta(e.message));
+        });
+      });
+
+      corpo.querySelectorAll("button[data-nfse]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            const nfse = await api("POST", `/fretamentos/${btn.dataset.nfse}/nfse`);
+            if (nfse.status === "simulada") {
+              mostrarAlerta("NFS-e não emitida: configure um agregador (Focus NFe, NFE.io, PlugNotas) no servidor.", "erro");
+            } else {
+              mostrarAlerta(`Nota fiscal emitida: ${nfse.numero}`, "sucesso");
+            }
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
       });
 
       corpo.querySelectorAll("button[data-copiar]").forEach((btn) => {

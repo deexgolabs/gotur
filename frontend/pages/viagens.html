@@ -64,6 +64,7 @@
   <script src="/js/auth.js"></script>
   <script src="/js/pwa.js"></script>
   <script src="/js/jornada.js"></script>
+  <script src="/js/checklist.js"></script>
   <script>
     const auth = exigirPapel("admin_empresa", "funcionario");
     const ehAdmin = auth && auth.role === "admin_empresa";
@@ -111,6 +112,7 @@
             <a href="/pages/mapa-poltronas.html?viagem_id=${v.id}"><button>Mapa de poltronas</button></a>
             <button class="secundario" data-manifesto="${v.id}">Manifesto PDF</button>
             <button class="secundario" data-jornada="${v.id}" data-motorista="${v.motorista_nome || ""}">Jornada</button>
+            <button class="secundario" data-checklist="${v.id}" data-motorista="${v.motorista_nome || ""}">Checklist</button>
             ${ehAdmin ? `<button class="secundario" data-editar="${v.id}">Editar</button>` : ""}
             ${ehAdmin
               ? v.ativo
@@ -124,6 +126,10 @@
 
       corpo.querySelectorAll("button[data-jornada]").forEach((btn) => {
         btn.addEventListener("click", () => abrirDialogJornada("viagem", parseInt(btn.dataset.jornada, 10), btn.dataset.motorista));
+      });
+
+      corpo.querySelectorAll("button[data-checklist]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirDialogChecklist("viagem", parseInt(btn.dataset.checklist, 10), btn.dataset.motorista));
       });
 
       corpo.querySelectorAll("button[data-manifesto]").forEach((btn) => {

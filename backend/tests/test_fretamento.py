@@ -98,3 +98,36 @@ def test_mudar_status_e_isolamento_multitenant(client, db):
     # Empresa B não pode ver/alterar o fretamento da empresa A.
     invasao = client.get(f"/api/fretamentos/{fretamento['id']}", headers=auth_header(token_b))
     assert invasao.status_code == 404
+
+
+def test_contrato_pdf_exige_fretamento_confirmado(client, db):
+    empresa = criar_empresa_completa(db, "F8")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+
+    fretamento = _criar_fretamento(client, headers)
+    ainda_orcamento = client.get(f"/api/fretamentos/{fretamento['id']}/contrato.pdf", headers=headers)
+    assert ainda_orcamento.status_code == 409
+
+    client.patch(f"/api/fretamentos/{fretamento['id']}/status", json={"status": "confirmado"}, headers=headers)
+    resposta = client.get(f"/api/fretamentos/{fretamento['id']}/contrato.pdf", headers=headers)
+    assert resposta.status_code == 200
+    assert resposta.headers["content-type"] == "application/pdf"
+    assert resposta.content.startswith(b"%PDF")
+
+
+def test_emitir_nfse_fretamento_exige_status_concluido(client, db):
+    empresa = criar_empresa_completa(db, "F9")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+
+    fretamento = _criar_fretamento(client, headers)
+    ainda_orcamento = client.post(f"/api/fretamentos/{fretamento['id']}/nfse", headers=headers)
+    assert ainda_orcamento.status_code == 409
+
+    client.patch(f"/api/fretamentos/{fretamento['id']}/status", json={"status": "confirmado"}, headers=headers)
+    client.patch(f"/api/fretamentos/{fretamento['id']}/status", json={"status": "em_andamento"}, headers=headers)
+    client.patch(f"/api/fretamentos/{fretamento['id']}/status", json={"status": "concluido"}, headers=headers)
+
+    resposta = client.post(f"/api/fretamentos/{fretamento['id']}/nfse", headers=headers)
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["status"] == "simulada"

@@ -74,6 +74,115 @@ def gerar_manifesto_pdf(dados: DadosManifesto) -> bytes:
 
 
 @dataclass
+class DadosContratoFretamento:
+    empresa_nome: str
+    empresa_cnpj: str
+    empresa_contato: str | None
+    codigo_rastreio: str
+    cliente_nome: str
+    cliente_documento: str | None
+    cliente_contato: str | None
+    origem: str
+    destino: str
+    data_hora_saida: datetime
+    data_hora_retorno_prevista: datetime | None
+    onibus_identificacao: str | None
+    motorista_nome: str | None
+    distancia_km: float | None
+    valor_total: float | None
+    observacoes: str | None
+
+
+CLAUSULAS_CONTRATO_FRETAMENTO = [
+    "1. O presente contrato tem por objeto a prestacao de servico de fretamento de onibus pela CONTRATADA "
+    "a CONTRATANTE, no trajeto, data e horario especificados acima.",
+    "2. O valor total informado refere-se exclusivamente ao trajeto e periodo contratados, podendo haver "
+    "cobranca adicional em caso de alteracao de roteiro solicitada pela CONTRATANTE apos a confirmacao.",
+    "3. A CONTRATANTE se compromete a respeitar o horario de saida combinado. Atrasos podem acarretar em "
+    "ajuste do horario de retorno, sujeito a disponibilidade do veiculo e do motorista.",
+    "4. A CONTRATADA se responsabiliza pela manutencao e seguranca do veiculo, bem como pela habilitacao "
+    "do motorista designado para a viagem.",
+    "5. Eventuais danos causados ao veiculo por mau uso durante o periodo de fretamento serao de "
+    "responsabilidade da CONTRATANTE, apurados e comunicados apos a vistoria do veiculo.",
+]
+
+
+def gerar_contrato_fretamento_pdf(dados: DadosContratoFretamento) -> bytes:
+    """Contrato formal de fretamento em A4 — documento que o cliente/evento
+    pede para formalizar a contratacao, gerado a partir dos dados que ja
+    existem no fretamento (sem digitar nada de novo)."""
+    pdf = FPDF(format="A4", orientation="P")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_margin(15)
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "Contrato de Fretamento", new_x="LMARGIN", new_y="NEXT", align="C")
+
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, f"{dados.empresa_nome} - CNPJ {dados.empresa_cnpj}", new_x="LMARGIN", new_y="NEXT", align="C")
+    if dados.empresa_contato:
+        pdf.cell(0, 6, dados.empresa_contato, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.ln(4)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 6, f"Codigo: {dados.codigo_rastreio}", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, "CONTRATANTE", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, f"Nome/Razao social: {dados.cliente_nome}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, f"CPF/CNPJ: {dados.cliente_documento or '-'}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, f"Contato: {dados.cliente_contato or '-'}", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(3)
+
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, "OBJETO DO CONTRATO", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, f"Trajeto: {dados.origem} -> {dados.destino}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, f"Saida: {dados.data_hora_saida.strftime('%d/%m/%Y as %H:%M')}", new_x="LMARGIN", new_y="NEXT")
+    retorno = dados.data_hora_retorno_prevista.strftime("%d/%m/%Y as %H:%M") if dados.data_hora_retorno_prevista else "-"
+    pdf.cell(0, 6, f"Retorno previsto: {retorno}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, f"Veiculo: {dados.onibus_identificacao or '-'}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, f"Motorista: {dados.motorista_nome or '-'}", new_x="LMARGIN", new_y="NEXT")
+    if dados.distancia_km is not None:
+        pdf.cell(0, 6, f"Distancia prevista: {dados.distancia_km:.1f} km", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 7, f"Valor total: R$ {dados.valor_total:.2f}" if dados.valor_total is not None else "Valor total: a combinar", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(3)
+
+    if dados.observacoes:
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 6, "OBSERVACOES", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "", 9)
+        pdf.multi_cell(0, 5, dados.observacoes)
+        pdf.ln(2)
+
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, "CLAUSULAS GERAIS", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 9)
+    for clausula in CLAUSULAS_CONTRATO_FRETAMENTO:
+        pdf.multi_cell(0, 5, clausula)
+        pdf.ln(1)
+
+    pdf.ln(10)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.cell(90, 6, "_" * 35, new_x="RIGHT", new_y="LAST", align="C")
+    pdf.cell(90, 6, "_" * 35, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.cell(90, 5, "CONTRATADA", new_x="RIGHT", new_y="LAST", align="C")
+    pdf.cell(90, 5, "CONTRATANTE", new_x="LMARGIN", new_y="NEXT", align="C")
+
+    pdf.ln(6)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 5, f"Gerado em {datetime.now().strftime('%d/%m/%Y as %H:%M')}", new_x="LMARGIN", new_y="NEXT", align="C")
+
+    saida = pdf.output()
+    return bytes(saida)
+
+
+@dataclass
 class DadosBilhete:
     empresa_nome: str
     origem: str

@@ -129,3 +129,21 @@ def test_solicitar_frete_pela_loja_publica_e_bloqueado_se_modulo_desligado(clien
         },
     )
     assert bloqueado.status_code == 404
+
+
+def test_emitir_nfse_frete_exige_status_entregue(client, db):
+    empresa = criar_empresa_completa(db, "FR9")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+
+    frete = _criar_frete(client, headers)
+    ainda_solicitado = client.post(f"/api/fretes/{frete['id']}/nfse", headers=headers)
+    assert ainda_solicitado.status_code == 409
+
+    client.patch(f"/api/fretes/{frete['id']}/status", json={"status": "confirmado"}, headers=headers)
+    client.patch(f"/api/fretes/{frete['id']}/status", json={"status": "em_transito"}, headers=headers)
+    client.patch(f"/api/fretes/{frete['id']}/status", json={"status": "entregue"}, headers=headers)
+
+    resposta = client.post(f"/api/fretes/{frete['id']}/nfse", headers=headers)
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["status"] == "simulada"

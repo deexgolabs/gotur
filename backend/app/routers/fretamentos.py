@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import require_roles, require_staff
@@ -22,11 +22,14 @@ from app.schemas.fretamento import (
     RastreioPublicoOut,
     SolicitarOrcamentoFretamentoRequest,
 )
+from app.schemas.passagem import NfseOut
 from app.schemas.push import InscricaoPushRequest
 from app.services.auditoria import registrar as registrar_auditoria
 from app.services.codigo import gerar_localizador
 from app.services.geo import distancia_percorrida_km
+from app.services.nfse_provider import obter_nfse_provider
 from app.services.notificacoes import enviar_atualizacao_status_fretamento
+from app.services.pdf_service import DadosContratoFretamento, gerar_contrato_fretamento_pdf
 from app.services.push_service import inscrever as inscrever_push
 from app.services.push_service import notificar_inscritos
 from app.services.rate_limit import limitar_taxa
@@ -334,6 +337,82 @@ def mudar_status_fretamento(
     db.refresh(fretamento)
     _notificar_mudanca_status(request, db, fretamento)
     return _para_out(fretamento)
+
+
+@router.post("/{fretamento_id}/nfse", response_model=NfseOut)
+def emitir_nfse_fretamento(
+    fretamento_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_staff),
+):
+    """Terreno pronto: sem um agregador de NFS-e configurado (ver
+    app/services/nfse_provider.py), só registra no log e devolve status
+    "simulada" — não emite nada de verdade."""
+    fretamento = _buscar_fretamento_da_empresa(db, fretamento_id, usuario_atual)
+    if fretamento.status != StatusFretamento.CONCLUIDO:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Só é possível emitir NFS-e de um fretamento concluído")
+
+    resultado = obter_nfse_provider().emitir(
+        referencia=fretamento.codigo_rastreio,
+        valor=float(fretamento.valor_total or 0),
+        cliente_nome=fretamento.cliente_nome,
+        cliente_documento=fretamento.cliente_documento,
+        descricao=f"Fretamento — {fretamento.origem} a {fretamento.destino}, código {fretamento.codigo_rastreio}",
+    )
+
+    registrar_auditoria(
+        db,
+        usuario=usuario_atual,
+        acao="emissao_nfse",
+        entidade_tipo="fretamento",
+        entidade_id=fretamento.id,
+        detalhes=f"Fretamento {fretamento.codigo_rastreio}: {resultado.status}",
+        tenant_id=usuario_atual.tenant_id,
+    )
+
+    return NfseOut(numero=resultado.numero, status=resultado.status, url_pdf=resultado.url_pdf, chave_acesso=resultado.chave_acesso)
+
+
+@router.get("/{fretamento_id}/contrato.pdf")
+def contrato_pdf(
+    fretamento_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_staff),
+):
+    """Contrato formal de fretamento pra empresa/evento que pede um
+    documento assinável — gerado a partir dos dados que já existem no
+    fretamento, sem precisar digitar nada de novo. Só faz sentido depois do
+    orçamento ser aceito (status diferente de ORCAMENTO)."""
+    fretamento = _buscar_fretamento_da_empresa(db, fretamento_id, usuario_atual)
+    if fretamento.status == StatusFretamento.ORCAMENTO:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Confirme o fretamento antes de gerar o contrato")
+
+    empresa = db.get(Empresa, usuario_atual.tenant_id)
+    pdf_bytes = gerar_contrato_fretamento_pdf(
+        DadosContratoFretamento(
+            empresa_nome=empresa.nome if empresa else "",
+            empresa_cnpj=empresa.cnpj if empresa else "",
+            empresa_contato=empresa.email_contato if empresa else None,
+            codigo_rastreio=fretamento.codigo_rastreio,
+            cliente_nome=fretamento.cliente_nome,
+            cliente_documento=fretamento.cliente_documento,
+            cliente_contato=fretamento.cliente_contato,
+            origem=fretamento.origem,
+            destino=fretamento.destino,
+            data_hora_saida=fretamento.data_hora_saida,
+            data_hora_retorno_prevista=fretamento.data_hora_retorno_prevista,
+            onibus_identificacao=fretamento.onibus.identificacao if fretamento.onibus else None,
+            motorista_nome=fretamento.motorista_nome,
+            distancia_km=float(fretamento.distancia_km) if fretamento.distancia_km is not None else None,
+            valor_total=float(fretamento.valor_total) if fretamento.valor_total is not None else None,
+            observacoes=fretamento.observacoes,
+        )
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="contrato-fretamento-{fretamento.codigo_rastreio}.pdf"'},
+    )
 
 
 @router.post("/{fretamento_id}/posicoes", response_model=PosicaoOut, status_code=status.HTTP_201_CREATED)

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.deps import require_roles, require_staff
 from app.database import get_db
 from app.models.empresa import Empresa
-from app.models.enums import TipoRastreioPush, UserRole
+from app.models.enums import StatusFrete, TipoRastreioPush, UserRole
 from app.models.frete import Frete, PosicaoFrete
 from app.models.motorista import Motorista
 from app.models.parceiro import Parceiro
@@ -18,10 +18,12 @@ from app.schemas.frete import (
     RastreioFretePublicoOut,
     SolicitarFreteRequest,
 )
+from app.schemas.passagem import NfseOut
 from app.schemas.push import InscricaoPushRequest
 from app.services.auditoria import registrar as registrar_auditoria
 from app.services.codigo import gerar_localizador
 from app.services.geo import distancia_percorrida_km
+from app.services.nfse_provider import obter_nfse_provider
 from app.services.notificacoes import enviar_atualizacao_status_frete
 from app.services.push_service import inscrever as inscrever_push
 from app.services.push_service import notificar_inscritos
@@ -323,6 +325,40 @@ def mudar_status_frete(
     db.refresh(frete)
     _notificar_mudanca_status(request, db, frete)
     return _para_out(frete)
+
+
+@router.post("/{frete_id}/nfse", response_model=NfseOut)
+def emitir_nfse_frete(
+    frete_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_staff),
+):
+    """Terreno pronto: sem um agregador de NFS-e configurado (ver
+    app/services/nfse_provider.py), só registra no log e devolve status
+    "simulada" — não emite nada de verdade."""
+    frete = _buscar_frete_da_empresa(db, frete_id, usuario_atual)
+    if frete.status != StatusFrete.ENTREGUE:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Só é possível emitir NFS-e de um frete entregue")
+
+    resultado = obter_nfse_provider().emitir(
+        referencia=frete.codigo_rastreio,
+        valor=float(frete.valor_total or 0),
+        cliente_nome=frete.remetente_nome,
+        cliente_documento=None,
+        descricao=f"Frete — {frete.origem} a {frete.destino}, código {frete.codigo_rastreio}",
+    )
+
+    registrar_auditoria(
+        db,
+        usuario=usuario_atual,
+        acao="emissao_nfse",
+        entidade_tipo="frete",
+        entidade_id=frete.id,
+        detalhes=f"Frete {frete.codigo_rastreio}: {resultado.status}",
+        tenant_id=usuario_atual.tenant_id,
+    )
+
+    return NfseOut(numero=resultado.numero, status=resultado.status, url_pdf=resultado.url_pdf, chave_acesso=resultado.chave_acesso)
 
 
 @router.post("/{frete_id}/posicoes", response_model=PosicaoOut, status_code=status.HTTP_201_CREATED)

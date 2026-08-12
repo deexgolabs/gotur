@@ -1,18 +1,23 @@
 """Abstração do provedor de pagamento.
 
-Sem `GOTUR_GATEWAY_API_KEY` configurado, roda em modo simulado
+Sem nenhuma chave configurada, roda em modo simulado
 (`PagamentoSimuladoProvider`): Pix gera um código copia-e-cola de mentira e
 fica pendente até alguém confirmar (tela "já paguei" no v1, ou o webhook de
 um gateway real no futuro); cartão, dinheiro e outros meios aprovam na hora.
 Isso deixa o restante do sistema (fluxo de compra, faturas, frontend) já
-pronto para um gateway real — só falta implementar `cobrar()` de verdade.
+pronto para um gateway real — só falta configurar uma chave de verdade.
 
-Para plugar um gateway real (Mercado Pago, Stripe, Asaas etc.) no futuro:
-1. Implemente `cobrar()` em uma nova classe que herde de `PagamentoProvider`
-   (veja o esqueleto em `MercadoPagoProvider`).
-2. Configure a variável de ambiente `GOTUR_GATEWAY_API_KEY`.
-3. Nenhum outro ponto do sistema precisa mudar — `obter_provider()` já troca
-   automaticamente o provider usado nos routers de passagens e faturas.
+Duas chaves diferentes, dois donos diferentes do dinheiro:
+- `GOTUR_GATEWAY_API_KEY` (global, `.env` do servidor): usada só pra cobrar
+  a assinatura da EMPRESA no GoTur (`app/routers/faturas.py`) — o dinheiro
+  vai pra conta do dono da plataforma. `obter_provider()`/`modo_simulado()`
+  chamados sem argumento usam só essa chave.
+- `Empresa.mercadopago_access_token` (por tenant, configurado em
+  Configurações > Pagamento): usada pra cobrar o CLIENTE da empresa
+  (passagem, frete, fretamento) — o dinheiro vai pra conta da própria
+  empresa, não pra do GoTur. `obter_provider(empresa)`/`modo_simulado(empresa)`
+  usam essa chave quando presente, caindo pra `GOTUR_GATEWAY_API_KEY` como
+  fallback só se a empresa ainda não configurou a própria.
 """
 
 import json
@@ -25,6 +30,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from app.config import settings
+from app.models.empresa import Empresa
 from app.models.enums import FormaPagamento
 
 logger = logging.getLogger("gotur.pagamento")
@@ -156,11 +162,18 @@ class MercadoPagoProvider(PagamentoProvider):
         return resultado.get("status", "pending")
 
 
-def obter_provider() -> PagamentoProvider:
-    if settings.gateway_api_key:
-        return MercadoPagoProvider(settings.gateway_api_key)
+def _chave_ativa(empresa: Empresa | None) -> str | None:
+    if empresa is not None and empresa.mercadopago_access_token:
+        return empresa.mercadopago_access_token
+    return settings.gateway_api_key
+
+
+def obter_provider(empresa: Empresa | None = None) -> PagamentoProvider:
+    chave = _chave_ativa(empresa)
+    if chave:
+        return MercadoPagoProvider(chave)
     return PagamentoSimuladoProvider()
 
 
-def modo_simulado() -> bool:
-    return not settings.gateway_api_key
+def modo_simulado(empresa: Empresa | None = None) -> bool:
+    return not _chave_ativa(empresa)

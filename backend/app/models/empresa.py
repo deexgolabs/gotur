@@ -50,6 +50,13 @@ class Empresa(Base):
     fidelidade_passagens_necessarias: Mapped[int | None] = mapped_column(Integer, nullable=True)
     fidelidade_desconto_percentual: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
 
+    # Mercado Pago da PRÓPRIA empresa (ver app/services/pagamento_provider.py)
+    # — cada viação recebe na sua própria conta pelas passagens/fretes/
+    # fretamentos que vende. Diferente de GOTUR_GATEWAY_API_KEY (global),
+    # que é usado só pra cobrar a própria assinatura da empresa no GoTur.
+    mercadopago_access_token: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    mercadopago_public_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
     usuarios = relationship("Usuario", back_populates="empresa")
     onibus = relationship("Onibus", back_populates="empresa")
     rotas = relationship("Rota", back_populates="empresa")
@@ -79,3 +86,7 @@ class Empresa(Base):
         """Só usa frete se o plano incluir E a empresa não tiver desligado."""
         permitido_pelo_plano = self.plano.modulo_frete if self.plano else True
         return permitido_pelo_plano and self.frete_ativo
+
+    @property
+    def mercadopago_configurado(self) -> bool:
+        return bool(self.mercadopago_access_token)
