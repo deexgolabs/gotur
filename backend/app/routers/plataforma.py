@@ -13,6 +13,8 @@ from app.models.onibus import Onibus
 from app.models.passagem import Passagem
 from app.models.usuario import Usuario
 from app.schemas.plataforma import (
+    ConfiguracaoCobrancaPlataformaOut,
+    ConfiguracaoCobrancaPlataformaRequest,
     CrescimentoEmpresaOut,
     EmpresaEmRiscoOut,
     EmpresaPertoDoLimiteOut,
@@ -20,6 +22,7 @@ from app.schemas.plataforma import (
     MrrMesOut,
 )
 from app.services.assinatura import atualizar_situacao_assinaturas
+from app.services.pagamento_provider import obter_configuracao_plataforma
 
 router = APIRouter(prefix="/plataforma", tags=["plataforma"])
 
@@ -212,3 +215,29 @@ def metricas_plataforma(
         top_crescimento=top_crescimento,
         empresas_perto_do_limite=perto_do_limite,
     )
+
+
+@router.get("/cobranca", response_model=ConfiguracaoCobrancaPlataformaOut)
+def obter_configuracao_cobranca(
+    db: Session = Depends(get_db),
+    _usuario: Usuario = Depends(require_roles(UserRole.SUPER_ADMIN)),
+):
+    """Como o GoTur cobra as empresas clientes pela assinatura — Mercado
+    Pago da própria plataforma + modo de cobrança (ver
+    app/services/pagamento_provider.py). Diferente do Mercado Pago que
+    cada empresa configura pra cobrar os PRÓPRIOS clientes dela."""
+    return obter_configuracao_plataforma(db)
+
+
+@router.patch("/cobranca", response_model=ConfiguracaoCobrancaPlataformaOut)
+def configurar_cobranca(
+    dados: ConfiguracaoCobrancaPlataformaRequest,
+    db: Session = Depends(get_db),
+    _usuario: Usuario = Depends(require_roles(UserRole.SUPER_ADMIN)),
+):
+    config = obter_configuracao_plataforma(db)
+    for campo, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(config, campo, valor or None)
+    db.commit()
+    db.refresh(config)
+    return config

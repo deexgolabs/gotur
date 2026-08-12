@@ -1,6 +1,7 @@
 from app.models.auditoria import RegistroAuditoria
 from app.models.avaliacao import Avaliacao
 from app.models.checklist_viagem import ChecklistViagem
+from app.models.configuracao_plataforma import ConfiguracaoPlataforma
 from app.models.cupom import Cupom
 from app.models.documento_onibus import DocumentoOnibus
 from app.models.empresa import Empresa
@@ -28,6 +29,7 @@ __all__ = [
     "RegistroAuditoria",
     "Avaliacao",
     "ChecklistViagem",
+    "ConfiguracaoPlataforma",
     "Cupom",
     "DocumentoOnibus",
     "Empresa",

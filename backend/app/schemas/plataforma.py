@@ -1,4 +1,24 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+from app.models.enums import ModoCobranca
+
+
+class ConfiguracaoCobrancaPlataformaRequest(BaseModel):
+    """Credenciais do Mercado Pago da PRÓPRIA plataforma GoTur + modo de
+    cobrança das empresas clientes. Envie apenas os campos que quer
+    alterar; envie string vazia pra apagar um campo já salvo."""
+
+    mercadopago_access_token: str | None = None
+    mercadopago_public_key: str | None = None
+    modo_cobranca: ModoCobranca | None = None
+
+
+class ConfiguracaoCobrancaPlataformaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    mercadopago_public_key: str | None = None
+    mercadopago_configurado: bool = False
+    modo_cobranca: ModoCobranca = ModoCobranca.AUTOMATICA
 
 
 class EmpresaPertoDoLimiteOut(BaseModel):

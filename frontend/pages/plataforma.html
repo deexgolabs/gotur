@@ -56,6 +56,40 @@
       </table>
       <p class="vazio escondido" id="vazio-limites">Nenhuma empresa perto do limite do plano.</p>
     </div>
+
+    <h2>Cobrança das empresas</h2>
+    <div class="cartao">
+      <p class="rodape-form" style="text-align:left;margin-top:-8px">
+        Como o GoTur cobra a assinatura das empresas clientes (fatura mensal) — diferente do Mercado Pago que cada
+        empresa configura pra cobrar os próprios clientes dela. Pegue o Access Token de produção em
+        <strong>mercadopago.com.br/developers/panel/app</strong>.
+      </p>
+      <form id="form-cobranca-plataforma">
+        <label for="modo-cobranca-plataforma">Como cobrar as empresas</label>
+        <select id="modo-cobranca-plataforma">
+          <option value="automatica">Automática — cobra sozinho via Mercado Pago</option>
+          <option value="manual">Manual — toda fatura fica pendente até você confirmar</option>
+          <option value="desativada">Desativada — marca fatura como paga na hora, sem cobrar nada pelo sistema</option>
+        </select>
+        <p class="rodape-form" style="text-align:left;margin:-6px 0 14px" id="descricao-modo-cobranca-plataforma"></p>
+
+        <p id="status-mercadopago-plataforma" class="rodape-form" style="text-align:left;font-weight:600"></p>
+        <div class="grid-form">
+          <div>
+            <label for="mp-plataforma-access-token">Access Token</label>
+            <input id="mp-plataforma-access-token" type="password" placeholder="Deixe em branco para manter o atual" autocomplete="off" />
+          </div>
+          <div>
+            <label for="mp-plataforma-public-key">Public Key (opcional)</label>
+            <input id="mp-plataforma-public-key" placeholder="Usada futuramente pra pagamento com cartão" autocomplete="off" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Salvar configurações de cobrança</button>
+          <button type="button" class="perigo" id="btn-remover-mercadopago-plataforma">Remover credenciais Mercado Pago</button>
+        </div>
+      </form>
+    </div>
   </main>
 
   <script src="/js/api.js"></script>
@@ -99,6 +133,68 @@
 
       return `<svg viewBox="0 0 ${largura} ${altura}" width="100%" style="max-width:560px;min-width:320px">${barras}</svg>`;
     }
+
+    const DESCRICOES_MODO_COBRANCA_PLATAFORMA = {
+      automatica: "O sistema cobra sozinho: Pix real se você configurar o Mercado Pago abaixo, ou Pix simulado enquanto não configurar.",
+      manual: "Toda fatura fica pendente até você confirmar o pagamento na tela de faturas — útil se você recebe por fora (boleto, transferência combinada) e quer controlar a liberação.",
+      desativada: "O sistema marca a fatura como paga na hora, sem gerar Pix nem pedir confirmação — use se a cobrança das empresas é 100% controlada fora do GoTur.",
+    };
+
+    function atualizarStatusPagamentoPlataforma(config) {
+      document.getElementById("descricao-modo-cobranca-plataforma").textContent =
+        DESCRICOES_MODO_COBRANCA_PLATAFORMA[config.modo_cobranca] || "";
+      const statusEl = document.getElementById("status-mercadopago-plataforma");
+      if (config.modo_cobranca !== "automatica") {
+        statusEl.textContent = "";
+        return;
+      }
+      statusEl.textContent = config.mercadopago_configurado
+        ? "✅ Conectado — cobrando de verdade na conta Mercado Pago da plataforma."
+        : "⚠️ Não configurado — usando GOTUR_GATEWAY_API_KEY do servidor, se houver, ou modo simulado.";
+    }
+
+    async function carregarConfiguracaoCobranca() {
+      const config = await api("GET", "/plataforma/cobranca");
+      document.getElementById("modo-cobranca-plataforma").value = config.modo_cobranca || "automatica";
+      document.getElementById("mp-plataforma-public-key").value = config.mercadopago_public_key || "";
+      atualizarStatusPagamentoPlataforma(config);
+    }
+
+    document.getElementById("modo-cobranca-plataforma").addEventListener("change", () => {
+      document.getElementById("descricao-modo-cobranca-plataforma").textContent =
+        DESCRICOES_MODO_COBRANCA_PLATAFORMA[document.getElementById("modo-cobranca-plataforma").value] || "";
+    });
+
+    document.getElementById("form-cobranca-plataforma").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const corpo = {
+          modo_cobranca: document.getElementById("modo-cobranca-plataforma").value,
+          mercadopago_public_key: document.getElementById("mp-plataforma-public-key").value.trim() || null,
+        };
+        const token = document.getElementById("mp-plataforma-access-token").value.trim();
+        if (token) corpo.mercadopago_access_token = token;
+        const config = await api("PATCH", "/plataforma/cobranca", corpo);
+        document.getElementById("mp-plataforma-access-token").value = "";
+        atualizarStatusPagamentoPlataforma(config);
+        mostrarAlerta("Configurações de cobrança atualizadas.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("btn-remover-mercadopago-plataforma").addEventListener("click", async () => {
+      if (!confirm("Remover as credenciais do Mercado Pago da plataforma?")) return;
+      try {
+        const config = await api("PATCH", "/plataforma/cobranca", { mercadopago_access_token: "", mercadopago_public_key: "" });
+        document.getElementById("mp-plataforma-access-token").value = "";
+        document.getElementById("mp-plataforma-public-key").value = "";
+        atualizarStatusPagamentoPlataforma(config);
+        mostrarAlerta("Credenciais removidas.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
 
     function rotuloMes(mesIso) {
       const [ano, mes] = mesIso.split("-");
@@ -176,6 +272,7 @@
     if (auth) {
       montarTopo("topo");
       carregar().catch((e) => mostrarAlerta(e.message));
+      carregarConfiguracaoCobranca().catch((e) => mostrarAlerta(e.message));
     }
   </script>
 </body>

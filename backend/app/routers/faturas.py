@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import get_current_user, require_roles
 from app.database import get_db
+from app.models.configuracao_plataforma import ConfiguracaoPlataforma
 from app.models.empresa import Empresa
 from app.models.enums import FormaPagamento, StatusAssinatura, StatusFatura, UserRole
 from app.models.fatura_empresa import FaturaEmpresa
@@ -12,7 +13,7 @@ from app.models.usuario import Usuario
 from app.schemas.fatura import FaturaOut
 from app.services.assinatura import atualizar_situacao_assinaturas
 from app.services.auditoria import registrar as registrar_auditoria
-from app.services.pagamento_provider import modo_simulado, obter_provider
+from app.services.pagamento_provider import modo_simulado, obter_configuracao_plataforma, obter_provider
 
 router = APIRouter(tags=["faturas"])
 
@@ -154,7 +155,8 @@ def pagar_fatura(
     if fatura.status == StatusFatura.PAGA:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Fatura já paga")
 
-    resultado_cobranca = obter_provider().cobrar(
+    plataforma = obter_configuracao_plataforma(db)
+    resultado_cobranca = obter_provider(plataforma=plataforma).cobrar(
         forma_pagamento=FormaPagamento.PIX,
         valor=float(fatura.valor),
         referencia_pedido=f"fatura-{fatura.id}",
@@ -181,7 +183,7 @@ def confirmar_pagamento_fatura_simulado(
 ):
     """Simula o webhook que um gateway real chamaria quando o Pix da
     fatura cai na conta. Só existe em modo simulado."""
-    if not modo_simulado():
+    if not modo_simulado(plataforma=obter_configuracao_plataforma(db)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Confirmação manual desabilitada: um gateway de pagamento real está configurado.",

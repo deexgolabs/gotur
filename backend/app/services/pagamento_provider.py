@@ -7,17 +7,24 @@ um gateway real no futuro); cartão, dinheiro e outros meios aprovam na hora.
 Isso deixa o restante do sistema (fluxo de compra, faturas, frontend) já
 pronto para um gateway real — só falta configurar uma chave de verdade.
 
-Duas chaves diferentes, dois donos diferentes do dinheiro:
-- `GOTUR_GATEWAY_API_KEY` (global, `.env` do servidor): usada só pra cobrar
-  a assinatura da EMPRESA no GoTur (`app/routers/faturas.py`) — o dinheiro
-  vai pra conta do dono da plataforma. `obter_provider()`/`modo_simulado()`
-  chamados sem argumento usam só essa chave.
+Duas configurações diferentes, dois donos diferentes do dinheiro:
+- `ConfiguracaoPlataforma` (linha única, editada pelo super admin em
+  Plataforma > Cobrança das empresas — com `GOTUR_GATEWAY_API_KEY` no
+  `.env` como fallback se o super admin não configurar nada pela tela):
+  usada pra cobrar a assinatura da EMPRESA no GoTur
+  (`app/routers/faturas.py`) — o dinheiro vai pra conta do dono da
+  plataforma. `obter_provider(plataforma=...)`/`modo_simulado(plataforma=...)`
+  usam essa configuração.
 - `Empresa.mercadopago_access_token` (por tenant, configurado em
   Configurações > Pagamento): usada pra cobrar o CLIENTE da empresa
   (passagem, frete, fretamento) — o dinheiro vai pra conta da própria
-  empresa, não pra do GoTur. `obter_provider(empresa)`/`modo_simulado(empresa)`
+  empresa, não pra do GoTur. `obter_provider(empresa=...)`/`modo_simulado(empresa=...)`
   usam essa chave quando presente, caindo pra `GOTUR_GATEWAY_API_KEY` como
   fallback só se a empresa ainda não configurou a própria.
+
+Nunca passe `empresa` e `plataforma` ao mesmo tempo — são contextos de
+cobrança diferentes. Chamado sem nenhum dos dois, usa só a chave global
+(`GOTUR_GATEWAY_API_KEY`), sem nenhum modo de cobrança customizado.
 """
 
 import json
@@ -29,7 +36,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy.orm import Session
+
 from app.config import settings
+from app.models.configuracao_plataforma import ConfiguracaoPlataforma
 from app.models.empresa import Empresa
 from app.models.enums import FormaPagamento, ModoCobranca
 
@@ -179,40 +189,62 @@ class MercadoPagoProvider(PagamentoProvider):
         return resultado.get("status", "pending")
 
 
-def _chave_ativa(empresa: Empresa | None) -> str | None:
+def obter_configuracao_plataforma(db: Session) -> ConfiguracaoPlataforma:
+    """`ConfiguracaoPlataforma` é uma linha única (singleton) — cria na
+    primeira vez que alguém precisar dela (não existe tela de "criar",
+    só de editar)."""
+    config = db.query(ConfiguracaoPlataforma).first()
+    if not config:
+        config = ConfiguracaoPlataforma()
+        db.add(config)
+        db.commit()
+        db.refresh(config)
+    return config
+
+
+def _chave_ativa(empresa: Empresa | None, plataforma: ConfiguracaoPlataforma | None) -> str | None:
     if empresa is not None and empresa.mercadopago_access_token:
         return empresa.mercadopago_access_token
+    if plataforma is not None and plataforma.mercadopago_access_token:
+        return plataforma.mercadopago_access_token
     return settings.gateway_api_key
 
 
-def obter_provider(empresa: Empresa | None = None) -> PagamentoProvider:
-    """Sem `empresa` (ex: cobrança da fatura da assinatura no GoTur), usa
-    só a chave global — `Empresa.modo_cobranca` nunca entra em jogo. Com
-    `empresa` (venda de passagem/frete/fretamento pro cliente dela), o modo
-    de cobrança que ela escolheu em Configurações manda: MANUAL e
-    DESATIVADA ignoram completamente se tem Mercado Pago configurado ou
-    não; só AUTOMATICA de fato olha pra chave (própria da empresa, ou a
-    global como fallback)."""
+def _modo_cobranca_ativo(empresa: Empresa | None, plataforma: ConfiguracaoPlataforma | None) -> ModoCobranca:
     if empresa is not None:
-        if empresa.modo_cobranca == ModoCobranca.DESATIVADA:
-            return PagamentoManualProvider()
-        if empresa.modo_cobranca == ModoCobranca.MANUAL:
-            return PagamentoPendenteManualProvider()
+        return empresa.modo_cobranca
+    if plataforma is not None:
+        return plataforma.modo_cobranca
+    return ModoCobranca.AUTOMATICA
 
-    chave = _chave_ativa(empresa)
+
+def obter_provider(empresa: Empresa | None = None, plataforma: ConfiguracaoPlataforma | None = None) -> PagamentoProvider:
+    """Sem `empresa` nem `plataforma`, usa só a chave global, sem nenhum
+    modo de cobrança customizado. Com um dos dois, o modo de cobrança
+    escolhido manda: MANUAL e DESATIVADA ignoram completamente se tem
+    Mercado Pago configurado ou não; só AUTOMATICA de fato olha pra chave
+    (própria, ou a global como fallback). Nunca passe os dois juntos."""
+    modo = _modo_cobranca_ativo(empresa, plataforma)
+    if modo == ModoCobranca.DESATIVADA:
+        return PagamentoManualProvider()
+    if modo == ModoCobranca.MANUAL:
+        return PagamentoPendenteManualProvider()
+
+    chave = _chave_ativa(empresa, plataforma)
     if chave:
         return MercadoPagoProvider(chave)
     return PagamentoSimuladoProvider()
 
 
-def modo_simulado(empresa: Empresa | None = None) -> bool:
-    """Controla se a confirmação manual (`/pedidos-pagamento/{id}/confirmar-simulado`)
-    fica disponível. Em MANUAL, sempre disponível (é assim que a venda é
-    liberada). Em DESATIVADA, nunca fica pendente pra começo de conversa,
-    então não há o que confirmar."""
-    if empresa is not None:
-        if empresa.modo_cobranca == ModoCobranca.MANUAL:
-            return True
-        if empresa.modo_cobranca == ModoCobranca.DESATIVADA:
-            return False
-    return not _chave_ativa(empresa)
+def modo_simulado(empresa: Empresa | None = None, plataforma: ConfiguracaoPlataforma | None = None) -> bool:
+    """Controla se a confirmação manual (`/pedidos-pagamento/{id}/confirmar-simulado`,
+    `/faturas/{id}/confirmar-simulado`) fica disponível. Em MANUAL, sempre
+    disponível (é assim que a venda/fatura é liberada). Em DESATIVADA,
+    nunca fica pendente pra começo de conversa, então não há o que
+    confirmar."""
+    modo = _modo_cobranca_ativo(empresa, plataforma)
+    if modo == ModoCobranca.MANUAL:
+        return True
+    if modo == ModoCobranca.DESATIVADA:
+        return False
+    return not _chave_ativa(empresa, plataforma)
