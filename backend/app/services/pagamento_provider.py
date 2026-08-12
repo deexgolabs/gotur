@@ -31,7 +31,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.config import settings
 from app.models.empresa import Empresa
-from app.models.enums import FormaPagamento
+from app.models.enums import FormaPagamento, ModoCobranca
 
 logger = logging.getLogger("gotur.pagamento")
 
@@ -74,12 +74,29 @@ class PagamentoSimuladoProvider(PagamentoProvider):
 
 
 class PagamentoManualProvider(PagamentoProvider):
-    """Comportamento antigo (v1): registra qualquer forma de pagamento como
-    aprovada na hora, sem gerar Pix pendente. Mantido só por compatibilidade
-    — não é mais usado por padrão, ver `obter_provider()`."""
+    """`Empresa.modo_cobranca = DESATIVADA`: registra qualquer forma de
+    pagamento como aprovada na hora, sem gerar Pix pendente e sem checar
+    nada — pra empresa que cobra 100% por fora (maquininha própria,
+    dinheiro) e só quer usar o GoTur pra controlar poltrona/vaga."""
 
     def cobrar(self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str) -> ResultadoCobranca:
         return ResultadoCobranca(gateway_ref=None, status="aprovado")
+
+
+class PagamentoPendenteManualProvider(PagamentoProvider):
+    """`Empresa.modo_cobranca = MANUAL`: toda venda fica pendente até um
+    funcionário confirmar o pagamento na tela — mesmo cartão e dinheiro,
+    que nos outros modos aprovam na hora. Pra empresa que prefere cobrar
+    por fora mas ainda quer controlar manualmente quando a passagem é
+    liberada (em vez de aprovar tudo sozinho, como em DESATIVADA)."""
+
+    def cobrar(self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str) -> ResultadoCobranca:
+        return ResultadoCobranca(
+            gateway_ref=None,
+            status="pendente",
+            pix_copia_cola=_gerar_pix_copia_cola_simulado(valor, referencia_pedido),
+            pix_expira_em=datetime.now(timezone.utc) + timedelta(minutes=settings.pix_expiracao_minutos),
+        )
 
 
 class MercadoPagoProvider(PagamentoProvider):
@@ -169,6 +186,19 @@ def _chave_ativa(empresa: Empresa | None) -> str | None:
 
 
 def obter_provider(empresa: Empresa | None = None) -> PagamentoProvider:
+    """Sem `empresa` (ex: cobrança da fatura da assinatura no GoTur), usa
+    só a chave global — `Empresa.modo_cobranca` nunca entra em jogo. Com
+    `empresa` (venda de passagem/frete/fretamento pro cliente dela), o modo
+    de cobrança que ela escolheu em Configurações manda: MANUAL e
+    DESATIVADA ignoram completamente se tem Mercado Pago configurado ou
+    não; só AUTOMATICA de fato olha pra chave (própria da empresa, ou a
+    global como fallback)."""
+    if empresa is not None:
+        if empresa.modo_cobranca == ModoCobranca.DESATIVADA:
+            return PagamentoManualProvider()
+        if empresa.modo_cobranca == ModoCobranca.MANUAL:
+            return PagamentoPendenteManualProvider()
+
     chave = _chave_ativa(empresa)
     if chave:
         return MercadoPagoProvider(chave)
@@ -176,4 +206,13 @@ def obter_provider(empresa: Empresa | None = None) -> PagamentoProvider:
 
 
 def modo_simulado(empresa: Empresa | None = None) -> bool:
+    """Controla se a confirmação manual (`/pedidos-pagamento/{id}/confirmar-simulado`)
+    fica disponível. Em MANUAL, sempre disponível (é assim que a venda é
+    liberada). Em DESATIVADA, nunca fica pendente pra começo de conversa,
+    então não há o que confirmar."""
+    if empresa is not None:
+        if empresa.modo_cobranca == ModoCobranca.MANUAL:
+            return True
+        if empresa.modo_cobranca == ModoCobranca.DESATIVADA:
+            return False
     return not _chave_ativa(empresa)

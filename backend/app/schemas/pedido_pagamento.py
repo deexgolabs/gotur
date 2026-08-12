@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.enums import StatusPedidoPagamento
+from app.models.enums import FormaPagamento, StatusPedidoPagamento
 from app.schemas.passagem import PassagemOut
 
 
@@ -12,6 +12,7 @@ class PedidoPagamentoOut(BaseModel):
     id: int
     status: StatusPedidoPagamento
     valor: float
+    forma_pagamento: FormaPagamento
     pix_copia_cola: str
     expira_em: datetime
     criado_em: datetime

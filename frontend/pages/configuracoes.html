@@ -117,8 +117,16 @@
         vendidos pela sua empresa — sem isso, o sistema roda em modo simulado (Pix de mentira). Pegue o Access Token
         de produção em <strong>mercadopago.com.br/developers/panel/app</strong>.
       </p>
-      <p id="status-mercadopago" class="rodape-form" style="text-align:left;font-weight:600"></p>
       <form id="form-pagamento">
+        <label for="modo-cobranca">Como cobrar o cliente</label>
+        <select id="modo-cobranca">
+          <option value="automatica">Automática — cobra sozinho via Mercado Pago</option>
+          <option value="manual">Manual — toda venda fica pendente até um funcionário confirmar</option>
+          <option value="desativada">Desativada — aprova a venda na hora, sem cobrar nada pelo sistema</option>
+        </select>
+        <p class="rodape-form" style="text-align:left;margin:-6px 0 14px" id="descricao-modo-cobranca"></p>
+
+        <p id="status-mercadopago" class="rodape-form" style="text-align:left;font-weight:600"></p>
         <div class="grid-form">
           <div>
             <label for="mp-access-token">Access Token</label>
@@ -130,8 +138,8 @@
           </div>
         </div>
         <div class="linha-acoes">
-          <button type="submit">Salvar credenciais</button>
-          <button type="button" class="perigo" id="btn-remover-mercadopago">Remover e voltar ao modo simulado</button>
+          <button type="submit">Salvar configurações de pagamento</button>
+          <button type="button" class="perigo" id="btn-remover-mercadopago">Remover credenciais Mercado Pago</button>
         </div>
       </form>
     </div>
@@ -203,6 +211,24 @@
       return `${window.location.origin}/loja/${slug}`;
     }
 
+    const DESCRICOES_MODO_COBRANCA = {
+      automatica: "O sistema cobra sozinho: Pix real se você configurar o Mercado Pago abaixo, ou Pix simulado enquanto não configurar.",
+      manual: "Toda venda (Pix, cartão ou dinheiro) fica pendente até um funcionário confirmar o pagamento na tela — pra quem recebe por fora e quer controlar a liberação.",
+      desativada: "O sistema aprova a venda na hora, sem gerar Pix nem pedir confirmação — use se o pagamento é 100% controlado fora do GoTur.",
+    };
+
+    function atualizarStatusPagamento(empresa) {
+      document.getElementById("descricao-modo-cobranca").textContent = DESCRICOES_MODO_COBRANCA[empresa.modo_cobranca] || "";
+      const statusEl = document.getElementById("status-mercadopago");
+      if (empresa.modo_cobranca !== "automatica") {
+        statusEl.textContent = "";
+        return;
+      }
+      statusEl.textContent = empresa.mercadopago_configurado
+        ? "✅ Conectado — cobrando de verdade na sua conta Mercado Pago."
+        : "⚠️ Não configurado — vendas rodando em modo simulado (Pix de mentira).";
+    }
+
     function atualizarPreviewLink() {
       const slug = document.getElementById("slug-loja").value.trim();
       document.getElementById("preview-link").textContent = slug ? `Sua loja: ${linkDaLoja(slug)}` : "";
@@ -231,10 +257,9 @@
       document.getElementById("fidelidade-passagens").value = empresa.fidelidade_passagens_necessarias ?? "";
       document.getElementById("fidelidade-desconto").value = empresa.fidelidade_desconto_percentual ?? "";
 
+      document.getElementById("modo-cobranca").value = empresa.modo_cobranca || "automatica";
       document.getElementById("mp-public-key").value = empresa.mercadopago_public_key || "";
-      document.getElementById("status-mercadopago").textContent = empresa.mercadopago_configurado
-        ? "✅ Conectado — cobrando de verdade na sua conta Mercado Pago."
-        : "⚠️ Não configurado — vendas rodando em modo simulado (Pix de mentira).";
+      atualizarStatusPagamento(empresa);
 
       const permitePassagens = empresa.plano ? empresa.plano.modulo_passagens : true;
       const permiteFretamento = empresa.plano ? empresa.plano.modulo_fretamento : true;
@@ -310,30 +335,36 @@
       }
     });
 
+    document.getElementById("modo-cobranca").addEventListener("change", () => {
+      document.getElementById("descricao-modo-cobranca").textContent =
+        DESCRICOES_MODO_COBRANCA[document.getElementById("modo-cobranca").value] || "";
+    });
+
     document.getElementById("form-pagamento").addEventListener("submit", async (ev) => {
       ev.preventDefault();
       try {
-        const corpo = { mercadopago_public_key: document.getElementById("mp-public-key").value.trim() || null };
+        const corpo = {
+          modo_cobranca: document.getElementById("modo-cobranca").value,
+          mercadopago_public_key: document.getElementById("mp-public-key").value.trim() || null,
+        };
         const token = document.getElementById("mp-access-token").value.trim();
         if (token) corpo.mercadopago_access_token = token;
         const empresa = await api("PATCH", "/empresas/minha/pagamento", corpo);
         document.getElementById("mp-access-token").value = "";
-        document.getElementById("status-mercadopago").textContent = empresa.mercadopago_configurado
-          ? "✅ Conectado — cobrando de verdade na sua conta Mercado Pago."
-          : "⚠️ Não configurado — vendas rodando em modo simulado (Pix de mentira).";
-        mostrarAlerta("Credenciais de pagamento atualizadas.", "sucesso");
+        atualizarStatusPagamento(empresa);
+        mostrarAlerta("Configurações de pagamento atualizadas.", "sucesso");
       } catch (erro) {
         mostrarAlerta(erro.message);
       }
     });
 
     document.getElementById("btn-remover-mercadopago").addEventListener("click", async () => {
-      if (!confirm("Remover as credenciais do Mercado Pago? As vendas voltam a rodar em modo simulado.")) return;
+      if (!confirm("Remover as credenciais do Mercado Pago? Se o modo de cobrança estiver em Automática, as vendas voltam a rodar em modo simulado.")) return;
       try {
         const empresa = await api("PATCH", "/empresas/minha/pagamento", { mercadopago_access_token: "", mercadopago_public_key: "" });
         document.getElementById("mp-access-token").value = "";
         document.getElementById("mp-public-key").value = "";
-        document.getElementById("status-mercadopago").textContent = "⚠️ Não configurado — vendas rodando em modo simulado (Pix de mentira).";
+        atualizarStatusPagamento(empresa);
         mostrarAlerta("Credenciais removidas.", "sucesso");
       } catch (erro) {
         mostrarAlerta(erro.message);

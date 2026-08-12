@@ -55,6 +55,18 @@ class FormaPagamento(str, enum.Enum):
     OUTRO = "outro"
 
 
+class ModoCobranca(str, enum.Enum):
+    """Como a empresa quer que a venda de passagem/frete/fretamento seja
+    cobrada do cliente (ver Empresa.modo_cobranca e
+    app/services/pagamento_provider.py) — independente da fatura da
+    assinatura da empresa no GoTur, que usa sempre a chave global da
+    plataforma."""
+
+    AUTOMATICA = "automatica"  # cobra via Mercado Pago (Pix real se configurado, senão simulado)
+    MANUAL = "manual"  # toda venda fica pendente até um funcionário confirmar
+    DESATIVADA = "desativada"  # aprova tudo na hora, sem checar pagamento nenhum
+
+
 class StatusAssinatura(str, enum.Enum):
     """Situação da assinatura da empresa na plataforma (não confundir com
     `Empresa.ativo`, que é um desligamento manual pelo super admin)."""

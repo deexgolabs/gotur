@@ -5,7 +5,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.models.enums import StatusAssinatura
+from app.models.enums import ModoCobranca, StatusAssinatura
 
 
 class Empresa(Base):
@@ -56,6 +56,7 @@ class Empresa(Base):
     # que é usado só pra cobrar a própria assinatura da empresa no GoTur.
     mercadopago_access_token: Mapped[str | None] = mapped_column(String(200), nullable=True)
     mercadopago_public_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    modo_cobranca: Mapped[ModoCobranca] = mapped_column(SAEnum(ModoCobranca), default=ModoCobranca.AUTOMATICA, nullable=False)
 
     usuarios = relationship("Usuario", back_populates="empresa")
     onibus = relationship("Onibus", back_populates="empresa")

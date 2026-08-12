@@ -38,8 +38,13 @@ function renderizarPagamentoPix(container, pedido, opcoes = {}) {
     intervalo = null;
   }
 
+  // Sem `forma_pagamento` (ex: fatura da assinatura, que reaproveita este
+  // mesmo componente) trata como Pix — é o único meio que a fatura usa.
+  const ehPix = !pedido.forma_pagamento || pedido.forma_pagamento === "pix";
+
   function render() {
-    container.innerHTML = `
+    container.innerHTML = ehPix
+      ? `
       <div class="pix-caixa">
         <h3>Pagamento via Pix</h3>
         <p>Escaneie ou copie o código abaixo no app do seu banco. Valor: <strong>R$ ${Number(pedido.valor).toFixed(2)}</strong></p>
@@ -50,18 +55,30 @@ function renderizarPagamentoPix(container, pedido, opcoes = {}) {
         <p class="rodape-form">Ambiente simulado: nenhuma cobrança real é feita. Este botão simula a confirmação que um gateway de pagamento real enviaria automaticamente assim que o Pix cair na conta.</p>
         <div id="pix-status"></div>
       </div>
+    `
+      : `
+      <div class="pix-caixa">
+        <h3>Aguardando confirmação de pagamento</h3>
+        <p>Esta empresa confirma o pagamento manualmente. Valor: <strong>R$ ${Number(pedido.valor).toFixed(2)}</strong></p>
+        <p class="pix-tempo" id="pix-tempo">Expira em <span id="pix-timer">${_pixTempoRestante(pedido.expira_em)}</span></p>
+        <button type="button" id="pix-confirmar">Confirmar pagamento recebido</button>
+        <p class="rodape-form">Clique acima assim que receber o pagamento (dinheiro, maquininha própria etc.) pra liberar a venda.</p>
+        <div id="pix-status"></div>
+      </div>
     `;
 
-    document.getElementById("pix-copiar").addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(pedido.pix_copia_cola);
-        const botao = document.getElementById("pix-copiar");
-        botao.textContent = "Copiado!";
-        setTimeout(() => (botao.textContent = "Copiar código"), 2000);
-      } catch (erro) {
-        document.getElementById("pix-codigo").select();
-      }
-    });
+    if (ehPix) {
+      document.getElementById("pix-copiar").addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(pedido.pix_copia_cola);
+          const botao = document.getElementById("pix-copiar");
+          botao.textContent = "Copiado!";
+          setTimeout(() => (botao.textContent = "Copiar código"), 2000);
+        } catch (erro) {
+          document.getElementById("pix-codigo").select();
+        }
+      });
+    }
 
     document.getElementById("pix-confirmar").addEventListener("click", async () => {
       const botao = document.getElementById("pix-confirmar");
@@ -93,8 +110,9 @@ function renderizarPagamentoPix(container, pedido, opcoes = {}) {
         if (opcoes.aoConfirmar) opcoes.aoConfirmar(null);
       } else if (valoresExpirado.includes(statusAtual)) {
         pararPolling();
-        document.getElementById("pix-status").innerHTML =
-          '<div class="alerta erro">Pix expirado sem pagamento. Tente novamente.</div>';
+        document.getElementById("pix-status").innerHTML = ehPix
+          ? '<div class="alerta erro">Pix expirado sem pagamento. Tente novamente.</div>'
+          : '<div class="alerta erro">Prazo esgotado sem confirmação. Tente novamente.</div>';
         document.getElementById("pix-confirmar").disabled = true;
       } else {
         const span = document.getElementById("pix-timer");

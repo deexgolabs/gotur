@@ -267,10 +267,12 @@ def configurar_pagamento(
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
-    """Credenciais do Mercado Pago da própria empresa (ver
-    app/services/pagamento_provider.py) — com isso configurado, as vendas
-    de passagem/frete/fretamento passam a cobrar de verdade via Pix e cair
-    direto na conta Mercado Pago da empresa, em vez do modo simulado."""
+    """Credenciais do Mercado Pago da própria empresa + modo de cobrança
+    (ver app/services/pagamento_provider.py). Com credenciais configuradas
+    e modo AUTOMATICA, as vendas de passagem/frete/fretamento passam a
+    cobrar de verdade via Pix e cair direto na conta Mercado Pago da
+    empresa; MANUAL/DESATIVADA ignoram a credencial e mudam como a venda é
+    liberada, independente de ter Mercado Pago configurado ou não."""
     empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
     for campo, valor in dados.model_dump(exclude_unset=True).items():
         setattr(empresa, campo, valor or None)

@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.enums import StatusAssinatura
+from app.models.enums import ModoCobranca, StatusAssinatura
 from app.schemas.plano import PlanoOut
 
 
@@ -49,12 +49,13 @@ class ConfiguracaoFidelidadeRequest(BaseModel):
 
 
 class ConfiguracaoPagamentoRequest(BaseModel):
-    """Credenciais do Mercado Pago da PRÓPRIA empresa. Envie apenas os
-    campos que quer alterar (deixe de fora pra manter o que já está salvo);
-    envie string vazia pra apagar um campo já salvo."""
+    """Credenciais do Mercado Pago da PRÓPRIA empresa + modo de cobrança.
+    Envie apenas os campos que quer alterar (deixe de fora pra manter o
+    que já está salvo); envie string vazia pra apagar um campo já salvo."""
 
     mercadopago_access_token: str | None = None
     mercadopago_public_key: str | None = None
+    modo_cobranca: ModoCobranca | None = None
 
 
 class TrocarPlanoRequest(BaseModel):
@@ -90,6 +91,7 @@ class EmpresaOut(BaseModel):
     fidelidade_desconto_percentual: float | None = None
     mercadopago_public_key: str | None = None
     mercadopago_configurado: bool = False
+    modo_cobranca: ModoCobranca = ModoCobranca.AUTOMATICA
 
 
 class LojaInfoOut(BaseModel):
