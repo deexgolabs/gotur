@@ -113,6 +113,7 @@ class TipoRastreioPush(str, enum.Enum):
 
     FRETAMENTO = "fretamento"
     FRETE = "frete"
+    VIAGEM = "viagem"
 
 
 class TipoDocumento(str, enum.Enum):

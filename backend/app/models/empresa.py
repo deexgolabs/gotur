@@ -50,6 +50,13 @@ class Empresa(Base):
     fidelidade_passagens_necessarias: Mapped[int | None] = mapped_column(Integer, nullable=True)
     fidelidade_desconto_percentual: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
 
+    # Programa de indicação: quando o indicado confirma a PRIMEIRA passagem
+    # dele nessa empresa, indicado e indicador ganham cada um um cupom de
+    # desconto (ver app/services/indicacao.py). Independente da fidelidade
+    # acima (uma repete a cada N passagens, essa é única por indicação).
+    indicacao_ativa: Mapped[bool] = mapped_column(Boolean, default=False)
+    indicacao_desconto_percentual: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+
     # Mercado Pago da PRÓPRIA empresa (ver app/services/pagamento_provider.py)
     # — cada viação recebe na sua própria conta pelas passagens/fretes/
     # fretamentos que vende. Diferente de GOTUR_GATEWAY_API_KEY (global),

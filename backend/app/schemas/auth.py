@@ -22,6 +22,7 @@ class RegistroCliente(BaseModel):
     senha: str
     documento: str
     telefone: str | None = None
+    codigo_indicacao: str | None = None
 
 
 class RegistroEmpresa(BaseModel):

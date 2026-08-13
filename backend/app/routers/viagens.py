@@ -3,10 +3,10 @@ from datetime import date, datetime, time
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.deps import require_roles
+from app.core.deps import require_roles, require_staff
 from app.database import get_db
 from app.models.empresa import Empresa
-from app.models.enums import CategoriaPassageiro, StatusPassagem, StatusPoltrona, TipoDocumento, UserRole
+from app.models.enums import CategoriaPassageiro, StatusPassagem, StatusPoltrona, TipoDocumento, TipoRastreioPush, UserRole
 from app.models.motorista import Motorista
 from app.models.onibus import Onibus, PoltronaOnibus
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
@@ -15,10 +15,16 @@ from app.models.passagem import Passagem
 from app.models.poltrona_viagem import PoltronaViagem
 from app.models.rota import Rota
 from app.models.usuario import Usuario
-from app.models.viagem import Viagem
-from app.schemas.viagem import ViagemBuscaOut, ViagemCreate, ViagemOut, ViagemUpdate
+from app.models.viagem import PosicaoViagem, Viagem
+from app.schemas.fretamento import PosicaoCreate, PosicaoOut
+from app.schemas.push import InscricaoPushRequest
+from app.schemas.viagem import RastreioViagemPublicoOut, ViagemBuscaOut, ViagemCreate, ViagemMapaOut, ViagemOut, ViagemUpdate
+from app.services.codigo import gerar_localizador
+from app.services.geo import distancia_percorrida_km
 from app.services.limites_plano import verificar_limite_viagens_mes
 from app.services.pdf_service import DadosManifesto, PassageiroManifesto, gerar_manifesto_pdf
+from app.services.push_service import inscrever as inscrever_push
+from app.services.rate_limit import limitar_taxa
 from app.services.trecho import (
     buscar_paradas_da_rota,
     calcular_preco_trecho,
@@ -42,6 +48,15 @@ ROTULOS_CATEGORIA_PASSAGEIRO = {
 }
 
 router = APIRouter(prefix="/viagens", tags=["viagens"])
+
+_limite_inscrever_push_viagem = limitar_taxa("inscrever-push-viagem", max_chamadas=10, janela_segundos=600)
+
+
+def _gerar_codigo_rastreio(db: Session) -> str:
+    codigo = gerar_localizador(10)
+    while db.query(Viagem).filter(Viagem.codigo_rastreio == codigo).first():
+        codigo = gerar_localizador(10)
+    return codigo
 
 
 def _resolver_motorista_nome(db: Session, motorista_id: int | None, motorista_nome: str | None, tenant_id: int) -> str | None:
@@ -85,6 +100,7 @@ def criar_viagem(
         preco=dados.preco,
         motorista_nome=motorista_nome,
         motorista_id=dados.motorista_id,
+        codigo_rastreio=_gerar_codigo_rastreio(db),
     )
     db.add(viagem)
     db.flush()
@@ -103,7 +119,7 @@ def listar_viagens(
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA, UserRole.FUNCIONARIO)),
 ):
-    return (
+    viagens = (
         db.query(Viagem)
         .options(
             joinedload(Viagem.rota).joinedload(Rota.paradas),
@@ -113,6 +129,15 @@ def listar_viagens(
         .order_by(Viagem.data_hora_partida)
         .all()
     )
+    # Viagens criadas antes do rastreamento ao vivo ainda não têm código —
+    # gera na primeira vez que a lista é consultada (mesmo padrão do slug
+    # de white-label da Empresa).
+    sem_codigo = [v for v in viagens if not v.codigo_rastreio]
+    if sem_codigo:
+        for v in sem_codigo:
+            v.codigo_rastreio = _gerar_codigo_rastreio(db)
+        db.commit()
+    return viagens
 
 
 def _buscar_viagem_da_empresa(db: Session, viagem_id: int, usuario_atual: Usuario) -> Viagem:
@@ -224,6 +249,75 @@ def reativar_viagem(
     return viagem
 
 
+@router.post("/{viagem_id}/posicoes", response_model=PosicaoOut, status_code=status.HTTP_201_CREATED)
+def registrar_posicao(
+    viagem_id: int,
+    dados: PosicaoCreate,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_staff),
+):
+    """Enviado pelo celular de quem está acompanhando o trajeto (motorista
+    ou atendente a bordo), periodicamente, enquanto a viagem está em
+    andamento — mesmo mecanismo já usado por fretamento e frete."""
+    viagem = _buscar_viagem_da_empresa(db, viagem_id, usuario_atual)
+    if not viagem.codigo_rastreio:
+        viagem.codigo_rastreio = _gerar_codigo_rastreio(db)
+
+    posicao = PosicaoViagem(viagem_id=viagem.id, latitude=dados.latitude, longitude=dados.longitude)
+    db.add(posicao)
+    db.commit()
+    db.refresh(posicao)
+    return posicao
+
+
+@router.get("/{viagem_id}/posicoes", response_model=list[PosicaoOut])
+def listar_posicoes(
+    viagem_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_staff),
+):
+    viagem = _buscar_viagem_da_empresa(db, viagem_id, usuario_atual)
+    return viagem.posicoes
+
+
+@router.get("/rastrear/{codigo}", response_model=RastreioViagemPublicoOut)
+def rastrear_publico(codigo: str, db: Session = Depends(get_db)):
+    """Sem autenticação — link que o cliente que comprou passagem usa pra
+    acompanhar o ônibus ao vivo antes/durante o embarque."""
+    viagem = (
+        db.query(Viagem)
+        .options(joinedload(Viagem.posicoes), joinedload(Viagem.rota))
+        .filter(Viagem.codigo_rastreio == codigo.upper())
+        .first()
+    )
+    if not viagem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Código de rastreio não encontrado")
+
+    pontos = [(float(p.latitude), float(p.longitude)) for p in viagem.posicoes]
+    ultima = viagem.posicoes[-1] if viagem.posicoes else None
+
+    return RastreioViagemPublicoOut(
+        codigo_rastreio=viagem.codigo_rastreio,
+        origem=viagem.rota.origem,
+        destino=viagem.rota.destino,
+        data_hora_partida=viagem.data_hora_partida,
+        distancia_percorrida_km=distancia_percorrida_km(pontos),
+        ultima_posicao=PosicaoOut.model_validate(ultima) if ultima else None,
+        trajeto=[PosicaoOut.model_validate(p) for p in viagem.posicoes],
+    )
+
+
+@router.post("/rastrear/{codigo}/push", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(_limite_inscrever_push_viagem)])
+def inscrever_push_viagem(codigo: str, dados: InscricaoPushRequest, db: Session = Depends(get_db)):
+    """Sem autenticação — quem está acompanhando pela tela de rastreio
+    ativa notificações do navegador pra essa viagem específica."""
+    viagem = db.query(Viagem).filter(Viagem.codigo_rastreio == codigo.upper()).first()
+    if not viagem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Código de rastreio não encontrado")
+
+    inscrever_push(db, tenant_id=viagem.tenant_id, tipo=TipoRastreioPush.VIAGEM, objeto_id=viagem.id, dados=dados)
+
+
 @router.get("/loja/{slug}/cidades", response_model=list[str])
 def cidades_atendidas_pela_loja(slug: str, db: Session = Depends(get_db)):
     """Sem autenticação — nomes de todas as paradas das rotas ativas dessa
@@ -323,3 +417,39 @@ def buscar_viagens(
             )
         )
     return resultado
+
+
+@router.get("/{viagem_id}", response_model=ViagemMapaOut)
+def detalhe_viagem_mapa(
+    viagem_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_staff),
+):
+    """Detalhe com trajeto calculado — usado pela tela interna de mapa ao
+    vivo (ver /pages/mapa-viagem.html). Fica no fim do arquivo de propósito:
+    é uma rota dinâmica de 1 segmento e precisa vir depois de /buscar, senão
+    sombreia ela (mesmo cuidado já tomado nas outras rotas desse tipo)."""
+    viagem = (
+        db.query(Viagem)
+        .options(joinedload(Viagem.posicoes), joinedload(Viagem.rota), joinedload(Viagem.onibus))
+        .filter(Viagem.id == viagem_id, Viagem.tenant_id == usuario_atual.tenant_id)
+        .first()
+    )
+    if not viagem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
+
+    pontos = [(float(p.latitude), float(p.longitude)) for p in viagem.posicoes]
+    ultima = viagem.posicoes[-1] if viagem.posicoes else None
+
+    return ViagemMapaOut(
+        id=viagem.id,
+        codigo_rastreio=viagem.codigo_rastreio,
+        origem=viagem.rota.origem,
+        destino=viagem.rota.destino,
+        data_hora_partida=viagem.data_hora_partida,
+        onibus_identificacao=viagem.onibus.identificacao if viagem.onibus else None,
+        motorista_nome=viagem.motorista_nome,
+        distancia_percorrida_km=distancia_percorrida_km(pontos),
+        ultima_posicao=PosicaoOut.model_validate(ultima) if ultima else None,
+        trajeto=[PosicaoOut.model_validate(p) for p in viagem.posicoes],
+    )

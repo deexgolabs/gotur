@@ -55,6 +55,10 @@
           <label for="cad-senha">Senha</label>
           <input id="cad-senha" type="password" required minlength="6" />
         </div>
+        <div style="margin-bottom:14px">
+          <label for="cad-indicacao">Código de indicação (opcional)</label>
+          <input id="cad-indicacao" placeholder="Ex: AB12CD34" style="text-transform:uppercase" />
+        </div>
         <p class="rodape-form" style="text-align:left">
           Ao criar sua conta, você concorda com os
           <a href="/termos-de-uso.html" target="_blank">Termos de Uso</a> e a
@@ -127,6 +131,7 @@
           documento: document.getElementById("cad-documento").value.trim(),
           telefone: document.getElementById("cad-telefone").value.trim() || null,
           senha: document.getElementById("cad-senha").value,
+          codigo_indicacao: document.getElementById("cad-indicacao").value.trim() || null,
         });
         salvarAuth(dados);
         irParaDashboard();
@@ -137,6 +142,12 @@
 
     if (obterAuth()) {
       irParaDashboard();
+    }
+
+    const codigoIndicacao = new URLSearchParams(window.location.search).get("indicacao");
+    if (codigoIndicacao) {
+      document.getElementById("cad-indicacao").value = codigoIndicacao.toUpperCase();
+      abaCadastrar.click();
     }
   </script>
 </body>

@@ -30,3 +30,4 @@ class UsuarioOut(BaseModel):
     tenant_id: int | None
     ativo: bool
     telefone: str | None = None
+    codigo_indicacao: str | None = None

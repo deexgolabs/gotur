@@ -25,6 +25,7 @@ from app.services.auditoria import registrar as registrar_auditoria
 from app.services.codigo import gerar_localizador
 from app.services.cupom import CupomInvalido, aplicar_cupom
 from app.services.fidelidade import verificar_e_gerar_cupom_fidelidade
+from app.services.indicacao import verificar_e_gerar_cupons_indicacao
 from app.services.nfse_provider import obter_nfse_provider
 from app.services.notificacoes import enviar_confirmacao_compra
 from app.services.pagamento_provider import DadosCartao, obter_configuracao_plataforma, obter_provider
@@ -152,6 +153,7 @@ def _criar_passagem_confirmada(
         empresa = db.get(Empresa, viagem.tenant_id)
         if empresa:
             verificar_e_gerar_cupom_fidelidade(db, empresa, passagem.cliente_usuario_id)
+            verificar_e_gerar_cupons_indicacao(db, empresa, passagem.cliente_usuario_id)
 
     return passagem
 
@@ -527,6 +529,7 @@ def minhas_passagens(
                 empresa_nome=p.viagem.onibus.empresa.nome if p.viagem.onibus.empresa else "",
                 pode_avaliar=pode_avaliar,
                 nota_avaliacao=avaliacao.nota if avaliacao else None,
+                viagem_codigo_rastreio=p.viagem.codigo_rastreio,
             )
         )
     return resultado

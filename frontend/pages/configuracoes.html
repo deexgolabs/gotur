@@ -111,6 +111,28 @@
     </div>
 
     <div class="cartao">
+      <h2 style="margin-top:0">Programa de indicação</h2>
+      <p class="rodape-form" style="text-align:left;margin-top:-8px">
+        Quando um cliente indicado confirma a primeira passagem, ele e quem indicou ganham cada um um cupom de desconto.
+      </p>
+      <form id="form-indicacao">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:12px">
+          <input type="checkbox" id="indicacao-ativa" style="width:auto" />
+          Ativar programa de indicação
+        </label>
+        <div class="grid-form">
+          <div>
+            <label for="indicacao-desconto">Desconto do cupom (%)</label>
+            <input id="indicacao-desconto" type="number" min="0" max="100" step="1" placeholder="Ex: 10" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Salvar indicação</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="cartao">
       <h2 style="margin-top:0">Pagamento (Mercado Pago)</h2>
       <p class="rodape-form" style="text-align:left;margin-top:-8px">
         Configure sua própria conta Mercado Pago pra receber direto o dinheiro das passagens, fretes e fretamentos
@@ -257,6 +279,9 @@
       document.getElementById("fidelidade-passagens").value = empresa.fidelidade_passagens_necessarias ?? "";
       document.getElementById("fidelidade-desconto").value = empresa.fidelidade_desconto_percentual ?? "";
 
+      document.getElementById("indicacao-ativa").checked = empresa.indicacao_ativa;
+      document.getElementById("indicacao-desconto").value = empresa.indicacao_desconto_percentual ?? "";
+
       document.getElementById("modo-cobranca").value = empresa.modo_cobranca || "automatica";
       document.getElementById("mp-public-key").value = empresa.mercadopago_public_key || "";
       atualizarStatusPagamento(empresa);
@@ -330,6 +355,20 @@
           fidelidade_desconto_percentual: desconto === "" ? null : parseFloat(desconto),
         });
         mostrarAlerta("Programa de fidelidade atualizado.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("form-indicacao").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const desconto = document.getElementById("indicacao-desconto").value.trim();
+        await api("PATCH", "/empresas/minha/indicacao", {
+          indicacao_ativa: document.getElementById("indicacao-ativa").checked,
+          indicacao_desconto_percentual: desconto === "" ? null : parseFloat(desconto),
+        });
+        mostrarAlerta("Programa de indicação atualizado.", "sucesso");
       } catch (erro) {
         mostrarAlerta(erro.message);
       }

@@ -12,6 +12,7 @@ from app.schemas.empresa import (
     ConfiguracaoEmpresaRequest,
     ConfiguracaoFidelidadeRequest,
     ConfiguracaoFretamentoRequest,
+    ConfiguracaoIndicacaoRequest,
     ConfiguracaoIsencaoRequest,
     ConfiguracaoMarcaRequest,
     ConfiguracaoModulosRequest,
@@ -286,6 +287,23 @@ def configurar_fidelidade(
     gera sozinho um cupom pessoal de desconto pra ele (ver
     app/services/fidelidade.py) — não precisa de nenhuma ação manual do
     admin depois de configurar aqui."""
+    empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
+    for campo, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(empresa, campo, valor)
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
+@router.patch("/minha/indicacao", response_model=EmpresaOut)
+def configurar_indicacao(
+    dados: ConfiguracaoIndicacaoRequest,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """Programa de indicação: quando o cliente indicado confirma a primeira
+    passagem, ele e quem indicou ganham cada um um cupom de desconto (ver
+    app/services/indicacao.py)."""
     empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
     for campo, valor in dados.model_dump(exclude_unset=True).items():
         setattr(empresa, campo, valor)

@@ -110,6 +110,7 @@
           <td><span class="selo ${v.ativo ? "livre" : "bloqueada"}">${v.ativo ? "Ativa" : "Cancelada"}</span></td>
           <td>
             <a href="/pages/mapa-poltronas.html?viagem_id=${v.id}"><button>Mapa de poltronas</button></a>
+            <a href="/pages/mapa-viagem.html?id=${v.id}"><button class="secundario">Rastrear ao vivo</button></a>
             <button class="secundario" data-manifesto="${v.id}">Manifesto PDF</button>
             <button class="secundario" data-jornada="${v.id}" data-motorista="${v.motorista_nome || ""}">Jornada</button>
             <button class="secundario" data-checklist="${v.id}" data-motorista="${v.motorista_nome || ""}">Checklist</button>

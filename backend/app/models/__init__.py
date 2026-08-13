@@ -23,7 +23,7 @@ from app.models.push_inscricao import PushInscricao
 from app.models.repasse_parceiro import RepasseParceiro
 from app.models.rota import Rota
 from app.models.usuario import Usuario
-from app.models.viagem import Viagem
+from app.models.viagem import PosicaoViagem, Viagem
 
 __all__ = [
     "RegistroAuditoria",
@@ -41,6 +41,7 @@ __all__ = [
     "Rota",
     "Parada",
     "Viagem",
+    "PosicaoViagem",
     "PoltronaViagem",
     "OcupacaoPoltrona",
     "Passagem",

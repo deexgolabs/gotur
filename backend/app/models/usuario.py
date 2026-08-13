@@ -32,6 +32,14 @@ class Usuario(Base):
     # gerenciado pelo admin/funcionário, sem conseguir logar sozinho.
     motorista_id: Mapped[int | None] = mapped_column(ForeignKey("motoristas.id"), nullable=True)
 
+    # Programa de indicação (ver app/services/indicacao.py) — só faz sentido
+    # pra role == CLIENTE. `codigo_indicacao` é o código pessoal que o
+    # cliente compartilha (gerado lazy, na primeira vez que ele pede pra
+    # ver); `indicado_por_usuario_id` é preenchido no cadastro se ele usou
+    # o código de outro cliente, e nunca muda depois.
+    codigo_indicacao: Mapped[str | None] = mapped_column(String(12), unique=True, nullable=True)
+    indicado_por_usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+
     empresa = relationship("Empresa", back_populates="usuarios")
     parceiro = relationship("Parceiro", back_populates="usuarios")
     motorista = relationship("Motorista", back_populates="usuarios")

@@ -48,6 +48,11 @@ class ConfiguracaoFidelidadeRequest(BaseModel):
     fidelidade_desconto_percentual: float | None = None
 
 
+class ConfiguracaoIndicacaoRequest(BaseModel):
+    indicacao_ativa: bool | None = None
+    indicacao_desconto_percentual: float | None = None
+
+
 class ConfiguracaoPagamentoRequest(BaseModel):
     """Credenciais do Mercado Pago da PRÓPRIA empresa + modo de cobrança.
     Envie apenas os campos que quer alterar (deixe de fora pra manter o
@@ -93,6 +98,8 @@ class EmpresaOut(BaseModel):
     fidelidade_ativa: bool = False
     fidelidade_passagens_necessarias: int | None = None
     fidelidade_desconto_percentual: float | None = None
+    indicacao_ativa: bool = False
+    indicacao_desconto_percentual: float | None = None
     mercadopago_public_key: str | None = None
     mercadopago_configurado: bool = False
     modo_cobranca: ModoCobranca = ModoCobranca.AUTOMATICA

@@ -86,6 +86,12 @@ def registrar_cliente(dados: RegistroCliente, db: Session = Depends(get_db)):
     if db.query(Usuario).filter(Usuario.email == dados.email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail já cadastrado")
 
+    indicador_id = None
+    if dados.codigo_indicacao:
+        indicador = db.query(Usuario).filter(Usuario.codigo_indicacao == dados.codigo_indicacao.strip().upper()).first()
+        if indicador:
+            indicador_id = indicador.id
+
     usuario = Usuario(
         tenant_id=None,
         nome=dados.nome,
@@ -94,6 +100,7 @@ def registrar_cliente(dados: RegistroCliente, db: Session = Depends(get_db)):
         role=UserRole.CLIENTE,
         documento=dados.documento,
         telefone=dados.telefone,
+        indicado_por_usuario_id=indicador_id,
     )
     db.add(usuario)
     db.commit()

@@ -8,9 +8,17 @@ from app.models.empresa import Empresa
 from app.models.enums import UserRole
 from app.models.usuario import Usuario
 from app.schemas.usuario import AtualizarPerfilRequest, FuncionarioCreate, TrocarSenhaRequest, UsuarioOut
+from app.services.codigo import gerar_localizador
 from app.services.limites_plano import verificar_limite_funcionarios
 
 router = APIRouter(prefix="/usuarios", tags=["usuarios"])
+
+
+def _gerar_codigo_indicacao(db: Session) -> str:
+    codigo = gerar_localizador(8)
+    while db.query(Usuario).filter(Usuario.codigo_indicacao == codigo).first():
+        codigo = gerar_localizador(8)
+    return codigo
 
 
 @router.post("/funcionarios", response_model=UsuarioOut, status_code=status.HTTP_201_CREATED)
@@ -70,7 +78,14 @@ def desativar_funcionario(
 
 
 @router.get("/me", response_model=UsuarioOut)
-def meu_perfil(usuario_atual: Usuario = Depends(get_current_user)):
+def meu_perfil(db: Session = Depends(get_db), usuario_atual: Usuario = Depends(get_current_user)):
+    if usuario_atual.role == UserRole.CLIENTE and not usuario_atual.codigo_indicacao:
+        # Gera o código de indicação na primeira vez que o cliente
+        # consulta o próprio perfil — mesmo padrão do slug de white-label
+        # da Empresa (lazy, não precisa existir desde o cadastro).
+        usuario_atual.codigo_indicacao = _gerar_codigo_indicacao(db)
+        db.commit()
+        db.refresh(usuario_atual)
     return usuario_atual
 
 

@@ -66,3 +66,4 @@ class PassagemDetalheOut(PassagemOut):
     empresa_nome: str
     pode_avaliar: bool = False
     nota_avaliacao: int | None = None
+    viagem_codigo_rastreio: str | None = None
