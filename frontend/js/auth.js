@@ -4,6 +4,7 @@ const ROTULOS_PAPEL = {
   funcionario: "Funcionário",
   cliente: "Cliente",
   parceiro: "Parceiro",
+  motorista: "Motorista",
 };
 
 function exigirLogin() {
@@ -65,6 +66,12 @@ function linksPorPapel(role) {
     return [
       ...base,
       { href: "/pages/parceiro-vendas.html", label: "Minhas vendas" },
+    ];
+  }
+  if (role === "motorista") {
+    return [
+      ...base,
+      { href: "/pages/motorista-app.html", label: "Minha jornada" },
     ];
   }
   if (role === "funcionario") {

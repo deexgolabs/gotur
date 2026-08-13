@@ -7,11 +7,34 @@ from sqlalchemy.orm import Session
 from app.core.deps import require_roles
 from app.database import get_db
 from app.models.enums import TipoViagemJornada, UserRole
+from app.models.frete import Frete
+from app.models.fretamento import Fretamento
 from app.models.jornada_motorista import JornadaMotorista
+from app.models.motorista import Motorista
 from app.models.usuario import Usuario
+from app.models.viagem import Viagem
 from app.schemas.jornada_motorista import IniciarJornadaRequest, JornadaMotoristaOut, ResumoJornadaOut
 
 router = APIRouter(prefix="/jornadas", tags=["jornadas"])
+
+
+def _motorista_atual(db: Session, usuario_atual: Usuario) -> Motorista:
+    motorista = db.get(Motorista, usuario_atual.motorista_id) if usuario_atual.motorista_id else None
+    if not motorista:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Este login não está vinculado a nenhum motorista")
+    return motorista
+
+
+def _validar_dono_do_trajeto(db: Session, tenant_id: int, tipo_viagem: TipoViagemJornada, referencia_id: int, motorista_id: int) -> None:
+    """Confere que a viagem/fretamento/frete é mesmo do motorista logado
+    — senão ele poderia registrar jornada em nome de qualquer trajeto só
+    adivinhando o id."""
+    modelo = {TipoViagemJornada.VIAGEM: Viagem, TipoViagemJornada.FRETAMENTO: Fretamento, TipoViagemJornada.FRETE: Frete}[tipo_viagem]
+    trajeto = db.get(modelo, referencia_id)
+    if not trajeto or trajeto.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem/fretamento/frete não encontrado")
+    if trajeto.motorista_id != motorista_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Esse trajeto não está atribuído a você")
 
 # Jornada diária normal de referência (CLT / Lei do Motorista 13.103/2015)
 # — só usada pra avisar a empresa, nunca bloqueia o registro.
@@ -68,11 +91,17 @@ def _horas_ultimas_24h(db: Session, tenant_id: int, motorista_nome: str, referen
 def iniciar_jornada(
     dados: IniciarJornadaRequest,
     db: Session = Depends(get_db),
-    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA, UserRole.FUNCIONARIO)),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA, UserRole.FUNCIONARIO, UserRole.MOTORISTA)),
 ):
+    motorista_nome = dados.motorista_nome.strip()
+    if usuario_atual.role == UserRole.MOTORISTA:
+        motorista = _motorista_atual(db, usuario_atual)
+        _validar_dono_do_trajeto(db, usuario_atual.tenant_id, dados.tipo_viagem, dados.referencia_id, motorista.id)
+        motorista_nome = motorista.nome  # ignora o que veio do cliente — sempre o próprio nome
+
     jornada = JornadaMotorista(
         tenant_id=usuario_atual.tenant_id,
-        motorista_nome=dados.motorista_nome.strip(),
+        motorista_nome=motorista_nome,
         tipo_viagem=dados.tipo_viagem,
         referencia_id=dados.referencia_id,
         inicio=_agora(),
@@ -87,11 +116,15 @@ def iniciar_jornada(
 def encerrar_jornada(
     jornada_id: int,
     db: Session = Depends(get_db),
-    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA, UserRole.FUNCIONARIO)),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA, UserRole.FUNCIONARIO, UserRole.MOTORISTA)),
 ):
     jornada = db.get(JornadaMotorista, jornada_id)
     if not jornada or jornada.tenant_id != usuario_atual.tenant_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jornada não encontrada")
+    if usuario_atual.role == UserRole.MOTORISTA:
+        motorista = _motorista_atual(db, usuario_atual)
+        if jornada.motorista_nome != motorista.nome:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Essa jornada não é sua")
     if jornada.fim is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Essa jornada já foi encerrada.")
     jornada.fim = _agora()
@@ -102,14 +135,20 @@ def encerrar_jornada(
 
 @router.get("/resumo", response_model=ResumoJornadaOut)
 def resumo_jornada(
-    motorista_nome: str,
+    motorista_nome: str | None = None,
     db: Session = Depends(get_db),
-    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA, UserRole.FUNCIONARIO)),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA, UserRole.FUNCIONARIO, UserRole.MOTORISTA)),
 ):
     """Soma quantas horas esse motorista já trabalhou nas últimas 24h
     (jornadas fechadas + a que estiver em andamento, se houver) e avisa se
     passou do limite de referência da Lei do Motorista."""
-    horas = _horas_ultimas_24h(db, usuario_atual.tenant_id, motorista_nome.strip(), _agora())
+    if usuario_atual.role == UserRole.MOTORISTA:
+        nome = _motorista_atual(db, usuario_atual).nome
+    else:
+        if not motorista_nome:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe motorista_nome")
+        nome = motorista_nome.strip()
+    horas = _horas_ultimas_24h(db, usuario_atual.tenant_id, nome, _agora())
     return ResumoJornadaOut(horas_ultimas_24h=horas, acima_do_limite=horas > LIMITE_HORAS_JORNADA)
 
 
@@ -119,10 +158,12 @@ def listar_jornadas(
     tipo_viagem: TipoViagemJornada | None = None,
     referencia_id: int | None = None,
     db: Session = Depends(get_db),
-    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA, UserRole.FUNCIONARIO)),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA, UserRole.FUNCIONARIO, UserRole.MOTORISTA)),
 ):
     query = db.query(JornadaMotorista).filter(JornadaMotorista.tenant_id == usuario_atual.tenant_id)
-    if motorista_nome:
+    if usuario_atual.role == UserRole.MOTORISTA:
+        query = query.filter(JornadaMotorista.motorista_nome == _motorista_atual(db, usuario_atual).nome)
+    elif motorista_nome:
         query = query.filter(JornadaMotorista.motorista_nome == motorista_nome.strip())
     if tipo_viagem:
         query = query.filter(JornadaMotorista.tipo_viagem == tipo_viagem)

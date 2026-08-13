@@ -26,5 +26,12 @@ class Usuario(Base):
     # de parceiro (app.models.parceiro.Parceiro) cujas vendas ele pode ver.
     parceiro_id: Mapped[int | None] = mapped_column(ForeignKey("parceiros.id"), nullable=True)
 
+    # Só preenchido quando role == MOTORISTA: liga esse login ao cadastro
+    # de motorista (app.models.motorista.Motorista) — mesmo padrão do
+    # parceiro_id acima. Sem isso, o motorista só existe como texto/registro
+    # gerenciado pelo admin/funcionário, sem conseguir logar sozinho.
+    motorista_id: Mapped[int | None] = mapped_column(ForeignKey("motoristas.id"), nullable=True)
+
     empresa = relationship("Empresa", back_populates="usuarios")
     parceiro = relationship("Parceiro", back_populates="usuarios")
+    motorista = relationship("Motorista", back_populates="usuarios")

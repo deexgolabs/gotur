@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.models.enums import CategoriaCNH
 
@@ -30,3 +30,22 @@ class MotoristaOut(BaseModel):
     telefone: str | None
     ativo: bool
     criado_em: datetime
+    tem_acesso: bool = False
+
+
+class CriarAcessoMotoristaRequest(BaseModel):
+    email: EmailStr
+    senha: str = Field(min_length=6)
+
+
+class TrajetoMotoristaOut(BaseModel):
+    """Item genérico da agenda do motorista — cobre viagem, fretamento e
+    frete com o mesmo formato, pra a tela dele não precisar saber a
+    diferença entre os três."""
+
+    tipo: str  # "viagem" | "fretamento" | "frete"
+    id: int
+    origem: str
+    destino: str
+    data_hora: datetime
+    status: str

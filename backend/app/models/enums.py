@@ -7,6 +7,7 @@ class UserRole(str, enum.Enum):
     FUNCIONARIO = "funcionario"
     CLIENTE = "cliente"
     PARCEIRO = "parceiro"
+    MOTORISTA = "motorista"
 
 
 class TipoOnibus(str, enum.Enum):

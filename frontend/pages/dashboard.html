@@ -62,6 +62,9 @@
         parceiro: [
           { href: "/pages/parceiro-vendas.html", titulo: "Minhas vendas", desc: "Passagens vendidas, fretes despachados e comissão estimada" },
         ],
+        motorista: [
+          { href: "/pages/motorista-app.html", titulo: "Minha jornada", desc: "Suas viagens/fretamentos/fretes, jornada e checklist" },
+        ],
       };
 
       const subtitulos = {
@@ -70,6 +73,7 @@
         funcionario: "Atenda seus clientes e venda passagens.",
         cliente: "Encontre e compre suas passagens.",
         parceiro: "Acompanhe suas vendas e comissão.",
+        motorista: "Controle sua jornada e o checklist do veículo.",
       };
       document.getElementById("subtitulo").textContent = subtitulos[auth.role] || "";
 
