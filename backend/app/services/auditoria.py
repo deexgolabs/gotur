@@ -7,7 +7,7 @@ from app.models.usuario import Usuario
 def registrar(
     db: Session,
     *,
-    usuario: Usuario,
+    usuario: Usuario | None,
     acao: str,
     entidade_tipo: str,
     entidade_id: int | None = None,
@@ -22,11 +22,16 @@ def registrar(
     cliente (que não tem tenant_id próprio) sobre algo de uma empresa —
     ex: comprar/cancelar uma passagem. Sem isso o registro cairia fora da
     consulta de auditoria da empresa.
+
+    `usuario=None` registra uma ação automática do sistema (ex: webhook do
+    Mercado Pago confirmando um pagamento sozinho, sem ninguém logado) —
+    nesse caso `tenant_id` precisa vir explícito, já que não há usuário
+    pra herdar o tenant dele.
     """
     db.add(
         RegistroAuditoria(
-            tenant_id=tenant_id if tenant_id is not None else usuario.tenant_id,
-            usuario_id=usuario.id,
+            tenant_id=tenant_id if tenant_id is not None else (usuario.tenant_id if usuario else None),
+            usuario_id=usuario.id if usuario else None,
             acao=acao,
             entidade_tipo=entidade_tipo,
             entidade_id=entidade_id,

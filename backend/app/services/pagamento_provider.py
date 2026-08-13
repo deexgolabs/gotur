@@ -54,9 +54,29 @@ class ResultadoCobranca:
     pix_expira_em: datetime | None = None
 
 
+@dataclass
+class DadosCartao:
+    """Vem do Card Payment Brick do Mercado Pago rodando no navegador do
+    cliente — o número do cartão nunca passa pelo nosso backend, só esse
+    token já tokenizado (ver frontend/js/mercadopago-checkout.js)."""
+
+    token: str
+    payment_method_id: str
+    installments: int = 1
+    payer_email: str | None = None
+    payer_documento: str | None = None  # CPF/CNPJ — a maioria dos emissores brasileiros exige
+
+
 class PagamentoProvider(ABC):
     @abstractmethod
-    def cobrar(self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str) -> ResultadoCobranca:
+    def cobrar(
+        self,
+        *,
+        forma_pagamento: FormaPagamento,
+        valor: float,
+        referencia_pedido: str,
+        dados_cartao: DadosCartao | None = None,
+    ) -> ResultadoCobranca:
         ...
 
 
@@ -72,7 +92,9 @@ def _gerar_pix_copia_cola_simulado(valor: float, referencia_pedido: str) -> str:
 class PagamentoSimuladoProvider(PagamentoProvider):
     """Provider padrão (v2) quando nenhum gateway real está configurado."""
 
-    def cobrar(self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str) -> ResultadoCobranca:
+    def cobrar(
+        self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str, dados_cartao: DadosCartao | None = None
+    ) -> ResultadoCobranca:
         if forma_pagamento == FormaPagamento.PIX:
             return ResultadoCobranca(
                 gateway_ref=None,
@@ -89,7 +111,9 @@ class PagamentoManualProvider(PagamentoProvider):
     nada — pra empresa que cobra 100% por fora (maquininha própria,
     dinheiro) e só quer usar o GoTur pra controlar poltrona/vaga."""
 
-    def cobrar(self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str) -> ResultadoCobranca:
+    def cobrar(
+        self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str, dados_cartao: DadosCartao | None = None
+    ) -> ResultadoCobranca:
         return ResultadoCobranca(gateway_ref=None, status="aprovado")
 
 
@@ -100,7 +124,9 @@ class PagamentoPendenteManualProvider(PagamentoProvider):
     por fora mas ainda quer controlar manualmente quando a passagem é
     liberada (em vez de aprovar tudo sozinho, como em DESATIVADA)."""
 
-    def cobrar(self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str) -> ResultadoCobranca:
+    def cobrar(
+        self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str, dados_cartao: DadosCartao | None = None
+    ) -> ResultadoCobranca:
         return ResultadoCobranca(
             gateway_ref=None,
             status="pendente",
@@ -109,28 +135,44 @@ class PagamentoPendenteManualProvider(PagamentoProvider):
         )
 
 
+def _somente_digitos(texto: str) -> str:
+    return "".join(c for c in texto if c.isdigit())
+
+
 class MercadoPagoProvider(PagamentoProvider):
     """Integração real com o Mercado Pago via API REST (Access Token em
-    `GOTUR_GATEWAY_API_KEY` — pegue o de produção em
-    https://www.mercadopago.com.br/developers/panel/app).
+    `GOTUR_GATEWAY_API_KEY`, ou por empresa/plataforma — pegue o de
+    produção em https://www.mercadopago.com.br/developers/panel/app).
 
-    Pix: implementado de verdade — cria a cobrança e devolve o código
-    copia-e-cola real do Mercado Pago. A confirmação ainda depende de
-    consultar o pagamento depois (`consultar_status`) ou de um webhook — o
-    endpoint `/pedidos-pagamento/{id}/confirmar-simulado` fica desabilitado
-    automaticamente quando o gateway real está configurado (ver
-    `modo_simulado()`), porque não faz sentido "confirmar manualmente" um
-    Pix de verdade.
+    Pix: cria a cobrança e devolve o código copia-e-cola real. A
+    `notification_url` enviada ao Mercado Pago faz ele chamar de volta
+    `POST {GOTUR_BASE_URL}/api/webhooks/mercadopago` assim que o Pix cai —
+    é o que confirma o pagamento de verdade (ver app/routers/webhooks.py).
+    O endpoint `/pedidos-pagamento/{id}/confirmar-simulado` fica
+    desabilitado automaticamente quando o gateway real está configurado
+    (ver `modo_simulado()`), porque não faz sentido "confirmar
+    manualmente" um Pix de verdade — quem confirma é o webhook.
 
-    Cartão: ainda não implementado — o Mercado Pago exige tokenizar o
-    cartão no navegador do cliente com o SDK deles (Card Payment Brick),
-    então precisa de uma tela de checkout própria antes de plugar aqui.
+    Cartão: usa o token gerado pelo Card Payment Brick no navegador do
+    cliente (`frontend/js/mercadopago-checkout.js`) — o número do cartão
+    nunca passa pelo nosso backend. Cartão aprova/recusa na hora (síncrono),
+    diferente do Pix que fica pendente até o webhook confirmar.
+
+    Dinheiro/outro: não passam pelo gateway — aprovados na hora aqui
+    mesmo, sem gerar nenhuma cobrança no Mercado Pago (faz sentido: é uma
+    venda paga por fora, não tem o que cobrar online).
     """
 
     API_BASE = "https://api.mercadopago.com"
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, taxa_aplicacao_percentual: float | None = None):
         self.api_key = api_key
+        # Split de marketplace (ver ConfiguracaoPlataforma.taxa_transacao_percentual)
+        # — só tem efeito de verdade se a conta da empresa estiver
+        # conectada como sub-conta via OAuth marketplace do Mercado Pago;
+        # com um Access Token colado manualmente (o modelo usado hoje), o
+        # Mercado Pago tende a ignorar ou recusar o `application_fee`.
+        self.taxa_aplicacao_percentual = taxa_aplicacao_percentual
 
     def _chamar(self, metodo: str, caminho: str, corpo: dict | None = None) -> dict:
         dados = json.dumps(corpo).encode("utf-8") if corpo is not None else None
@@ -152,24 +194,42 @@ class MercadoPagoProvider(PagamentoProvider):
             logger.error("Mercado Pago recusou a chamada %s %s: %s", metodo, caminho, corpo_erro)
             raise
 
-    def cobrar(self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str) -> ResultadoCobranca:
-        if forma_pagamento != FormaPagamento.PIX:
-            raise NotImplementedError(
-                "Pagamento por cartão via Mercado Pago ainda não implementado — exige tokenizar o "
-                "cartão no navegador do cliente (Card Payment Brick) antes de chamar a API. "
-                "Pix já funciona de verdade com GOTUR_GATEWAY_API_KEY configurado."
-            )
+    def _application_fee(self, valor: float) -> float | None:
+        if not self.taxa_aplicacao_percentual:
+            return None
+        return round(float(valor) * self.taxa_aplicacao_percentual / 100, 2)
 
-        resultado = self._chamar(
-            "POST",
-            "/v1/payments",
-            {
-                "transaction_amount": round(float(valor), 2),
-                "description": f"GoTur - {referencia_pedido}",
-                "payment_method_id": "pix",
-                "payer": {"email": f"comprador+{referencia_pedido}@gotur.app"},
-            },
-        )
+    def _notification_url(self) -> str:
+        return f"{settings.base_url.rstrip('/')}/api/webhooks/mercadopago"
+
+    def cobrar(
+        self,
+        *,
+        forma_pagamento: FormaPagamento,
+        valor: float,
+        referencia_pedido: str,
+        dados_cartao: DadosCartao | None = None,
+    ) -> ResultadoCobranca:
+        if forma_pagamento == FormaPagamento.PIX:
+            return self._cobrar_pix(valor, referencia_pedido)
+        if forma_pagamento == FormaPagamento.CARTAO:
+            return self._cobrar_cartao(valor, referencia_pedido, dados_cartao)
+        # Dinheiro/outro: pago por fora, nada a cobrar no gateway.
+        return ResultadoCobranca(gateway_ref=None, status="aprovado")
+
+    def _cobrar_pix(self, valor: float, referencia_pedido: str) -> ResultadoCobranca:
+        corpo = {
+            "transaction_amount": round(float(valor), 2),
+            "description": f"GoTur - {referencia_pedido}",
+            "payment_method_id": "pix",
+            "payer": {"email": f"comprador+{referencia_pedido}@gotur.app"},
+            "notification_url": self._notification_url(),
+        }
+        taxa = self._application_fee(valor)
+        if taxa:
+            corpo["application_fee"] = taxa
+
+        resultado = self._chamar("POST", "/v1/payments", corpo)
 
         dados_pix = resultado.get("point_of_interaction", {}).get("transaction_data", {})
         expira_em = resultado.get("date_of_expiration")
@@ -181,10 +241,47 @@ class MercadoPagoProvider(PagamentoProvider):
             pix_expira_em=datetime.fromisoformat(expira_em) if expira_em else datetime.now(timezone.utc) + timedelta(minutes=settings.pix_expiracao_minutos),
         )
 
+    def _cobrar_cartao(self, valor: float, referencia_pedido: str, dados_cartao: DadosCartao | None) -> ResultadoCobranca:
+        if not dados_cartao or not dados_cartao.token:
+            raise ValueError(
+                "Pagamento por cartão exige o token gerado pelo Card Payment Brick no navegador do "
+                "cliente (ver frontend/js/mercadopago-checkout.js) — nenhum token foi enviado."
+            )
+
+        payer: dict = {"email": dados_cartao.payer_email or f"comprador+{referencia_pedido}@gotur.app"}
+        if dados_cartao.payer_documento:
+            digitos = _somente_digitos(dados_cartao.payer_documento)
+            payer["identification"] = {"type": "CPF" if len(digitos) <= 11 else "CNPJ", "number": digitos}
+
+        corpo = {
+            "transaction_amount": round(float(valor), 2),
+            "description": f"GoTur - {referencia_pedido}",
+            "token": dados_cartao.token,
+            "installments": dados_cartao.installments or 1,
+            "payment_method_id": dados_cartao.payment_method_id,
+            "payer": payer,
+            "notification_url": self._notification_url(),
+        }
+        taxa = self._application_fee(valor)
+        if taxa:
+            corpo["application_fee"] = taxa
+
+        resultado = self._chamar("POST", "/v1/payments", corpo)
+        status_mp = resultado.get("status")
+        if status_mp == "approved":
+            status_local = "aprovado"
+        elif status_mp in ("rejected", "cancelled"):
+            status_local = "recusado"
+        else:
+            status_local = "pendente"
+
+        return ResultadoCobranca(gateway_ref=str(resultado["id"]), status=status_local)
+
     def consultar_status(self, gateway_ref: str) -> str:
         """`status` bruto do Mercado Pago: "pending", "approved", "rejected"
-        etc. Use pra checar se um Pix criado por `cobrar()` já caiu, até um
-        webhook de verdade ser implementado."""
+        etc. Usado pelo webhook (`app/routers/webhooks.py`) pra revalidar
+        server-a-server o que o Mercado Pago notificou, em vez de confiar
+        cegamente no corpo do webhook (que qualquer um poderia forjar)."""
         resultado = self._chamar("GET", f"/v1/payments/{gateway_ref}")
         return resultado.get("status", "pending")
 
@@ -218,12 +315,21 @@ def _modo_cobranca_ativo(empresa: Empresa | None, plataforma: ConfiguracaoPlataf
     return ModoCobranca.AUTOMATICA
 
 
-def obter_provider(empresa: Empresa | None = None, plataforma: ConfiguracaoPlataforma | None = None) -> PagamentoProvider:
+def obter_provider(
+    empresa: Empresa | None = None,
+    plataforma: ConfiguracaoPlataforma | None = None,
+    taxa_transacao_percentual: float | None = None,
+) -> PagamentoProvider:
     """Sem `empresa` nem `plataforma`, usa só a chave global, sem nenhum
     modo de cobrança customizado. Com um dos dois, o modo de cobrança
     escolhido manda: MANUAL e DESATIVADA ignoram completamente se tem
     Mercado Pago configurado ou não; só AUTOMATICA de fato olha pra chave
-    (própria, ou a global como fallback). Nunca passe os dois juntos."""
+    (própria, ou a global como fallback). Nunca passe os dois juntos.
+
+    `taxa_transacao_percentual` (ver ConfiguracaoPlataforma) só faz
+    sentido pra cobrança de EMPRESA (venda pro cliente dela) — nunca pra
+    cobrança da própria fatura da plataforma, por isso é ignorado quando
+    `plataforma` é passado em vez de `empresa`."""
     modo = _modo_cobranca_ativo(empresa, plataforma)
     if modo == ModoCobranca.DESATIVADA:
         return PagamentoManualProvider()
@@ -232,7 +338,8 @@ def obter_provider(empresa: Empresa | None = None, plataforma: ConfiguracaoPlata
 
     chave = _chave_ativa(empresa, plataforma)
     if chave:
-        return MercadoPagoProvider(chave)
+        taxa = taxa_transacao_percentual if empresa is not None else None
+        return MercadoPagoProvider(chave, taxa_aplicacao_percentual=taxa)
     return PagamentoSimuladoProvider()
 
 

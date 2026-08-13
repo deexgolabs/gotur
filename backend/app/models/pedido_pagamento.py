@@ -35,6 +35,11 @@ class PedidoPagamento(Base):
     tipo_documento: Mapped[TipoDocumento] = mapped_column(SAEnum(TipoDocumento), default=TipoDocumento.CPF)
     categoria_passageiro: Mapped[CategoriaPassageiro] = mapped_column(SAEnum(CategoriaPassageiro), default=CategoriaPassageiro.COMUM)
     pix_copia_cola: Mapped[str] = mapped_column(String(300), nullable=False)
+    # ID do pagamento no Mercado Pago (quando cobrado via gateway real) —
+    # é o que o webhook usa pra saber qual pedido confirmar quando o Pix
+    # cai (ver app/routers/webhooks.py). Em modo simulado fica nulo até a
+    # confirmação (que gera "SIMULADO-{id}" na hora de confirmar).
+    gateway_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
     status: Mapped[StatusPedidoPagamento] = mapped_column(
         SAEnum(StatusPedidoPagamento), default=StatusPedidoPagamento.PENDENTE, nullable=False
     )

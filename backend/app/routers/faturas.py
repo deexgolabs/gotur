@@ -113,7 +113,7 @@ def _pode_mexer_na_fatura(usuario_atual: Usuario, fatura: FaturaEmpresa) -> bool
     return eh_super_admin or eh_admin_da_propria_empresa
 
 
-def _marcar_fatura_paga(db: Session, fatura: FaturaEmpresa, usuario_atual: Usuario, gateway_ref: str | None) -> None:
+def _marcar_fatura_paga(db: Session, fatura: FaturaEmpresa, usuario_atual: Usuario | None, gateway_ref: str | None) -> None:
     fatura.status = StatusFatura.PAGA
     fatura.pago_em = datetime.now(timezone.utc)
     fatura.gateway_ref = gateway_ref
@@ -165,6 +165,7 @@ def pagar_fatura(
     if resultado_cobranca.status == "pendente":
         fatura.pix_copia_cola = resultado_cobranca.pix_copia_cola
         fatura.pix_expira_em = resultado_cobranca.pix_expira_em
+        fatura.gateway_ref = resultado_cobranca.gateway_ref
         db.commit()
         db.refresh(fatura)
         return _para_out(fatura)

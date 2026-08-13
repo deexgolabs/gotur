@@ -50,25 +50,13 @@ def consultar_pedido(
     return PedidoPagamentoOut.model_validate(pedido)
 
 
-@router.post("/{pedido_id}/confirmar-simulado", response_model=PassagemOut)
-def confirmar_pagamento_simulado(
-    pedido_id: int,
-    db: Session = Depends(get_db),
-    usuario_atual: Usuario = Depends(get_current_user),
-):
-    """Simula o webhook que um gateway real chamaria quando o Pix cai na
-    conta. Só existe em modo simulado (sem GOTUR_GATEWAY_API_KEY) — com um
-    gateway real configurado, é o próprio gateway que confirma o pagamento,
-    não o usuário clicando num botão."""
-    pedido = _buscar_pedido_do_usuario(db, pedido_id, usuario_atual)
-
-    empresa_do_pedido = db.get(Empresa, pedido.tenant_id)
-    if not modo_simulado(empresa_do_pedido):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Confirmação manual desabilitada: um gateway de pagamento real está configurado.",
-        )
-
+def confirmar_pedido_pagamento(db: Session, pedido: PedidoPagamento, gateway_ref: str):
+    """Cria a passagem de verdade e fecha o pedido — chamado tanto pelo
+    endpoint de confirmação manual/simulada (staff clica "já paguei")
+    quanto pelo webhook do Mercado Pago (`app/routers/webhooks.py`) quando
+    um Pix real cai de verdade. `gateway_ref` fica registrado no
+    `Pagamento` gerado, então dá pra saber depois se uma venda foi
+    simulada (`SIMULADO-...`) ou veio de um webhook real (id do MP)."""
     if pedido.status == StatusPedidoPagamento.CONFIRMADO:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Pedido já confirmado")
     if pedido.status != StatusPedidoPagamento.PENDENTE:
@@ -113,7 +101,7 @@ def confirmar_pagamento_simulado(
         parceiro_id=pedido.parceiro_id,
         preco_final=float(pedido.valor),
         forma_pagamento=pedido.forma_pagamento,
-        gateway_ref=f"SIMULADO-{pedido.id}",
+        gateway_ref=gateway_ref,
         hold_para_remover=hold,
         usuario_para_notificar=usuario_do_pedido,
         codigo_cupom=pedido.codigo_cupom,
@@ -124,3 +112,26 @@ def confirmar_pagamento_simulado(
     db.commit()
 
     return passagem
+
+
+@router.post("/{pedido_id}/confirmar-simulado", response_model=PassagemOut)
+def confirmar_pagamento_simulado(
+    pedido_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(get_current_user),
+):
+    """Simula o webhook que um gateway real chamaria quando o Pix cai na
+    conta. Só existe em modo simulado (sem GOTUR_GATEWAY_API_KEY) — com um
+    gateway real configurado, é o próprio webhook do Mercado Pago que
+    confirma (ver app/routers/webhooks.py), não o usuário clicando num
+    botão."""
+    pedido = _buscar_pedido_do_usuario(db, pedido_id, usuario_atual)
+
+    empresa_do_pedido = db.get(Empresa, pedido.tenant_id)
+    if not modo_simulado(empresa_do_pedido):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Confirmação manual desabilitada: um gateway de pagamento real está configurado.",
+        )
+
+    return confirmar_pedido_pagamento(db, pedido, gateway_ref=f"SIMULADO-{pedido.id}")

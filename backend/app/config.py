@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     gateway_api_key: str | None = None
     pix_expiracao_minutos: int = 15
 
+    # URL pública do servidor em produção — usada só pra montar a
+    # notification_url que o Mercado Pago chama de volta (webhook) quando
+    # um Pix real cai (ver app/routers/webhooks.py). Sem isso configurado
+    # certo, o Pix real é gerado normalmente mas nunca confirma sozinho.
+    base_url: str = "https://gotur.pythonanywhere.com"
+
     # Nota fiscal de serviço eletrônica (NFS-e, ver app/services/nfse_provider.py).
     # Não existe uma API nacional única (cada prefeitura tem seu próprio
     # webservice) — o caminho realista é um agregador (Focus NFe, NFE.io,

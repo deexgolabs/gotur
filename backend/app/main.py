@@ -40,6 +40,7 @@ from app.routers import (
     rotas,
     usuarios,
     viagens,
+    webhooks,
 )
 
 # Schema do banco é gerenciado via Alembic (ver backend/alembic/), não mais
@@ -102,6 +103,7 @@ for router in (
     jornadas.router,
     motoristas.router,
     checklists.router,
+    webhooks.router,
 ):
     api.include_router(router)
 
