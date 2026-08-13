@@ -312,11 +312,35 @@
       }
     });
 
+    const ROTULOS_FORMA_PAGAMENTO = { dinheiro: "Dinheiro", cartao: "Cartão", pix: "Pix", outro: "Outro" };
+
     async function carregarPassagens() {
-      const lista = await api("GET", `/viagens/${viagemId}/passagens`);
+      const [lista, pendentes] = await Promise.all([
+        api("GET", `/viagens/${viagemId}/passagens`),
+        api("GET", `/pedidos-pagamento/viagem/${viagemId}`).catch(() => []),
+      ]);
       const corpo = document.getElementById("corpo-passagens");
-      document.getElementById("vazio-passagens").classList.toggle("escondido", lista.length > 0);
-      corpo.innerHTML = lista
+      document.getElementById("vazio-passagens").classList.toggle("escondido", lista.length > 0 || pendentes.length > 0);
+
+      const linhasPendentes = pendentes
+        .map(
+          (p) => `
+        <tr>
+          <td>—</td>
+          <td>${p.cliente_nome}</td>
+          <td>${p.cliente_documento}</td>
+          <td>${p.origem_trecho ? `${p.origem_trecho} → ${p.destino_trecho}` : "-"}</td>
+          <td>R$ ${Number(p.valor).toFixed(2)}</td>
+          <td><span class="selo hold">Pendente · ${ROTULOS_FORMA_PAGAMENTO[p.forma_pagamento] || p.forma_pagamento}</span></td>
+          <td>
+            <button class="secundario" data-confirmar-pendente="${p.id}">Confirmar pagamento</button>
+            <button class="perigo" data-cancelar-pendente="${p.id}">Cancelar</button>
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      const linhasConfirmadas = lista
         .map(
           (p) => `
         <tr>
@@ -338,6 +362,33 @@
         </tr>`
         )
         .join("");
+
+      corpo.innerHTML = linhasPendentes + linhasConfirmadas;
+
+      corpo.querySelectorAll("button[data-confirmar-pendente]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            const passagem = await api("POST", `/pedidos-pagamento/${btn.dataset.confirmarPendente}/confirmar-simulado`);
+            mostrarAlerta(`Pagamento confirmado! Localizador: ${passagem.localizador}`, "sucesso");
+            await Promise.all([carregarMapa(), carregarPassagens()]);
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-cancelar-pendente]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Cancelar este pedido pendente e liberar a poltrona?")) return;
+          try {
+            await api("POST", `/pedidos-pagamento/${btn.dataset.cancelarPendente}/cancelar`);
+            mostrarAlerta("Pedido cancelado.", "sucesso");
+            await Promise.all([carregarMapa(), carregarPassagens()]);
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
 
       corpo.querySelectorAll("button[data-bilhete]").forEach((btn) => {
         btn.addEventListener("click", () => {

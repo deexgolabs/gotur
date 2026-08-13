@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_staff
 from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.enums import StatusPedidoPagamento, TipoOcupacao, UserRole
@@ -19,6 +19,65 @@ from app.services.pagamento_provider import modo_simulado
 from app.routers.passagens import _criar_passagem_confirmada, _gerar_localizador_unico
 
 router = APIRouter(prefix="/pedidos-pagamento", tags=["pedidos-pagamento"])
+
+
+def _expirar_se_vencido(db: Session, pedido: PedidoPagamento) -> None:
+    if pedido.status == StatusPedidoPagamento.PENDENTE and pedido.expira_em < datetime.utcnow():
+        pedido.status = StatusPedidoPagamento.EXPIRADO
+        db.commit()
+        db.refresh(pedido)
+
+
+def _para_out(pedido: PedidoPagamento, paradas_por_id: dict[int, Parada]) -> PedidoPagamentoOut:
+    parada_origem = paradas_por_id.get(pedido.parada_origem_id)
+    parada_destino = paradas_por_id.get(pedido.parada_destino_id)
+    return PedidoPagamentoOut(
+        id=pedido.id,
+        status=pedido.status,
+        valor=float(pedido.valor),
+        forma_pagamento=pedido.forma_pagamento,
+        pix_copia_cola=pedido.pix_copia_cola,
+        expira_em=pedido.expira_em,
+        criado_em=pedido.criado_em,
+        passagem_id=pedido.passagem_id,
+        viagem_id=pedido.viagem_id,
+        cliente_nome=pedido.cliente_nome,
+        cliente_documento=pedido.cliente_documento,
+        poltrona_numero=pedido.poltrona_viagem.poltrona_onibus.numero if pedido.poltrona_viagem else None,
+        origem_trecho=parada_origem.nome if parada_origem else None,
+        destino_trecho=parada_destino.nome if parada_destino else None,
+    )
+
+
+@router.get("/viagem/{viagem_id}", response_model=list[PedidoPagamentoOut])
+def listar_pedidos_pendentes_da_viagem(
+    viagem_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_staff),
+):
+    """Pedidos de pagamento (Pix ou cobrança manual) ainda pendentes de
+    confirmação pra essa viagem — passageiros que começaram a compra mas o
+    pagamento ainda não foi confirmado nem expirou. Não aparecem na lista
+    normal de passageiros (que só mostra Passagem, criada só depois da
+    confirmação)."""
+    viagem = db.get(Viagem, viagem_id)
+    if not viagem or viagem.tenant_id != usuario_atual.tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Viagem não encontrada")
+
+    pedidos = (
+        db.query(PedidoPagamento)
+        .options(joinedload(PedidoPagamento.poltrona_viagem).joinedload(PoltronaViagem.poltrona_onibus))
+        .filter(PedidoPagamento.viagem_id == viagem_id, PedidoPagamento.status == StatusPedidoPagamento.PENDENTE)
+        .all()
+    )
+    for pedido in pedidos:
+        _expirar_se_vencido(db, pedido)
+    ainda_pendentes = [p for p in pedidos if p.status == StatusPedidoPagamento.PENDENTE]
+
+    ids_paradas = {p.parada_origem_id for p in ainda_pendentes} | {p.parada_destino_id for p in ainda_pendentes}
+    paradas_por_id = {p.id: p for p in db.query(Parada).filter(Parada.id.in_(ids_paradas)).all()} if ids_paradas else {}
+
+    return [_para_out(p, paradas_por_id) for p in ainda_pendentes]
 
 
 def _buscar_pedido_do_usuario(db: Session, pedido_id: int, usuario_atual: Usuario) -> PedidoPagamento:
@@ -135,3 +194,38 @@ def confirmar_pagamento_simulado(
         )
 
     return confirmar_pedido_pagamento(db, pedido, gateway_ref=f"SIMULADO-{pedido.id}")
+
+
+@router.post("/{pedido_id}/cancelar", status_code=status.HTTP_204_NO_CONTENT)
+def cancelar_pedido_pendente(
+    pedido_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_staff),
+):
+    """Desiste de um pedido pendente antes de expirar sozinho — libera a
+    poltrona na hora em vez de esperar o prazo do Pix/confirmação manual
+    passar. Só a equipe da empresa pode (o cliente que desistiu é só não
+    pagar e deixar expirar)."""
+    pedido = db.get(PedidoPagamento, pedido_id)
+    if not pedido or pedido.tenant_id != usuario_atual.tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido de pagamento não encontrado")
+    if pedido.status != StatusPedidoPagamento.PENDENTE:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Pedido não está mais pendente")
+
+    parada_origem = db.get(Parada, pedido.parada_origem_id)
+    parada_destino = db.get(Parada, pedido.parada_destino_id)
+    hold = (
+        db.query(OcupacaoPoltrona)
+        .filter(
+            OcupacaoPoltrona.poltrona_viagem_id == pedido.poltrona_viagem_id,
+            OcupacaoPoltrona.tipo == TipoOcupacao.HOLD,
+            OcupacaoPoltrona.parada_origem_ordem == parada_origem.ordem,
+            OcupacaoPoltrona.parada_destino_ordem == parada_destino.ordem,
+        )
+        .first()
+    )
+    if hold:
+        db.delete(hold)
+
+    pedido.status = StatusPedidoPagamento.CANCELADO
+    db.commit()

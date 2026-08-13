@@ -128,3 +128,79 @@ def test_isolamento_multitenant_no_pedido_de_pagamento(client, db):
 
     confirmar_negado = client.post(f"/api/pedidos-pagamento/{pedido['id']}/confirmar-simulado", headers=headers_b)
     assert confirmar_negado.status_code == 403
+
+
+def test_lista_pedidos_pendentes_da_viagem_pro_staff(client, db):
+    empresa = criar_empresa_completa(db, "PX7")
+    headers = auth_header(login(client, empresa["funcionario_email"], empresa["senha"]))
+    poltrona_id = _poltrona_livre(client, headers, empresa["viagem_id"])
+
+    pedido = _comprar(client, headers, empresa["viagem_id"], poltrona_id, "pix").json()["pedido_pagamento"]
+
+    lista = client.get(f"/api/pedidos-pagamento/viagem/{empresa['viagem_id']}", headers=headers)
+    assert lista.status_code == 200, lista.text
+    corpo = lista.json()
+    assert len(corpo) == 1
+    assert corpo[0]["id"] == pedido["id"]
+    assert corpo[0]["cliente_nome"] == "Fulano"
+    assert corpo[0]["poltrona_numero"]
+    assert corpo[0]["forma_pagamento"] == "pix"
+
+    # depois de confirmado, some da lista de pendentes
+    client.post(f"/api/pedidos-pagamento/{pedido['id']}/confirmar-simulado", headers=headers)
+    lista_depois = client.get(f"/api/pedidos-pagamento/viagem/{empresa['viagem_id']}", headers=headers).json()
+    assert lista_depois == []
+
+
+def test_lista_pedidos_pendentes_nao_mistura_empresas(client, db):
+    empresa_a = criar_empresa_completa(db, "PX8")
+    empresa_b = criar_empresa_completa(db, "PX9")
+    headers_a = auth_header(login(client, empresa_a["funcionario_email"], empresa_a["senha"]))
+    headers_b = auth_header(login(client, empresa_b["funcionario_email"], empresa_b["senha"]))
+
+    poltrona_id = _poltrona_livre(client, headers_a, empresa_a["viagem_id"])
+    _comprar(client, headers_a, empresa_a["viagem_id"], poltrona_id, "pix")
+
+    negado = client.get(f"/api/pedidos-pagamento/viagem/{empresa_a['viagem_id']}", headers=headers_b)
+    assert negado.status_code == 404
+
+
+def test_cancelar_pedido_pendente_libera_a_poltrona(client, db):
+    empresa = criar_empresa_completa(db, "PX10")
+    headers = auth_header(login(client, empresa["funcionario_email"], empresa["senha"]))
+    poltrona_id = _poltrona_livre(client, headers, empresa["viagem_id"])
+
+    pedido = _comprar(client, headers, empresa["viagem_id"], poltrona_id, "pix").json()["pedido_pagamento"]
+
+    cancelar = client.post(f"/api/pedidos-pagamento/{pedido['id']}/cancelar", headers=headers)
+    assert cancelar.status_code == 204
+
+    mapa = client.get(f"/api/viagens/{empresa['viagem_id']}/poltronas", headers=headers).json()
+    assert next(p for p in mapa if p["poltrona_viagem_id"] == poltrona_id)["status"] == "livre"
+
+    lista = client.get(f"/api/pedidos-pagamento/viagem/{empresa['viagem_id']}", headers=headers).json()
+    assert lista == []
+
+    de_novo = client.post(f"/api/pedidos-pagamento/{pedido['id']}/cancelar", headers=headers)
+    assert de_novo.status_code == 409
+
+
+def test_confirmar_pagamento_manual_nao_mostra_pix_pro_dinheiro(client, db):
+    """Empresa em modo manual: uma venda em dinheiro também fica pendente,
+    mas não deve ter código Pix pra copiar — quem confirma é o funcionário,
+    não um QR code."""
+    empresa = criar_empresa_completa(db, "PX11")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+    configurar = client.patch("/api/empresas/minha/pagamento", json={"modo_cobranca": "manual"}, headers=headers)
+    assert configurar.status_code == 200, configurar.text
+
+    poltrona_id = _poltrona_livre(client, headers, empresa["viagem_id"])
+    resposta = _comprar(client, headers, empresa["viagem_id"], poltrona_id, "dinheiro")
+    assert resposta.status_code == 201, resposta.text
+    pedido = resposta.json()["pedido_pagamento"]
+    assert pedido["status"] == "pendente"
+    assert pedido["forma_pagamento"] == "dinheiro"
+
+    lista = client.get(f"/api/pedidos-pagamento/viagem/{empresa['viagem_id']}", headers=headers).json()
+    assert len(lista) == 1
+    assert lista[0]["forma_pagamento"] == "dinheiro"

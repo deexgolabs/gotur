@@ -17,6 +17,12 @@ class PedidoPagamentoOut(BaseModel):
     expira_em: datetime
     criado_em: datetime
     passagem_id: int | None = None
+    viagem_id: int | None = None
+    cliente_nome: str | None = None
+    cliente_documento: str | None = None
+    poltrona_numero: str | None = None
+    origem_trecho: str | None = None
+    destino_trecho: str | None = None
 
 
 class CompraPassagemResponse(BaseModel):
