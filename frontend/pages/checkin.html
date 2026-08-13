@@ -27,8 +27,16 @@
         </div>
         <div class="linha-acoes">
           <button type="submit">Buscar passagem</button>
+          <button type="button" class="secundario" id="btn-escanear">Ler QR Code</button>
         </div>
       </form>
+
+      <div id="area-leitor" class="escondido" style="margin-top:16px">
+        <div id="qr-reader" style="max-width:360px"></div>
+        <div class="linha-acoes">
+          <button type="button" class="secundario" id="btn-cancelar-leitura">Cancelar leitura</button>
+        </div>
+      </div>
     </div>
 
     <div class="cartao escondido" id="cartao-resultado">
@@ -41,6 +49,7 @@
     </div>
   </main>
 
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/pwa.js"></script>
@@ -78,17 +87,61 @@
       btn.classList.toggle("escondido", cancelada || jaEmbarcou);
     }
 
-    document.getElementById("form-buscar").addEventListener("submit", async (ev) => {
-      ev.preventDefault();
+    async function buscarPorLocalizador(codigo) {
       document.getElementById("cartao-resultado").classList.add("escondido");
       try {
-        const codigo = document.getElementById("localizador").value.trim().toUpperCase();
-        const passagem = await api("GET", `/checkin/${codigo}`);
+        const passagem = await api("GET", `/checkin/${codigo.trim().toUpperCase()}`);
         renderizarResultado(passagem);
       } catch (erro) {
         mostrarAlerta(erro.message);
       }
+    }
+
+    document.getElementById("form-buscar").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      buscarPorLocalizador(document.getElementById("localizador").value);
     });
+
+    let leitorQr = null;
+
+    async function pararLeitura() {
+      document.getElementById("area-leitor").classList.add("escondido");
+      if (leitorQr) {
+        try {
+          await leitorQr.stop();
+        } catch (e) {
+          // já parado
+        }
+        leitorQr = null;
+      }
+    }
+
+    document.getElementById("btn-escanear").addEventListener("click", async () => {
+      if (typeof Html5Qrcode === "undefined") {
+        mostrarAlerta("Não foi possível carregar o leitor de QR Code. Verifique sua conexão e tente novamente.");
+        return;
+      }
+      document.getElementById("area-leitor").classList.remove("escondido");
+      leitorQr = new Html5Qrcode("qr-reader");
+      try {
+        await leitorQr.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          async (codigoLido) => {
+            await pararLeitura();
+            document.getElementById("localizador").value = codigoLido.trim().toUpperCase();
+            buscarPorLocalizador(codigoLido);
+          },
+          () => {} // leitura ainda não encontrou um código no quadro — ignora, tenta de novo sozinho
+        );
+      } catch (erro) {
+        mostrarAlerta("Não foi possível acessar a câmera. Verifique a permissão do navegador.");
+        document.getElementById("area-leitor").classList.add("escondido");
+        leitorQr = null;
+      }
+    });
+
+    document.getElementById("btn-cancelar-leitura").addEventListener("click", pararLeitura);
 
     document.getElementById("btn-confirmar-checkin").addEventListener("click", async () => {
       if (!localizadorAtual) return;
