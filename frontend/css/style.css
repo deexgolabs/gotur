@@ -360,6 +360,16 @@ h2 {
   border-radius: var(--raio);
   padding: 20px;
   margin-bottom: 20px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+dialog {
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow-x: auto;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .grid-form {
@@ -436,6 +446,7 @@ button:disabled {
   margin-top: 16px;
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 table {
@@ -651,13 +662,15 @@ th {
 }
 
 .mapa-onibus {
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
   gap: 8px;
   background: var(--branco);
   border: 1px solid var(--borda);
   border-radius: var(--raio);
   padding: 20px;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .fileira-poltronas {
