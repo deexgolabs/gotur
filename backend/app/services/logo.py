@@ -14,7 +14,7 @@ from PIL import Image
 
 from app.config import settings
 
-COR_PADRAO = (110, 0, 167, 255)  # roxo-escuro do Vion, usado se a empresa não definir cor própria
+COR_PADRAO = (110, 0, 167, 255)  # roxo-escuro do GoTur, usado se a empresa não definir cor própria
 
 
 def _hex_para_rgba(cor_hex: str | None) -> tuple[int, int, int, int]:

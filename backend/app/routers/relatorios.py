@@ -198,7 +198,7 @@ def relatorio_dre(
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
     """DRE simplificado: receita bruta (passagens + fretamento + frete)
-    menos reembolsos e a assinatura do Vion paga no período. Não é uma
+    menos reembolsos e a assinatura do GoTur paga no período. Não é uma
     contabilidade completa (não inclui outras despesas da empresa, como
     combustível ou salário) — é um resumo pra acompanhar receita líquida."""
     inicio_dt = datetime.combine(inicio, time.min)

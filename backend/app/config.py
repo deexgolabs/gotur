@@ -10,7 +10,7 @@ logger = logging.getLogger("gotur.config")
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="GOTUR_", env_file=str(BACKEND_DIR / ".env"), extra="ignore")
 
-    app_name: str = "Vion API"
+    app_name: str = "GoTur API"
     debug: bool = True
 
     # Por padrão usa um sqlite local ao lado do código. Em produção, defina

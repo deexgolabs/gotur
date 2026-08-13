@@ -803,7 +803,7 @@ async function iniciar() {
     return;
   }
 
-  document.title = `${BRANDING.nome} — Vion`;
+  document.title = `${BRANDING.nome} — GoTur`;
   document.getElementById("loja-nome").textContent = BRANDING.nome;
   if (BRANDING.logo_url) {
     const img = document.getElementById("loja-logo");

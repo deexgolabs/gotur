@@ -222,7 +222,7 @@ def obter_configuracao_cobranca(
     db: Session = Depends(get_db),
     _usuario: Usuario = Depends(require_roles(UserRole.SUPER_ADMIN)),
 ):
-    """Como o Vion cobra as empresas clientes pela assinatura — Mercado
+    """Como o GoTur cobra as empresas clientes pela assinatura — Mercado
     Pago da própria plataforma + modo de cobrança (ver
     app/services/pagamento_provider.py). Diferente do Mercado Pago que
     cada empresa configura pra cobrar os PRÓPRIOS clientes dela."""

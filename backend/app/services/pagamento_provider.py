@@ -11,14 +11,14 @@ Duas configurações diferentes, dois donos diferentes do dinheiro:
 - `ConfiguracaoPlataforma` (linha única, editada pelo super admin em
   Plataforma > Cobrança das empresas — com `GOTUR_GATEWAY_API_KEY` no
   `.env` como fallback se o super admin não configurar nada pela tela):
-  usada pra cobrar a assinatura da EMPRESA no Vion
+  usada pra cobrar a assinatura da EMPRESA no GoTur
   (`app/routers/faturas.py`) — o dinheiro vai pra conta do dono da
   plataforma. `obter_provider(plataforma=...)`/`modo_simulado(plataforma=...)`
   usam essa configuração.
 - `Empresa.mercadopago_access_token` (por tenant, configurado em
   Configurações > Pagamento): usada pra cobrar o CLIENTE da empresa
   (passagem, frete, fretamento) — o dinheiro vai pra conta da própria
-  empresa, não pra do Vion. `obter_provider(empresa=...)`/`modo_simulado(empresa=...)`
+  empresa, não pra do GoTur. `obter_provider(empresa=...)`/`modo_simulado(empresa=...)`
   usam essa chave quando presente, caindo pra `GOTUR_GATEWAY_API_KEY` como
   fallback só se a empresa ainda não configurou a própria.
 
@@ -109,7 +109,7 @@ class PagamentoManualProvider(PagamentoProvider):
     """`Empresa.modo_cobranca = DESATIVADA`: registra qualquer forma de
     pagamento como aprovada na hora, sem gerar Pix pendente e sem checar
     nada — pra empresa que cobra 100% por fora (maquininha própria,
-    dinheiro) e só quer usar o Vion pra controlar poltrona/vaga."""
+    dinheiro) e só quer usar o GoTur pra controlar poltrona/vaga."""
 
     def cobrar(
         self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str, dados_cartao: DadosCartao | None = None
@@ -220,7 +220,7 @@ class MercadoPagoProvider(PagamentoProvider):
     def _cobrar_pix(self, valor: float, referencia_pedido: str) -> ResultadoCobranca:
         corpo = {
             "transaction_amount": round(float(valor), 2),
-            "description": f"Vion - {referencia_pedido}",
+            "description": f"GoTur - {referencia_pedido}",
             "payment_method_id": "pix",
             "payer": {"email": f"comprador+{referencia_pedido}@gotur.app"},
             "notification_url": self._notification_url(),
@@ -255,7 +255,7 @@ class MercadoPagoProvider(PagamentoProvider):
 
         corpo = {
             "transaction_amount": round(float(valor), 2),
-            "description": f"Vion - {referencia_pedido}",
+            "description": f"GoTur - {referencia_pedido}",
             "token": dados_cartao.token,
             "installments": dados_cartao.installments or 1,
             "payment_method_id": dados_cartao.payment_method_id,

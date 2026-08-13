@@ -21,7 +21,7 @@ try:
     if not db.query(Usuario).filter(Usuario.email == "super@gotur.com").first():
         super_admin = Usuario(
             tenant_id=None,
-            nome="Super Admin Vion",
+            nome="Super Admin GoTur",
             email="super@gotur.com",
             senha_hash=hash_senha("super123"),
             role=UserRole.SUPER_ADMIN,

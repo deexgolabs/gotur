@@ -110,7 +110,7 @@ def criar_acesso_parceiro(
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
-    """Cria o login desse parceiro — ele passa a entrar no Vion com e-mail
+    """Cria o login desse parceiro — ele passa a entrar no GoTur com e-mail
     e senha próprios e só enxerga as vendas marcadas com o parceiro dele
     (ver /parceiros/minha/*)."""
     parceiro = _buscar_parceiro_da_empresa(db, parceiro_id, usuario_atual)

@@ -4,7 +4,7 @@ from app.models.enums import ModoCobranca
 
 
 class ConfiguracaoCobrancaPlataformaRequest(BaseModel):
-    """Credenciais do Mercado Pago da PRÓPRIA plataforma Vion + modo de
+    """Credenciais do Mercado Pago da PRÓPRIA plataforma GoTur + modo de
     cobrança das empresas clientes. Envie apenas os campos que quer
     alterar; envie string vazia pra apagar um campo já salvo."""
 

@@ -60,7 +60,7 @@ class ModoCobranca(str, enum.Enum):
     """Como a empresa quer que a venda de passagem/frete/fretamento seja
     cobrada do cliente (ver Empresa.modo_cobranca e
     app/services/pagamento_provider.py) — independente da fatura da
-    assinatura da empresa no Vion, que usa sempre a chave global da
+    assinatura da empresa no GoTur, que usa sempre a chave global da
     plataforma."""
 
     AUTOMATICA = "automatica"  # cobra via Mercado Pago (Pix real se configurado, senão simulado)
@@ -160,7 +160,7 @@ class StatusRepasse(str, enum.Enum):
 class TipoViagemJornada(str, enum.Enum):
     """A qual tipo de trajeto uma jornada de motorista (ver
     app.models.jornada_motorista.JornadaMotorista) está vinculada — os três
-    tipos de trajeto que o Vion controla hoje."""
+    tipos de trajeto que o GoTur controla hoje."""
 
     VIAGEM = "viagem"
     FRETAMENTO = "fretamento"
