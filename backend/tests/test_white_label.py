@@ -181,3 +181,33 @@ def test_solicitar_orcamento_fretamento_pela_loja(client, db):
         },
     )
     assert invalido.status_code == 404
+
+
+def test_loja_publica_expoe_public_key_do_mercadopago_quando_automatica(client, db):
+    empresa = criar_empresa_completa(db, "WL10")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+    marca = client.patch("/api/empresas/minha/marca", json={"slug": "viacao-wl10"}, headers=headers).json()
+    client.patch(
+        "/api/empresas/minha/pagamento",
+        json={"mercadopago_access_token": "TOKEN-X", "mercadopago_public_key": "PUBLIC-KEY-X"},
+        headers=headers,
+    )
+
+    publico = client.get(f"/api/empresas/loja/{marca['slug']}")
+    assert publico.status_code == 200
+    assert publico.json()["mercadopago_public_key"] == "PUBLIC-KEY-X"
+
+
+def test_loja_publica_esconde_public_key_quando_modo_nao_e_automatica(client, db):
+    empresa = criar_empresa_completa(db, "WL11")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+    marca = client.patch("/api/empresas/minha/marca", json={"slug": "viacao-wl11"}, headers=headers).json()
+    client.patch(
+        "/api/empresas/minha/pagamento",
+        json={"mercadopago_access_token": "TOKEN-X", "mercadopago_public_key": "PUBLIC-KEY-X", "modo_cobranca": "manual"},
+        headers=headers,
+    )
+
+    publico = client.get(f"/api/empresas/loja/{marca['slug']}")
+    assert publico.status_code == 200
+    assert publico.json()["mercadopago_public_key"] is None

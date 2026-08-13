@@ -90,6 +90,27 @@
         </div>
       </form>
     </div>
+
+    <h2>Taxa por transação (opcional)</h2>
+    <div class="cartao">
+      <p class="rodape-form" style="text-align:left;margin-top:-8px">
+        Percentual descontado automaticamente de cada venda (passagem, frete, fretamento) que uma empresa faz pelo
+        próprio Mercado Pago dela. <strong>Só funciona de verdade se a conta da empresa estiver conectada como
+        sub-conta via OAuth marketplace do Mercado Pago</strong> — com o Access Token colado manualmente (o modelo
+        usado hoje), o Mercado Pago tende a ignorar ou recusar essa taxa. Deixe em branco/zero pra não cobrar nada.
+      </p>
+      <form id="form-taxa-transacao">
+        <div class="grid-form">
+          <div>
+            <label for="taxa-transacao">Taxa por transação (%)</label>
+            <input id="taxa-transacao" type="number" min="0" max="100" step="0.1" placeholder="Ex: 2.5" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Salvar taxa</button>
+        </div>
+      </form>
+    </div>
   </main>
 
   <script src="/js/api.js"></script>
@@ -157,6 +178,7 @@
       const config = await api("GET", "/plataforma/cobranca");
       document.getElementById("modo-cobranca-plataforma").value = config.modo_cobranca || "automatica";
       document.getElementById("mp-plataforma-public-key").value = config.mercadopago_public_key || "";
+      document.getElementById("taxa-transacao").value = config.taxa_transacao_percentual ?? "";
       atualizarStatusPagamentoPlataforma(config);
     }
 
@@ -191,6 +213,17 @@
         document.getElementById("mp-plataforma-public-key").value = "";
         atualizarStatusPagamentoPlataforma(config);
         mostrarAlerta("Credenciais removidas.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("form-taxa-transacao").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const valor = document.getElementById("taxa-transacao").value.trim();
+        await api("PATCH", "/plataforma/cobranca", { taxa_transacao_percentual: valor === "" ? null : parseFloat(valor) });
+        mostrarAlerta("Taxa por transação atualizada.", "sucesso");
       } catch (erro) {
         mostrarAlerta(erro.message);
       }

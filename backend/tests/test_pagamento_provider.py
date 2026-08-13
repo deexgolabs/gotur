@@ -1,8 +1,5 @@
-import pytest
-
 from app.config import settings
 from app.models.empresa import Empresa
-from app.models.enums import FormaPagamento
 from app.services.pagamento_provider import (
     MercadoPagoProvider,
     PagamentoSimuladoProvider,
@@ -10,12 +7,6 @@ from app.services.pagamento_provider import (
     obter_provider,
 )
 from tests.helpers import auth_header, criar_empresa_completa, login
-
-
-def test_mercado_pago_cartao_ainda_nao_implementado():
-    provider = MercadoPagoProvider(api_key="TEST-CHAVE-FAKE")
-    with pytest.raises(NotImplementedError):
-        provider.cobrar(forma_pagamento=FormaPagamento.CARTAO, valor=100.0, referencia_pedido="ref-1")
 
 
 def test_sem_nenhuma_chave_usa_provider_simulado(monkeypatch):

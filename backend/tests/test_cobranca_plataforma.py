@@ -73,6 +73,23 @@ def test_configurar_cobranca_da_plataforma_via_api(client, db):
     assert "mercadopago_access_token" not in corpo
 
 
+def test_configurar_taxa_de_transacao_opcional(client, db):
+    super_admin = criar_super_admin(db, "CP5")
+    headers = auth_header(login(client, super_admin["email"], super_admin["senha"]))
+
+    inicial = client.get("/api/plataforma/cobranca", headers=headers).json()
+    assert inicial["taxa_transacao_percentual"] is None
+
+    resposta = client.patch("/api/plataforma/cobranca", json={"taxa_transacao_percentual": 2.5}, headers=headers)
+    assert resposta.status_code == 200
+    assert resposta.json()["taxa_transacao_percentual"] == 2.5
+
+    # Zero/vazio desliga de novo.
+    removida = client.patch("/api/plataforma/cobranca", json={"taxa_transacao_percentual": None}, headers=headers)
+    assert removida.status_code == 200
+    assert removida.json()["taxa_transacao_percentual"] is None
+
+
 def test_admin_empresa_nao_configura_cobranca_da_plataforma(client, db):
     empresa = criar_empresa_completa(db, "CP2")
     headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))

@@ -11,6 +11,7 @@ class ConfiguracaoCobrancaPlataformaRequest(BaseModel):
     mercadopago_access_token: str | None = None
     mercadopago_public_key: str | None = None
     modo_cobranca: ModoCobranca | None = None
+    taxa_transacao_percentual: float | None = None
 
 
 class ConfiguracaoCobrancaPlataformaOut(BaseModel):
@@ -19,6 +20,7 @@ class ConfiguracaoCobrancaPlataformaOut(BaseModel):
     mercadopago_public_key: str | None = None
     mercadopago_configurado: bool = False
     modo_cobranca: ModoCobranca = ModoCobranca.AUTOMATICA
+    taxa_transacao_percentual: float | None = None
 
 
 class EmpresaPertoDoLimiteOut(BaseModel):
