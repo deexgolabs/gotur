@@ -25,9 +25,9 @@ function clarear(hex, fator) {
 }
 
 function aplicarTema(cor) {
-  document.documentElement.style.setProperty("--azul", cor);
-  document.documentElement.style.setProperty("--azul-escuro", escurecer(cor, 0.75));
-  document.documentElement.style.setProperty("--azul-claro", clarear(cor, 0.92));
+  document.documentElement.style.setProperty("--roxo", cor);
+  document.documentElement.style.setProperty("--roxo-escuro", escurecer(cor, 0.75));
+  document.documentElement.style.setProperty("--roxo-claro", clarear(cor, 0.92));
   document.getElementById("meta-theme-color").setAttribute("content", cor);
 }
 
@@ -803,7 +803,7 @@ async function iniciar() {
     return;
   }
 
-  document.title = `${BRANDING.nome} — GoTur`;
+  document.title = `${BRANDING.nome} — Vion`;
   document.getElementById("loja-nome").textContent = BRANDING.nome;
   if (BRANDING.logo_url) {
     const img = document.getElementById("loja-logo");

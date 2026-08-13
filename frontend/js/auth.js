@@ -152,7 +152,7 @@ function montarTopo(containerId) {
       <div class="topo-linha">
         <div class="marca">
           <img id="logo-empresa-topo" alt="" class="marca-logo escondido" />
-          Go<span style="color:#4fd1a5">Tur</span>
+          Vi<span style="color:var(--acento)">on</span>
         </div>
         <button type="button" class="btn-menu-mobile" id="btn-menu-mobile" aria-label="Abrir menu" aria-expanded="false">${ICONE_MENU}</button>
       </div>
@@ -179,7 +179,7 @@ function montarTopo(containerId) {
     mostrarSeInstalavel();
     document.addEventListener("gotur-pwa-instalavel", mostrarSeInstalavel);
     document.addEventListener("gotur-pwa-instalada", () => btnInstalar.classList.add("escondido"));
-    btnInstalar.addEventListener("click", () => instalarPwaGoTur());
+    btnInstalar.addEventListener("click", () => instalarPwaVion());
   }
 
   container.querySelectorAll(".nav-grupo-toggle").forEach((toggle) => {

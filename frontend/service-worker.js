@@ -60,7 +60,7 @@ self.addEventListener("fetch", (evento) => {
 // Push notification real (Web Push) — usado no rastreio de fretamento e
 // frete pra avisar quando o status muda, sem precisar do app aberto.
 self.addEventListener("push", (evento) => {
-  let dados = { title: "GoTur", body: "Você tem uma atualização.", url: "/" };
+  let dados = { title: "Vion", body: "Você tem uma atualização.", url: "/" };
   try {
     if (evento.data) dados = { ...dados, ...evento.data.json() };
   } catch (e) {

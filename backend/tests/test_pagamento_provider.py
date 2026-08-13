@@ -35,7 +35,7 @@ def test_empresa_sem_token_proprio_cai_para_chave_global(monkeypatch):
 
 
 def test_chamada_sem_empresa_nunca_usa_token_de_tenant(monkeypatch):
-    """Faturas (assinatura da empresa no GoTur) sempre usam só a chave
+    """Faturas (assinatura da empresa no Vion) sempre usam só a chave
     global da plataforma — nunca a do tenant, senão a empresa pagaria a
     própria assinatura com o dinheiro que ela mesma recebe dos clientes."""
     monkeypatch.setattr(settings, "gateway_api_key", None)

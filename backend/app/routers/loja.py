@@ -17,7 +17,7 @@ FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 LOJA_SHELL = FRONTEND_DIR / "loja" / "index.html"
 SERVICE_WORKER_SRC = FRONTEND_DIR / "service-worker.js"
 
-COR_PADRAO = "#0b5fa5"
+COR_PADRAO = "#6E00A7"
 ICONE_PADRAO_192 = "/icons/icon-192.png"
 ICONE_PADRAO_512 = "/icons/icon-512.png"
 

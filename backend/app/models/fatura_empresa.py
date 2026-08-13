@@ -10,7 +10,7 @@ from app.models.enums import StatusFatura
 
 class FaturaEmpresa(Base):
     """Cobrança da assinatura da plataforma para uma empresa (o que a
-    viação paga pra usar o GoTur). Gerada manualmente pelo super admin no
+    viação paga pra usar o Vion). Gerada manualmente pelo super admin no
     v1 — pronta para virar uma tarefa agendada (cron) mais pra frente."""
 
     __tablename__ = "faturas_empresa"

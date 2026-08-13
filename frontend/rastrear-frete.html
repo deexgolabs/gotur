@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GoTur — Acompanhar frete</title>
+  <title>Vion — Acompanhar frete</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#08427a" />
+  <meta name="theme-color" content="#400056" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -17,7 +17,7 @@
 <body>
   <header class="topo">
     <div class="topo-linha">
-      <div class="marca">Go<span style="color:#4fd1a5">Tur</span></div>
+      <div class="marca">Vi<span style="color:var(--acento)">on</span></div>
     </div>
   </header>
   <main>
@@ -81,7 +81,7 @@
         attribution: "&copy; OpenStreetMap",
         maxZoom: 19,
       }).addTo(mapa);
-      linha = L.polyline([], { color: "#0b5fa5", weight: 4 }).addTo(mapa);
+      linha = L.polyline([], { color: "#6E00A7", weight: 4 }).addTo(mapa);
     }
 
     async function carregar() {

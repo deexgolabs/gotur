@@ -53,7 +53,7 @@ class Empresa(Base):
     # Mercado Pago da PRÓPRIA empresa (ver app/services/pagamento_provider.py)
     # — cada viação recebe na sua própria conta pelas passagens/fretes/
     # fretamentos que vende. Diferente de GOTUR_GATEWAY_API_KEY (global),
-    # que é usado só pra cobrar a própria assinatura da empresa no GoTur.
+    # que é usado só pra cobrar a própria assinatura da empresa no Vion.
     mercadopago_access_token: Mapped[str | None] = mapped_column(String(200), nullable=True)
     mercadopago_public_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
     modo_cobranca: Mapped[ModoCobranca] = mapped_column(SAEnum(ModoCobranca), default=ModoCobranca.AUTOMATICA, nullable=False)

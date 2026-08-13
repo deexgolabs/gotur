@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GoTur — Plataforma</title>
+  <title>Vion — Plataforma</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#08427a" />
+  <meta name="theme-color" content="#400056" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 </head>
 <body>
   <div id="topo"></div>
   <main>
     <h1>Visão geral da plataforma</h1>
-    <p class="subtitulo">Saúde da carteira: todas as empresas cadastradas no GoTur.</p>
+    <p class="subtitulo">Saúde da carteira: todas as empresas cadastradas no Vion.</p>
 
     <div id="alerta"></div>
 
@@ -60,7 +60,7 @@
     <h2>Cobrança das empresas</h2>
     <div class="cartao">
       <p class="rodape-form" style="text-align:left;margin-top:-8px">
-        Como o GoTur cobra a assinatura das empresas clientes (fatura mensal) — diferente do Mercado Pago que cada
+        Como o Vion cobra a assinatura das empresas clientes (fatura mensal) — diferente do Mercado Pago que cada
         empresa configura pra cobrar os próprios clientes dela. Pegue o Access Token de produção em
         <strong>mercadopago.com.br/developers/panel/app</strong>.
       </p>
@@ -138,7 +138,7 @@
       const largura = larguraRotulo + larguraMaxBarra + 100;
       const altura = itens.length * (alturaBarra + espaco) + espaco;
       const max = Math.max(...itens.map((i) => i.valor), 1);
-      const cor = opts.cor || "#0b5fa5";
+      const cor = opts.cor || "#6E00A7";
 
       const barras = itens
         .map((item, i) => {
@@ -158,7 +158,7 @@
     const DESCRICOES_MODO_COBRANCA_PLATAFORMA = {
       automatica: "O sistema cobra sozinho: Pix real se você configurar o Mercado Pago abaixo, ou Pix simulado enquanto não configurar.",
       manual: "Toda fatura fica pendente até você confirmar o pagamento na tela de faturas — útil se você recebe por fora (boleto, transferência combinada) e quer controlar a liberação.",
-      desativada: "O sistema marca a fatura como paga na hora, sem gerar Pix nem pedir confirmação — use se a cobrança das empresas é 100% controlada fora do GoTur.",
+      desativada: "O sistema marca a fatura como paga na hora, sem gerar Pix nem pedir confirmação — use se a cobrança das empresas é 100% controlada fora do Vion.",
     };
 
     function atualizarStatusPagamentoPlataforma(config) {

@@ -15,7 +15,7 @@ function pwaInstalavelAgora() {
   return _eventoInstalacaoPwa !== null;
 }
 
-async function instalarPwaGoTur() {
+async function instalarPwaVion() {
   if (!_eventoInstalacaoPwa) return false;
   _eventoInstalacaoPwa.prompt();
   const escolha = await _eventoInstalacaoPwa.userChoice;

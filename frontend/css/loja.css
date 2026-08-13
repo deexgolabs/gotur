@@ -4,7 +4,7 @@ body {
 }
 
 .loja-header {
-  background: var(--azul-escuro);
+  background: var(--roxo-escuro);
   color: #fff;
   padding: 18px 20px 22px;
   display: flex;
@@ -75,7 +75,7 @@ body {
 .loja-card-viagem .preco {
   font-weight: 700;
   font-size: 1.1rem;
-  color: var(--azul);
+  color: var(--roxo);
   white-space: nowrap;
 }
 
@@ -126,11 +126,11 @@ body {
 }
 
 .loja-nav-item.ativo {
-  color: var(--azul);
+  color: var(--roxo);
 }
 
 .loja-nav-item.ativo svg {
-  stroke: var(--azul);
+  stroke: var(--roxo);
 }
 
 .loja-selo-vazio {
@@ -157,9 +157,9 @@ body {
 }
 
 .loja-aba.ativa {
-  background: var(--azul);
+  background: var(--roxo);
   color: #fff;
-  border-color: var(--azul);
+  border-color: var(--roxo);
 }
 
 .loja-poltronas .mapa-onibus {
@@ -169,7 +169,7 @@ body {
 .loja-voltar {
   background: none;
   border: none;
-  color: var(--azul);
+  color: var(--roxo);
   font-weight: 600;
   padding: 0;
   margin-bottom: 12px;

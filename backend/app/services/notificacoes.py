@@ -26,7 +26,7 @@ def _montar_corpo(cliente_nome: str, localizador: str, origem: str, destino: str
         f"Poltrona: {numero_poltrona}\n"
         f"Valor: R$ {preco:.2f}\n\n"
         f"Apresente o código acima (ou o QR Code disponível em 'Minhas passagens') no embarque.\n\n"
-        f"Boa viagem!\nGoTur"
+        f"Boa viagem!\nVion"
     )
 
 
@@ -51,7 +51,7 @@ def enviar_confirmacao_compra(
         return
 
     mensagem = EmailMessage()
-    mensagem["Subject"] = f"GoTur - Passagem confirmada ({localizador})"
+    mensagem["Subject"] = f"Vion - Passagem confirmada ({localizador})"
     mensagem["From"] = settings.smtp_remetente
     mensagem["To"] = destinatario_email
     mensagem.set_content(corpo)
@@ -92,7 +92,7 @@ def enviar_atualizacao_status_fretamento(
         f"Olá, {cliente_nome}!\n\n"
         f"O status do seu fretamento ({origem} -> {destino}) mudou para: {rotulo}.\n\n"
         f"Acompanhe os detalhes e o trajeto por aqui: {link_acompanhar}\n\n"
-        f"GoTur"
+        f"Vion"
     )
 
     if not settings.smtp_host:
@@ -100,7 +100,7 @@ def enviar_atualizacao_status_fretamento(
         return
 
     mensagem = EmailMessage()
-    mensagem["Subject"] = f"GoTur - Fretamento atualizado: {rotulo}"
+    mensagem["Subject"] = f"Vion - Fretamento atualizado: {rotulo}"
     mensagem["From"] = settings.smtp_remetente
     mensagem["To"] = destinatario_email
     mensagem.set_content(corpo)
@@ -137,11 +137,11 @@ def enviar_fatura_gerada(
 
     corpo = (
         f"Olá, {empresa_nome}!\n\n"
-        f"A fatura da sua assinatura do GoTur foi gerada.\n\n"
+        f"A fatura da sua assinatura do Vion foi gerada.\n\n"
         f"Valor: R$ {valor:.2f}\n"
         f"Vencimento: {vencimento.strftime('%d/%m/%Y')}\n\n"
         f"Pague por aqui pra manter sua conta ativa: {link_pagamento}\n\n"
-        f"GoTur"
+        f"Vion"
     )
 
     if not settings.smtp_host:
@@ -149,7 +149,7 @@ def enviar_fatura_gerada(
         return
 
     mensagem = EmailMessage()
-    mensagem["Subject"] = f"GoTur - Fatura gerada (vence {vencimento.strftime('%d/%m/%Y')})"
+    mensagem["Subject"] = f"Vion - Fatura gerada (vence {vencimento.strftime('%d/%m/%Y')})"
     mensagem["From"] = settings.smtp_remetente
     mensagem["To"] = destinatario_email
     mensagem.set_content(corpo)
@@ -181,7 +181,7 @@ def enviar_atualizacao_status_frete(
         f"Olá, {nome}!\n\n"
         f"O status da sua encomenda ({origem} -> {destino}) mudou para: {rotulo}.\n\n"
         f"Acompanhe o trajeto por aqui: {link_acompanhar}\n\n"
-        f"GoTur"
+        f"Vion"
     )
 
     if not settings.smtp_host:
@@ -189,7 +189,7 @@ def enviar_atualizacao_status_frete(
         return
 
     mensagem = EmailMessage()
-    mensagem["Subject"] = f"GoTur - Encomenda atualizada: {rotulo}"
+    mensagem["Subject"] = f"Vion - Encomenda atualizada: {rotulo}"
     mensagem["From"] = settings.smtp_remetente
     mensagem["To"] = destinatario_email
     mensagem.set_content(corpo)
@@ -221,8 +221,8 @@ def enviar_alerta_documentos_vencendo(
         f"Olá, {empresa_nome}!\n\n"
         f"Os seguintes documentos da sua frota estão perto de vencer:\n\n"
         f"{linhas}\n\n"
-        f"Acesse Ônibus > Manutenção no painel do GoTur pra renovar.\n\n"
-        f"GoTur"
+        f"Acesse Ônibus > Manutenção no painel do Vion pra renovar.\n\n"
+        f"Vion"
     )
 
     if not settings.smtp_host:
@@ -230,7 +230,7 @@ def enviar_alerta_documentos_vencendo(
         return
 
     mensagem = EmailMessage()
-    mensagem["Subject"] = f"GoTur - {len(itens)} documento(s) da frota vencendo"
+    mensagem["Subject"] = f"Vion - {len(itens)} documento(s) da frota vencendo"
     mensagem["From"] = settings.smtp_remetente
     mensagem["To"] = destinatario_email
     mensagem.set_content(corpo)

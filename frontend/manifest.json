@@ -1,12 +1,12 @@
 {
-  "name": "GoTur",
-  "short_name": "GoTur",
+  "name": "Vion",
+  "short_name": "Vion",
   "description": "Compra de passagens, gestão de viagens, fretamento e rastreio em tempo real.",
   "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#08427a",
-  "theme_color": "#08427a",
+  "background_color": "#400056",
+  "theme_color": "#400056",
   "orientation": "portrait-primary",
   "lang": "pt-BR",
   "icons": [

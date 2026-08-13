@@ -6,7 +6,7 @@ from app.database import Base
 
 class Plano(Base):
     """Plano de assinatura da plataforma (o que a VIAÇÃO paga pra usar o
-    GoTur — não confundir com o preço da passagem, que é outra coisa)."""
+    Vion — não confundir com o preço da passagem, que é outra coisa)."""
 
     __tablename__ = "planos"
 

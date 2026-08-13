@@ -8,7 +8,7 @@ from app.models.enums import ModoCobranca
 
 class ConfiguracaoPlataforma(Base):
     """Linha única (singleton) com a configuração de cobrança da PRÓPRIA
-    plataforma GoTur — como o super admin cobra as empresas clientes pela
+    plataforma Vion — como o super admin cobra as empresas clientes pela
     assinatura (fatura mensal), não como cada empresa cobra os próprios
     clientes (isso é por tenant, ver Empresa.mercadopago_access_token /
     Empresa.modo_cobranca). Sempre há no máximo uma linha nessa tabela."""

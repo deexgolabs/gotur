@@ -152,7 +152,7 @@ def criar_acesso_motorista(
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
-    """Cria o login desse motorista — ele passa a entrar no GoTur com
+    """Cria o login desse motorista — ele passa a entrar no Vion com
     e-mail e senha próprios, direto no celular, pra controlar a própria
     jornada e checklist sem precisar do painel do admin/funcionário (ver
     GET /motoristas/minha/viagens e frontend/pages/motorista-app.html)."""

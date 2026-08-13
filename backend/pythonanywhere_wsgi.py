@@ -1,4 +1,4 @@
-"""Adaptador para hospedar a API GoTur (ASGI/FastAPI) no PythonAnywhere,
+"""Adaptador para hospedar a API Vion (ASGI/FastAPI) no PythonAnywhere,
 que serve aplicações via WSGI (mod_wsgi).
 
 No editor de "WSGI configuration file" do PythonAnywhere (aba Web), apague o

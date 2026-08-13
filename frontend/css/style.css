@@ -1,7 +1,8 @@
 :root {
-  --azul: #0b5fa5;
-  --azul-escuro: #08427a;
-  --azul-claro: #e8f1fb;
+  --roxo: #6E00A7;
+  --roxo-escuro: #400056;
+  --roxo-claro: #f3e6fb;
+  --acento: #d84aff;
   --verde: #1c9b6e;
   --vermelho: #c23b3b;
   --amarelo: #d99a1f;
@@ -25,11 +26,11 @@ body {
 }
 
 a {
-  color: var(--azul);
+  color: var(--roxo);
 }
 
 header.topo {
-  background: var(--azul-escuro);
+  background: var(--roxo-escuro);
   color: var(--branco);
   padding: 12px 24px;
   position: sticky;
@@ -179,7 +180,7 @@ header.topo nav .link-nav.ativo {
   top: 100%;
   left: 0;
   min-width: 200px;
-  background: var(--azul-escuro);
+  background: var(--roxo-escuro);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
@@ -389,7 +390,7 @@ input, select {
 }
 
 input:focus, select:focus {
-  outline: 2px solid var(--azul);
+  outline: 2px solid var(--roxo);
   outline-offset: 1px;
 }
 
@@ -399,23 +400,23 @@ button {
   border-radius: 6px;
   padding: 10px 18px;
   font-weight: 600;
-  background: var(--azul);
+  background: var(--roxo);
   color: var(--branco);
   transition: background 0.15s;
 }
 
 button:hover {
-  background: var(--azul-escuro);
+  background: var(--roxo-escuro);
 }
 
 button.secundario {
   background: var(--branco);
-  color: var(--azul);
-  border: 1px solid var(--azul);
+  color: var(--roxo);
+  border: 1px solid var(--roxo);
 }
 
 button.secundario:hover {
-  background: var(--azul-claro);
+  background: var(--roxo-claro);
 }
 
 button.perigo {
@@ -566,7 +567,7 @@ th {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--azul-escuro), var(--azul));
+  background: linear-gradient(135deg, var(--roxo-escuro), var(--roxo));
 }
 
 .caixa-login {
@@ -582,12 +583,12 @@ th {
   text-align: center;
   font-size: 1.6rem;
   font-weight: 800;
-  color: var(--azul-escuro);
+  color: var(--roxo-escuro);
   margin-bottom: 4px;
 }
 
 .caixa-login .marca span {
-  color: var(--verde);
+  color: var(--acento);
 }
 
 .caixa-login .lema {
@@ -613,8 +614,8 @@ th {
 }
 
 .abas button.ativa {
-  color: var(--azul);
-  border-bottom: 2px solid var(--azul);
+  color: var(--roxo);
+  border-bottom: 2px solid var(--roxo);
   background: none;
 }
 
@@ -636,7 +637,7 @@ th {
 }
 
 .cartao-resumo:hover {
-  border-color: var(--azul);
+  border-color: var(--roxo);
 }
 
 .cartao-resumo .titulo {
@@ -676,8 +677,8 @@ th {
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
-  background: var(--azul-claro);
-  color: var(--azul-escuro);
+  background: var(--roxo-claro);
+  color: var(--roxo-escuro);
 }
 
 .poltrona.corredor {
@@ -687,11 +688,11 @@ th {
 }
 
 .poltrona.livre:hover {
-  outline: 2px solid var(--azul);
+  outline: 2px solid var(--roxo);
 }
 
 .poltrona.selecionada {
-  background: var(--azul);
+  background: var(--roxo);
   color: var(--branco);
 }
 
@@ -735,11 +736,11 @@ th {
   display: inline-block;
 }
 
-.i-livre { background: var(--azul-claro); }
+.i-livre { background: var(--roxo-claro); }
 .i-hold { background: #fdf3dc; }
 .i-bloqueada { background: var(--cinza-claro); }
 .i-vendida { background: #fbe9e9; }
-.i-selecionada { background: var(--azul); }
+.i-selecionada { background: var(--roxo); }
 
 .vazio {
   color: var(--cinza);

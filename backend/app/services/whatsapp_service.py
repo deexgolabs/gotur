@@ -71,7 +71,7 @@ def enviar_confirmacao_compra_whatsapp(
     numero_poltrona: str,
 ) -> None:
     mensagem = (
-        f"Olá, {cliente_nome}! Sua passagem GoTur está confirmada.\n"
+        f"Olá, {cliente_nome}! Sua passagem Vion está confirmada.\n"
         f"Localizador: {localizador}\n"
         f"{origem} -> {destino} em {data_hora_partida.strftime('%d/%m/%Y %H:%M')}\n"
         f"Poltrona: {numero_poltrona}\n"
@@ -141,7 +141,7 @@ def enviar_fatura_gerada_whatsapp(
     link_pagamento: str,
 ) -> None:
     mensagem = (
-        f"Olá, {empresa_nome}! A fatura da sua assinatura do GoTur foi gerada: "
+        f"Olá, {empresa_nome}! A fatura da sua assinatura do Vion foi gerada: "
         f"R$ {valor:.2f}, vencimento {vencimento.strftime('%d/%m/%Y')}.\n"
         f"Pague por aqui: {link_pagamento}"
     )
@@ -160,6 +160,6 @@ def enviar_alerta_documentos_vencendo_whatsapp(
     mensagem = (
         f"Olá, {empresa_nome}! {len(itens)} documento(s) da sua frota estão perto de vencer:\n"
         f"{linhas}\n"
-        f"Acesse Ônibus > Manutenção no painel do GoTur pra renovar."
+        f"Acesse Ônibus > Manutenção no painel do Vion pra renovar."
     )
     _enviar(telefone, mensagem)

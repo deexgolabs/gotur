@@ -489,7 +489,7 @@ def inscrever_push_fretamento(codigo: str, dados: InscricaoPushRequest, db: Sess
 @router.post("/rastrear/{codigo}/avaliar", response_model=AvaliacaoOut, status_code=status.HTTP_201_CREATED)
 def avaliar_fretamento_publico(codigo: str, dados: AvaliarRequest, db: Session = Depends(get_db)):
     """Sem autenticação, igual ao rastreio — o cliente que contratou o
-    fretamento nem sempre tem conta no GoTur."""
+    fretamento nem sempre tem conta no Vion."""
     fretamento = db.query(Fretamento).filter(Fretamento.codigo_rastreio == codigo.upper()).first()
     if not fretamento:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Código de rastreio não encontrado")
