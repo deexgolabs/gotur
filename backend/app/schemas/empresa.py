@@ -105,3 +105,9 @@ class LojaInfoOut(BaseModel):
     fretamento_habilitado: bool = True
     passagens_habilitado: bool = True
     frete_habilitado: bool = True
+    # Public Key (não é segredo — é pra rodar no navegador do cliente)
+    # usada pelo Card Payment Brick do Mercado Pago na loja. None =
+    # empresa não configurou Mercado Pago, ou o modo de cobrança não é
+    # automática — nesses casos o cartão não passa pelo gateway, então
+    # não faz sentido montar o Brick (ver frontend/js/mercadopago-checkout.js).
+    mercadopago_public_key: str | None = None

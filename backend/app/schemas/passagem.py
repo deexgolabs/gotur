@@ -18,6 +18,15 @@ class VenderPassagemRequest(BaseModel):
     codigo_cupom: str | None = None
     parceiro_id: int | None = None
 
+    # Só usados quando forma_pagamento == "cartao" — vêm do Card Payment
+    # Brick do Mercado Pago rodando no navegador do cliente (o número do
+    # cartão nunca chega até aqui, só o token já tokenizado). Ver
+    # frontend/js/mercadopago-checkout.js.
+    mp_token: str | None = None
+    mp_payment_method_id: str | None = None
+    mp_installments: int | None = None
+    mp_payer_email: str | None = None
+
 
 class PassagemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

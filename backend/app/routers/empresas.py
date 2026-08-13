@@ -5,7 +5,7 @@ from app.core.deps import get_current_user, require_roles, require_staff
 from app.core.security import hash_senha
 from app.database import get_db
 from app.models.empresa import Empresa
-from app.models.enums import StatusAssinatura, UserRole
+from app.models.enums import ModoCobranca, StatusAssinatura, UserRole
 from app.models.plano import Plano
 from app.models.usuario import Usuario
 from app.schemas.empresa import (
@@ -324,6 +324,7 @@ def info_loja_publica(slug: str, db: Session = Depends(get_db)):
         fretamento_habilitado=empresa.fretamento_habilitado,
         passagens_habilitado=empresa.passagens_habilitado,
         frete_habilitado=empresa.frete_habilitado,
+        mercadopago_public_key=empresa.mercadopago_public_key if empresa.modo_cobranca == ModoCobranca.AUTOMATICA else None,
     )
 
 

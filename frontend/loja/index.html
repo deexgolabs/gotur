@@ -116,8 +116,9 @@
             </select>
             <label for="compra-cupom">Cupom de desconto (opcional)</label>
             <input id="compra-cupom" placeholder="Ex: PROMO10" style="text-transform:uppercase" />
-            <button type="submit">Confirmar compra</button>
+            <button type="submit" id="btn-confirmar-compra">Confirmar compra</button>
           </form>
+          <div id="area-cartao-loja" class="escondido" style="margin-top:12px"></div>
           <div id="area-pix-loja" class="escondido"></div>
         </div>
       </section>
@@ -235,6 +236,7 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/pagamento-pix.js"></script>
+  <script src="/js/mercadopago-checkout.js"></script>
   <script src="/js/push.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/loja.js"></script>

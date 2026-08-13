@@ -27,7 +27,7 @@ from app.services.cupom import CupomInvalido, aplicar_cupom
 from app.services.fidelidade import verificar_e_gerar_cupom_fidelidade
 from app.services.nfse_provider import obter_nfse_provider
 from app.services.notificacoes import enviar_confirmacao_compra
-from app.services.pagamento_provider import obter_provider
+from app.services.pagamento_provider import DadosCartao, obter_configuracao_plataforma, obter_provider
 from app.services.trecho import (
     buscar_paradas_da_rota,
     calcular_preco_trecho,
@@ -220,11 +220,32 @@ def vender_passagem(
     hold_existente = conflito if (conflito and conflito.tipo == TipoOcupacao.HOLD) else None
 
     empresa_da_viagem = db.get(Empresa, viagem.tenant_id)
-    resultado_cobranca = obter_provider(empresa_da_viagem).cobrar(
-        forma_pagamento=dados.forma_pagamento,
-        valor=preco_final,
-        referencia_pedido=f"viagem-{viagem_id}-poltrona-{poltrona.id}",
-    )
+    config_plataforma = obter_configuracao_plataforma(db)
+
+    dados_cartao = None
+    if dados.forma_pagamento == FormaPagamento.CARTAO and dados.mp_token:
+        dados_cartao = DadosCartao(
+            token=dados.mp_token,
+            payment_method_id=dados.mp_payment_method_id or "",
+            installments=dados.mp_installments or 1,
+            payer_email=dados.mp_payer_email,
+            payer_documento=dados.cliente_documento,
+        )
+
+    try:
+        resultado_cobranca = obter_provider(
+            empresa_da_viagem, taxa_transacao_percentual=config_plataforma.taxa_transacao_percentual
+        ).cobrar(
+            forma_pagamento=dados.forma_pagamento,
+            valor=preco_final,
+            referencia_pedido=f"viagem-{viagem_id}-poltrona-{poltrona.id}",
+            dados_cartao=dados_cartao,
+        )
+    except ValueError as erro:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(erro))
+
+    if resultado_cobranca.status == "recusado":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pagamento recusado pelo Mercado Pago. Tente outro cartão.")
 
     if resultado_cobranca.status == "pendente":
         # Pix ainda não caiu: segura o assento até a confirmação (simulada
@@ -263,6 +284,7 @@ def vender_passagem(
             parceiro_id=dados.parceiro_id,
             pix_copia_cola=resultado_cobranca.pix_copia_cola,
             expira_em=resultado_cobranca.pix_expira_em,
+            gateway_ref=resultado_cobranca.gateway_ref,
         )
         db.add(pedido)
         db.commit()

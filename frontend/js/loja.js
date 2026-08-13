@@ -2,6 +2,7 @@ const SLUG = window.__LOJA_SLUG__;
 let BRANDING = null;
 let viagemAtual = null;
 let poltronaSelecionadaId = null;
+let precoSelecionadoLoja = null;
 let retomarAposLogin = null;
 let mapaFretamento, marcadorFretamento, linhaFretamento;
 let mapaFrete, marcadorFrete, linhaFrete;
@@ -199,52 +200,99 @@ async function onClicarPoltronaLoja(el) {
 
   document.getElementById("alerta-compra").innerHTML = "";
   poltronaSelecionadaId = parseInt(el.dataset.id, 10);
+  precoSelecionadoLoja = Number(el.dataset.preco);
   document.getElementById("compra-numero-selecionada").textContent = el.dataset.numero;
-  document.getElementById("compra-preco-selecionada").textContent = `R$ ${Number(el.dataset.preco).toFixed(2)}`;
+  document.getElementById("compra-preco-selecionada").textContent = `R$ ${precoSelecionadoLoja.toFixed(2)}`;
   const auth = obterAuth();
   if (auth && !document.getElementById("compra-nome").value) {
     document.getElementById("compra-nome").value = auth.nome || "";
   }
   document.getElementById("card-form-compra").classList.remove("escondido");
+  atualizarFormaPagamentoLoja();
   carregarMapaLoja();
+}
+
+function tratarRespostaCompraLoja(resposta) {
+  if (resposta.pedido_pagamento) {
+    document.getElementById("form-compra-loja").classList.add("escondido");
+    document.getElementById("area-cartao-loja").classList.add("escondido");
+    const areaPix = document.getElementById("area-pix-loja");
+    areaPix.classList.remove("escondido");
+    renderizarPagamentoPix(areaPix, resposta.pedido_pagamento, {
+      aoConfirmar: (passagem) => {
+        mostrarAlerta(
+          passagem ? `Compra confirmada! Localizador: ${passagem.localizador}` : "Compra confirmada!",
+          "sucesso",
+          "alerta-compra"
+        );
+        setTimeout(() => trocarVista("minhas"), 1200);
+      },
+    });
+    return;
+  }
+
+  mostrarAlerta(`Compra confirmada! Localizador: ${resposta.passagem.localizador}`, "sucesso", "alerta-compra");
+  setTimeout(() => trocarVista("minhas"), 1200);
+}
+
+function dadosBaseCompraLoja(formaPagamento) {
+  return {
+    poltrona_viagem_id: poltronaSelecionadaId,
+    cliente_nome: document.getElementById("compra-nome").value.trim(),
+    cliente_documento: document.getElementById("compra-documento").value.trim(),
+    forma_pagamento: formaPagamento,
+    parada_origem_id: viagemAtual.parada_origem_id,
+    parada_destino_id: viagemAtual.parada_destino_id,
+    codigo_cupom: document.getElementById("compra-cupom").value.trim() || null,
+  };
+}
+
+function atualizarFormaPagamentoLoja() {
+  const forma = document.getElementById("compra-forma").value;
+  const btnConfirmar = document.getElementById("btn-confirmar-compra");
+  const areaCartao = document.getElementById("area-cartao-loja");
+
+  if (forma !== "cartao") {
+    desmontarCheckoutCartaoMP();
+    areaCartao.classList.add("escondido");
+    btnConfirmar.classList.remove("escondido");
+    return;
+  }
+
+  btnConfirmar.classList.add("escondido");
+  areaCartao.classList.remove("escondido");
+  if (!poltronaSelecionadaId) return;
+
+  montarCheckoutCartaoMP("area-cartao-loja", {
+    publicKey: BRANDING.mercadopago_public_key,
+    valor: precoSelecionadoLoja,
+    onPagar: (dadosCartao) =>
+      api("POST", `/viagens/${viagemAtual.id}/passagens`, {
+        ...dadosBaseCompraLoja("cartao"),
+        mp_token: dadosCartao.token,
+        mp_payment_method_id: dadosCartao.payment_method_id,
+        mp_installments: dadosCartao.installments,
+        mp_payer_email: dadosCartao.payer_email,
+      }).then((resposta) => {
+        tratarRespostaCompraLoja(resposta);
+      }),
+  });
 }
 
 function configurarCompra() {
   document.getElementById("btn-voltar-busca").addEventListener("click", () => trocarVista("buscar"));
 
+  document.getElementById("compra-forma").addEventListener("change", atualizarFormaPagamentoLoja);
+
   document.getElementById("form-compra-loja").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     if (!poltronaSelecionadaId) return;
+    const forma = document.getElementById("compra-forma").value;
+    if (forma === "cartao") return; // o próprio Brick tem o botão de pagar
+
     try {
-      const resposta = await api("POST", `/viagens/${viagemAtual.id}/passagens`, {
-        poltrona_viagem_id: poltronaSelecionadaId,
-        cliente_nome: document.getElementById("compra-nome").value.trim(),
-        cliente_documento: document.getElementById("compra-documento").value.trim(),
-        forma_pagamento: document.getElementById("compra-forma").value,
-        parada_origem_id: viagemAtual.parada_origem_id,
-        parada_destino_id: viagemAtual.parada_destino_id,
-        codigo_cupom: document.getElementById("compra-cupom").value.trim() || null,
-      });
-
-      if (resposta.pedido_pagamento) {
-        document.getElementById("form-compra-loja").classList.add("escondido");
-        const areaPix = document.getElementById("area-pix-loja");
-        areaPix.classList.remove("escondido");
-        renderizarPagamentoPix(areaPix, resposta.pedido_pagamento, {
-          aoConfirmar: (passagem) => {
-            mostrarAlerta(
-              passagem ? `Compra confirmada! Localizador: ${passagem.localizador}` : "Compra confirmada!",
-              "sucesso",
-              "alerta-compra"
-            );
-            setTimeout(() => trocarVista("minhas"), 1200);
-          },
-        });
-        return;
-      }
-
-      mostrarAlerta(`Compra confirmada! Localizador: ${resposta.passagem.localizador}`, "sucesso", "alerta-compra");
-      setTimeout(() => trocarVista("minhas"), 1200);
+      const resposta = await api("POST", `/viagens/${viagemAtual.id}/passagens`, dadosBaseCompraLoja(forma));
+      tratarRespostaCompraLoja(resposta);
     } catch (erro) {
       mostrarAlerta(erro.message, "erro", "alerta-compra");
     }
