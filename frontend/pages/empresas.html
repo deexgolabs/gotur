@@ -50,7 +50,7 @@
     <div class="cartao">
       <table>
         <thead>
-          <tr><th>Nome</th><th>CNPJ</th><th>Plano</th><th>Assinatura</th><th>Status</th><th></th></tr>
+          <tr><th>Nome</th><th>CNPJ</th><th>Plano</th><th>Assinatura</th><th>Cobrança</th><th>Status</th><th></th></tr>
         </thead>
         <tbody id="corpo-tabela"></tbody>
       </table>
@@ -141,11 +141,13 @@
           <td>${e.cnpj}</td>
           <td>${e.plano ? e.plano.nome : "—"}</td>
           <td><span class="selo ${SELO_ASSINATURA[e.status_assinatura]}">${ROTULOS_ASSINATURA[e.status_assinatura]}</span></td>
+          <td><span class="selo ${e.isento_cobranca ? "hold" : "livre"}" title="${e.isento_cobranca ? "Não gera fatura nem é suspensa por inadimplência" : "Cobrança normal da assinatura"}">${e.isento_cobranca ? "Isenta (teste)" : "Normal"}</span></td>
           <td><span class="selo ${e.ativo ? "livre" : "bloqueada"}">${e.ativo ? "Ativa" : "Desativada"}</span></td>
           <td>
             <button class="secundario" data-admin="${e.id}" data-nome="${e.nome}">Criar admin</button>
             <button class="secundario" data-plano="${e.id}">Trocar plano</button>
             <button class="secundario" data-faturas="${e.id}" data-nome-fatura="${e.nome}">Faturas</button>
+            ${e.isento_cobranca ? `<button class="secundario" data-cobrar="${e.id}">Cobrar normalmente</button>` : `<button class="secundario" data-isentar="${e.id}">Isentar cobrança</button>`}
             ${e.ativo ? `<button class="perigo" data-desativar="${e.id}">Desativar</button>` : `<button class="secundario" data-ativar="${e.id}">Reativar</button>`}
           </td>
         </tr>`
@@ -203,6 +205,31 @@
 
       corpo.querySelectorAll("button[data-faturas]").forEach((btn) => {
         btn.addEventListener("click", () => abrirFaturas(btn.dataset.faturas, btn.dataset.nomeFatura));
+      });
+
+      corpo.querySelectorAll("button[data-isentar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Isentar essa empresa de cobrança? Ela não vai gerar fatura de assinatura nem ser suspensa por inadimplência (uso pra conta de teste/demonstração).")) return;
+          try {
+            await api("PATCH", `/empresas/${btn.dataset.isentar}/isencao-cobranca`, { isento_cobranca: true });
+            mostrarAlerta("Empresa isenta de cobrança.", "sucesso");
+            carregarEmpresas();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-cobrar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/empresas/${btn.dataset.cobrar}/isencao-cobranca`, { isento_cobranca: false });
+            mostrarAlerta("Empresa volta a ser cobrada normalmente.", "sucesso");
+            carregarEmpresas();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
       });
     }
 

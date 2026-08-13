@@ -29,14 +29,22 @@ def atualizar_situacao_assinaturas(db: Session) -> None:
 
     for empresa_id in empresas_com_atraso:
         empresa = db.get(Empresa, empresa_id)
-        if not empresa or empresa.status_assinatura not in (StatusAssinatura.ATIVA, StatusAssinatura.TRIAL):
+        if not empresa or empresa.isento_cobranca:
+            continue
+        if empresa.status_assinatura not in (StatusAssinatura.ATIVA, StatusAssinatura.TRIAL):
             continue
         empresa.status_assinatura = StatusAssinatura.INADIMPLENTE
         alterou = True
 
-    # Suspende quem está inadimplente há mais que a tolerância.
+    # Suspende quem está inadimplente há mais que a tolerância. Empresa
+    # isenta nunca é suspensa por atraso — mesmo que tenha fatura antiga
+    # de antes de virar isenta.
     limite = hoje - timedelta(days=DIAS_TOLERANCIA_ANTES_DE_SUSPENDER)
-    inadimplentes = db.query(Empresa).filter(Empresa.status_assinatura == StatusAssinatura.INADIMPLENTE).all()
+    inadimplentes = (
+        db.query(Empresa)
+        .filter(Empresa.status_assinatura == StatusAssinatura.INADIMPLENTE, Empresa.isento_cobranca.is_(False))
+        .all()
+    )
     for empresa in inadimplentes:
         fatura_mais_antiga_vencida = (
             db.query(FaturaEmpresa)

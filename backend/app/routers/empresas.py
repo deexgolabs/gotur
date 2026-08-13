@@ -12,6 +12,7 @@ from app.schemas.empresa import (
     ConfiguracaoEmpresaRequest,
     ConfiguracaoFidelidadeRequest,
     ConfiguracaoFretamentoRequest,
+    ConfiguracaoIsencaoRequest,
     ConfiguracaoMarcaRequest,
     ConfiguracaoModulosRequest,
     ConfiguracaoPagamentoRequest,
@@ -140,6 +141,36 @@ def trocar_plano(
         entidade_tipo="empresa",
         entidade_id=empresa.id,
         detalhes=f"Empresa {empresa.nome} -> plano {plano.nome}",
+        tenant_id=empresa.id,
+    )
+
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
+@router.patch("/{empresa_id}/isencao-cobranca", response_model=EmpresaOut)
+def configurar_isencao_cobranca(
+    empresa_id: int,
+    dados: ConfiguracaoIsencaoRequest,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.SUPER_ADMIN)),
+):
+    """Isenta (ou volta a cobrar) a assinatura dessa empresa no GoTur —
+    pra contas de teste/demonstração que não podem gerar fatura nem ser
+    suspensas por inadimplência (ver app/services/faturamento.py e
+    app/services/assinatura.py). Não afeta a cobrança que a empresa faz
+    dos PRÓPRIOS clientes (isso é modo_cobranca, outro campo)."""
+    empresa = _buscar_empresa_ou_404(db, empresa_id)
+    empresa.isento_cobranca = dados.isento_cobranca
+
+    registrar_auditoria(
+        db,
+        usuario=usuario_atual,
+        acao="isencao_cobranca_empresa",
+        entidade_tipo="empresa",
+        entidade_id=empresa.id,
+        detalhes=f"Empresa {empresa.nome} -> isento_cobranca={dados.isento_cobranca}",
         tenant_id=empresa.id,
     )
 

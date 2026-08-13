@@ -62,6 +62,10 @@ class TrocarPlanoRequest(BaseModel):
     plano_id: int
 
 
+class ConfiguracaoIsencaoRequest(BaseModel):
+    isento_cobranca: bool
+
+
 class EmpresaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -92,6 +96,7 @@ class EmpresaOut(BaseModel):
     mercadopago_public_key: str | None = None
     mercadopago_configurado: bool = False
     modo_cobranca: ModoCobranca = ModoCobranca.AUTOMATICA
+    isento_cobranca: bool = False
 
 
 class LojaInfoOut(BaseModel):

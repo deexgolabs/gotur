@@ -6,7 +6,7 @@ from app.models.enums import StatusAssinatura, StatusFatura
 from app.models.fatura_empresa import FaturaEmpresa
 from app.models.plano import Plano
 from app.services.faturamento import gerar_faturas_do_dia
-from tests.helpers import criar_empresa_completa
+from tests.helpers import auth_header, criar_empresa_completa, criar_super_admin, login
 
 
 def _empresa_com_plano(db, sufixo: str, dias_desde_cadastro: int, preco_mensal: float = 100.0):
@@ -130,3 +130,63 @@ def test_empresa_desativada_nao_gera_fatura(db):
     geradas = gerar_faturas_do_dia(db)
 
     assert geradas == []
+
+
+def test_empresa_isenta_de_cobranca_nao_gera_fatura(db):
+    empresa = _empresa_com_plano(db, "FAT9", dias_desde_cadastro=100)
+    empresa.isento_cobranca = True
+    db.commit()
+
+    geradas = gerar_faturas_do_dia(db)
+
+    assert geradas == []
+    assert db.query(FaturaEmpresa).filter(FaturaEmpresa.empresa_id == empresa.id).count() == 0
+
+
+def test_super_admin_isenta_empresa_de_cobranca(client, db):
+    super_admin = criar_super_admin(db, "FATISN1")
+    headers = auth_header(login(client, super_admin["email"], super_admin["senha"]))
+    dados = criar_empresa_completa(db, "FATISN1")
+
+    resposta = client.patch(
+        f"/api/empresas/{dados['empresa_id']}/isencao-cobranca",
+        json={"isento_cobranca": True},
+        headers=headers,
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.json()["isento_cobranca"] is True
+
+    empresa = db.get(Empresa, dados["empresa_id"])
+    assert empresa.isento_cobranca is True
+
+
+def test_super_admin_volta_a_cobrar_empresa_isenta(client, db):
+    super_admin = criar_super_admin(db, "FATISN2")
+    headers = auth_header(login(client, super_admin["email"], super_admin["senha"]))
+    dados = criar_empresa_completa(db, "FATISN2")
+    empresa = db.get(Empresa, dados["empresa_id"])
+    empresa.isento_cobranca = True
+    db.commit()
+
+    resposta = client.patch(
+        f"/api/empresas/{dados['empresa_id']}/isencao-cobranca",
+        json={"isento_cobranca": False},
+        headers=headers,
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.json()["isento_cobranca"] is False
+
+
+def test_admin_empresa_nao_pode_se_isentar_de_cobranca(client, db):
+    dados = criar_empresa_completa(db, "FATISN3")
+    headers = auth_header(login(client, dados["admin_email"], dados["senha"]))
+
+    resposta = client.patch(
+        f"/api/empresas/{dados['empresa_id']}/isencao-cobranca",
+        json={"isento_cobranca": True},
+        headers=headers,
+    )
+
+    assert resposta.status_code == 403

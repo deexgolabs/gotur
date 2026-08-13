@@ -58,6 +58,13 @@ class Empresa(Base):
     mercadopago_public_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
     modo_cobranca: Mapped[ModoCobranca] = mapped_column(SAEnum(ModoCobranca), default=ModoCobranca.AUTOMATICA, nullable=False)
 
+    # Isenção da cobrança da PRÓPRIA assinatura no GoTur (diferente do
+    # modo_cobranca acima, que é sobre o cliente da empresa) — pra contas
+    # de teste/demonstração que o super admin não quer que gerem fatura
+    # nem sejam suspensas por inadimplência. Ver app/services/faturamento.py
+    # e app/services/assinatura.py.
+    isento_cobranca: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     usuarios = relationship("Usuario", back_populates="empresa")
     onibus = relationship("Onibus", back_populates="empresa")
     rotas = relationship("Rota", back_populates="empresa")

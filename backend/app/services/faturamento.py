@@ -68,6 +68,7 @@ def gerar_faturas_do_dia(db: Session, base_url: str = "https://gotur.pythonanywh
             Empresa.ativo.is_(True),
             Empresa.plano_id.isnot(None),
             Empresa.status_assinatura != StatusAssinatura.CANCELADA,
+            Empresa.isento_cobranca.is_(False),
         )
         .all()
     )
