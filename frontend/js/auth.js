@@ -48,12 +48,12 @@ function linksPorPapel(role) {
       { href: "/pages/cupons.html", label: "Cupons", modulo: "passagens", grupo: "Vendas" },
       { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens", grupo: "Vendas" },
       { href: "/pages/onibus.html", label: "Ônibus", grupo: "Frota" },
-      { href: "/pages/motoristas.html", label: "Motoristas", grupo: "Frota" },
+      { href: "/pages/motoristas.html", label: "Motoristas", modulo: "motorista", grupo: "Frota" },
       { href: "/pages/rotas.html", label: "Rotas", modulo: "passagens", grupo: "Frota" },
       { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento", grupo: "Fretamento e frete" },
       { href: "/pages/fretes.html", label: "Fretes", modulo: "frete", grupo: "Fretamento e frete" },
       { href: "/pages/relatorios.html", label: "Relatórios", grupo: "Financeiro" },
-      { href: "/pages/dre.html", label: "DRE", grupo: "Financeiro" },
+      { href: "/pages/dre.html", label: "DRE", modulo: "dre", grupo: "Financeiro" },
       { href: "/pages/minhas-faturas.html", label: "Faturas", grupo: "Financeiro" },
       { href: "/pages/funcionarios.html", label: "Funcionários", grupo: "Equipe" },
       { href: "/pages/parceiros.html", label: "Parceiros", grupo: "Equipe" },
@@ -221,15 +221,18 @@ function montarTopo(containerId) {
       .then((r) => (r.ok ? r.json() : null))
       .then((empresa) => {
         if (!empresa) return;
-        if (!empresa.fretamento_habilitado) {
-          container.querySelectorAll('[data-modulo="fretamento"]').forEach((el) => el.classList.add("escondido"));
-        }
-        if (!empresa.passagens_habilitado) {
-          container.querySelectorAll('[data-modulo="passagens"]').forEach((el) => el.classList.add("escondido"));
-        }
-        if (!empresa.frete_habilitado) {
-          container.querySelectorAll('[data-modulo="frete"]').forEach((el) => el.classList.add("escondido"));
-        }
+        const modulosHabilitados = {
+          fretamento: empresa.fretamento_habilitado,
+          passagens: empresa.passagens_habilitado,
+          frete: empresa.frete_habilitado,
+          motorista: empresa.motorista_habilitado,
+          dre: empresa.dre_habilitado,
+        };
+        Object.entries(modulosHabilitados).forEach(([modulo, habilitado]) => {
+          if (!habilitado) {
+            container.querySelectorAll(`[data-modulo="${modulo}"]`).forEach((el) => el.classList.add("escondido"));
+          }
+        });
         container.querySelectorAll(".nav-grupo").forEach((grupoEl) => {
           const linksDoGrupo = grupoEl.querySelectorAll(".nav-dropdown .link-nav");
           if ([...linksDoGrupo].every((a) => a.classList.contains("escondido"))) {

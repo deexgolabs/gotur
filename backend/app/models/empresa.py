@@ -98,3 +98,25 @@ class Empresa(Base):
     @property
     def mercadopago_configurado(self) -> bool:
         return bool(self.mercadopago_access_token)
+
+    # Diferenciais do plano Completo — sem toggle próprio (diferente dos
+    # três acima), é só o plano que decide.
+    @property
+    def frota_habilitado(self) -> bool:
+        return self.plano.modulo_frota if self.plano else True
+
+    @property
+    def motorista_habilitado(self) -> bool:
+        return self.plano.modulo_motorista if self.plano else True
+
+    @property
+    def dre_habilitado(self) -> bool:
+        return self.plano.modulo_dre if self.plano else True
+
+    @property
+    def white_label_habilitado(self) -> bool:
+        return self.plano.modulo_white_label if self.plano else True
+
+    @property
+    def nfse_habilitado(self) -> bool:
+        return self.plano.modulo_nfse if self.plano else True

@@ -97,6 +97,11 @@ class EmpresaOut(BaseModel):
     mercadopago_configurado: bool = False
     modo_cobranca: ModoCobranca = ModoCobranca.AUTOMATICA
     isento_cobranca: bool = False
+    frota_habilitado: bool = True
+    motorista_habilitado: bool = True
+    dre_habilitado: bool = True
+    white_label_habilitado: bool = True
+    nfse_habilitado: bool = True
 
 
 class LojaInfoOut(BaseModel):

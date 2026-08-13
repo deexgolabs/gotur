@@ -58,6 +58,27 @@
           <input type="checkbox" id="inclui-frete" checked style="width:auto" />
           Inclui frete
         </label>
+        <p class="subtitulo" style="margin:12px 0 4px">Diferenciais premium (plano Completo)</p>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="inclui-frota" checked style="width:auto" />
+          Inclui manutenção de frota
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="inclui-motorista" checked style="width:auto" />
+          Inclui módulo de motoristas
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="inclui-dre" checked style="width:auto" />
+          Inclui DRE
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="inclui-white-label" checked style="width:auto" />
+          Inclui white-label
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="inclui-nfse" checked style="width:auto" />
+          Inclui NFS-e
+        </label>
         <div class="linha-acoes">
           <button type="submit">Cadastrar plano</button>
         </div>
@@ -115,6 +136,27 @@
         <input type="checkbox" id="editar-inclui-frete" style="width:auto" />
         Inclui frete
       </label>
+      <p class="subtitulo" style="margin:12px 0 4px">Diferenciais premium (plano Completo)</p>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+        <input type="checkbox" id="editar-inclui-frota" style="width:auto" />
+        Inclui manutenção de frota
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+        <input type="checkbox" id="editar-inclui-motorista" style="width:auto" />
+        Inclui módulo de motoristas
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+        <input type="checkbox" id="editar-inclui-dre" style="width:auto" />
+        Inclui DRE
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+        <input type="checkbox" id="editar-inclui-white-label" style="width:auto" />
+        Inclui white-label
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+        <input type="checkbox" id="editar-inclui-nfse" style="width:auto" />
+        Inclui NFS-e
+      </label>
       <div class="linha-acoes">
         <button type="submit">Salvar alterações</button>
         <button type="button" class="secundario" id="btn-fechar-editar-plano">Cancelar</button>
@@ -154,6 +196,11 @@
             <span class="selo ${p.modulo_passagens ? "livre" : "bloqueada"}" data-toggle-modulo="passagens" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Viagens</span>
             <span class="selo ${p.modulo_fretamento ? "livre" : "bloqueada"}" data-toggle-modulo="fretamento" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Fretamento</span>
             <span class="selo ${p.modulo_frete ? "livre" : "bloqueada"}" data-toggle-modulo="frete" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Frete</span>
+            <span class="selo ${p.modulo_frota ? "livre" : "bloqueada"}" data-toggle-modulo="frota" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Frota</span>
+            <span class="selo ${p.modulo_motorista ? "livre" : "bloqueada"}" data-toggle-modulo="motorista" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Motoristas</span>
+            <span class="selo ${p.modulo_dre ? "livre" : "bloqueada"}" data-toggle-modulo="dre" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">DRE</span>
+            <span class="selo ${p.modulo_white_label ? "livre" : "bloqueada"}" data-toggle-modulo="white_label" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">White-label</span>
+            <span class="selo ${p.modulo_nfse ? "livre" : "bloqueada"}" data-toggle-modulo="nfse" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">NFS-e</span>
           </td>
           <td><span class="selo ${p.ativo ? "livre" : "bloqueada"}">${p.ativo ? "Ativo" : "Inativo"}</span></td>
           <td>
@@ -193,7 +240,16 @@
       corpo.querySelectorAll("[data-toggle-modulo]").forEach((selo) => {
         selo.addEventListener("click", async () => {
           const plano = lista.find((p) => p.id == selo.dataset.plano);
-          const campo = { passagens: "modulo_passagens", fretamento: "modulo_fretamento", frete: "modulo_frete" }[selo.dataset.toggleModulo];
+          const campo = {
+            passagens: "modulo_passagens",
+            fretamento: "modulo_fretamento",
+            frete: "modulo_frete",
+            frota: "modulo_frota",
+            motorista: "modulo_motorista",
+            dre: "modulo_dre",
+            white_label: "modulo_white_label",
+            nfse: "modulo_nfse",
+          }[selo.dataset.toggleModulo];
           try {
             await api("PATCH", `/planos/${plano.id}`, { [campo]: !plano[campo] });
             carregar();
@@ -217,6 +273,11 @@
       document.getElementById("editar-inclui-passagens").checked = plano.modulo_passagens;
       document.getElementById("editar-inclui-fretamento").checked = plano.modulo_fretamento;
       document.getElementById("editar-inclui-frete").checked = plano.modulo_frete;
+      document.getElementById("editar-inclui-frota").checked = plano.modulo_frota;
+      document.getElementById("editar-inclui-motorista").checked = plano.modulo_motorista;
+      document.getElementById("editar-inclui-dre").checked = plano.modulo_dre;
+      document.getElementById("editar-inclui-white-label").checked = plano.modulo_white_label;
+      document.getElementById("editar-inclui-nfse").checked = plano.modulo_nfse;
       document.getElementById("dialog-editar-plano").showModal();
     }
 
@@ -241,6 +302,11 @@
           modulo_passagens: document.getElementById("editar-inclui-passagens").checked,
           modulo_fretamento: document.getElementById("editar-inclui-fretamento").checked,
           modulo_frete: document.getElementById("editar-inclui-frete").checked,
+          modulo_frota: document.getElementById("editar-inclui-frota").checked,
+          modulo_motorista: document.getElementById("editar-inclui-motorista").checked,
+          modulo_dre: document.getElementById("editar-inclui-dre").checked,
+          modulo_white_label: document.getElementById("editar-inclui-white-label").checked,
+          modulo_nfse: document.getElementById("editar-inclui-nfse").checked,
         });
         document.getElementById("dialog-editar-plano").close();
         mostrarAlerta("Plano atualizado.", "sucesso");
@@ -272,6 +338,11 @@
           modulo_passagens: document.getElementById("inclui-passagens").checked,
           modulo_fretamento: document.getElementById("inclui-fretamento").checked,
           modulo_frete: document.getElementById("inclui-frete").checked,
+          modulo_frota: document.getElementById("inclui-frota").checked,
+          modulo_motorista: document.getElementById("inclui-motorista").checked,
+          modulo_dre: document.getElementById("inclui-dre").checked,
+          modulo_white_label: document.getElementById("inclui-white-label").checked,
+          modulo_nfse: document.getElementById("inclui-nfse").checked,
         });
         ev.target.reset();
         mostrarAlerta("Plano cadastrado com sucesso.", "sucesso");

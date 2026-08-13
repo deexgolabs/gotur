@@ -205,6 +205,8 @@ def configurar_marca(
     """Personalização white-label: slug da loja pública (/loja/{slug}) e cor
     principal usada no tema da loja e nos ícones do PWA."""
     empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
+    if not empresa.white_label_habilitado:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de white-label não está habilitado para sua empresa")
 
     if dados.cor_primaria is not None:
         cor = dados.cor_primaria.strip()
@@ -319,6 +321,8 @@ async def enviar_logo(
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
     empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
+    if not empresa.white_label_habilitado:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de white-label não está habilitado para sua empresa")
 
     if arquivo.content_type not in TIPOS_IMAGEM_ACEITOS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Envie uma imagem PNG, JPEG ou WEBP")

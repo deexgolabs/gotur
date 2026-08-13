@@ -26,4 +26,14 @@ class Plano(Base):
     modulo_passagens: Mapped[bool] = mapped_column(Boolean, default=True)
     modulo_frete: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Diferenciais do plano Completo — sem toggle próprio na Empresa (ao
+    # contrário dos três acima): ou o plano inclui, ou não inclui. Ver
+    # Empresa.frota_habilitado/motorista_habilitado/dre_habilitado/
+    # white_label_habilitado/nfse_habilitado.
+    modulo_frota: Mapped[bool] = mapped_column(Boolean, default=True)
+    modulo_motorista: Mapped[bool] = mapped_column(Boolean, default=True)
+    modulo_dre: Mapped[bool] = mapped_column(Boolean, default=True)
+    modulo_white_label: Mapped[bool] = mapped_column(Boolean, default=True)
+    modulo_nfse: Mapped[bool] = mapped_column(Boolean, default=True)
+
     empresas = relationship("Empresa", back_populates="plano")

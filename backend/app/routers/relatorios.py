@@ -1,11 +1,12 @@
 from datetime import date, datetime, time
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import require_roles
 from app.database import get_db
+from app.models.empresa import Empresa
 from app.models.enums import StatusFatura, StatusFrete, StatusFretamento, StatusPassagem, TipoOcupacao, UserRole
 from app.models.fatura_empresa import FaturaEmpresa
 from app.models.frete import Frete
@@ -201,6 +202,10 @@ def relatorio_dre(
     menos reembolsos e a assinatura do GoTur paga no período. Não é uma
     contabilidade completa (não inclui outras despesas da empresa, como
     combustível ou salário) — é um resumo pra acompanhar receita líquida."""
+    empresa = db.get(Empresa, usuario_atual.tenant_id)
+    if not empresa.dre_habilitado:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de DRE não está habilitado para sua empresa")
+
     inicio_dt = datetime.combine(inicio, time.min)
     fim_dt = datetime.combine(fim, time.max)
 

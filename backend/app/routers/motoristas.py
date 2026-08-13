@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import require_roles
 from app.core.security import hash_senha
 from app.database import get_db
+from app.models.empresa import Empresa
 from app.models.enums import StatusFrete, StatusFretamento, UserRole
 from app.models.frete import Frete
 from app.models.fretamento import Fretamento
@@ -41,6 +42,9 @@ def criar_motorista(
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
+    empresa = db.get(Empresa, usuario_atual.tenant_id)
+    if not empresa.motorista_habilitado:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de motoristas não está habilitado para sua empresa")
     motorista = Motorista(tenant_id=usuario_atual.tenant_id, **dados.model_dump())
     db.add(motorista)
     db.commit()

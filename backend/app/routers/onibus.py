@@ -169,6 +169,9 @@ def criar_documento_onibus(
     seguro, revisão preventiva). Renovar é criar um novo registro — o
     histórico de vencimentos anteriores fica todo visível."""
     onibus = _buscar_onibus_da_empresa(db, onibus_id, usuario_atual)
+    empresa = db.get(Empresa, usuario_atual.tenant_id)
+    if not empresa.frota_habilitado:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de manutenção de frota não está habilitado para sua empresa")
     documento = DocumentoOnibus(
         tenant_id=usuario_atual.tenant_id,
         onibus_id=onibus.id,

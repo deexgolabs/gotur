@@ -1,4 +1,29 @@
+from app.database import SessionLocal
+from app.models.empresa import Empresa
+from app.models.plano import Plano
 from tests.helpers import auth_header, criar_empresa_completa, login
+
+
+def _empresa_com_plano_sem_premium(db, sufixo: str):
+    """Empresa com plano que NÃO inclui frota/motorista/dre/white-label
+    (mas mantém passagens/fretamento/frete ligados) — pra testar os
+    diferenciais do plano Completo isoladamente."""
+    empresa = criar_empresa_completa(db, sufixo)
+    plano = Plano(
+        nome=f"Essencial {sufixo}",
+        preco_mensal=100.0,
+        modulo_frota=False,
+        modulo_motorista=False,
+        modulo_dre=False,
+        modulo_white_label=False,
+        modulo_nfse=False,
+    )
+    db.add(plano)
+    db.flush()
+    db_empresa = db.get(Empresa, empresa["empresa_id"])
+    db_empresa.plano_id = plano.id
+    db.commit()
+    return empresa
 
 
 def test_por_padrao_ambos_modulos_habilitados(client, db):
@@ -95,3 +120,72 @@ def test_plano_sem_modulo_de_fretamento_impede_empresa_de_ligar(client, db):
         headers=headers,
     )
     assert bloqueado.status_code == 403
+
+
+def test_plano_sem_frota_bloqueia_registrar_documento_de_onibus(client, db):
+    empresa = _empresa_com_plano_sem_premium(db, "MOD6")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+
+    bloqueado = client.post(
+        f"/api/onibus/{empresa['onibus_id']}/documentos",
+        json={"tipo": "crlv", "data_vencimento": "2027-01-01"},
+        headers=headers,
+    )
+    assert bloqueado.status_code == 403
+
+
+def test_plano_sem_motorista_bloqueia_cadastro_de_motorista(client, db):
+    empresa = _empresa_com_plano_sem_premium(db, "MOD7")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+
+    bloqueado = client.post("/api/motoristas", json={"nome": "João"}, headers=headers)
+    assert bloqueado.status_code == 403
+
+
+def test_plano_sem_dre_bloqueia_relatorio(client, db):
+    empresa = _empresa_com_plano_sem_premium(db, "MOD8")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+
+    bloqueado = client.get(
+        "/api/relatorios/dre",
+        params={"inicio": "2026-01-01", "fim": "2026-12-31"},
+        headers=headers,
+    )
+    assert bloqueado.status_code == 403
+
+
+def test_plano_sem_white_label_bloqueia_configurar_marca(client, db):
+    empresa = _empresa_com_plano_sem_premium(db, "MOD9")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+
+    bloqueado = client.patch("/api/empresas/minha/marca", json={"cor_primaria": "#123456"}, headers=headers)
+    assert bloqueado.status_code == 403
+
+
+def test_plano_completo_libera_frota_motorista_dre_white_label(client, db):
+    empresa = criar_empresa_completa(db, "MOD10")
+    headers = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+
+    info = client.get("/api/empresas/minha", headers=headers).json()
+    assert info["frota_habilitado"] is True
+    assert info["motorista_habilitado"] is True
+    assert info["dre_habilitado"] is True
+    assert info["white_label_habilitado"] is True
+    assert info["nfse_habilitado"] is True
+
+    ok_motorista = client.post("/api/motoristas", json={"nome": "Maria"}, headers=headers)
+    assert ok_motorista.status_code == 201
+
+    ok_documento = client.post(
+        f"/api/onibus/{empresa['onibus_id']}/documentos",
+        json={"tipo": "crlv", "data_vencimento": "2027-01-01"},
+        headers=headers,
+    )
+    assert ok_documento.status_code == 201
+
+    ok_dre = client.get(
+        "/api/relatorios/dre",
+        params={"inicio": "2026-01-01", "fim": "2026-12-31"},
+        headers=headers,
+    )
+    assert ok_dre.status_code == 200
