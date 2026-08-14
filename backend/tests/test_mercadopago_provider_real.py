@@ -1,7 +1,9 @@
 import json
+import urllib.error
 from unittest.mock import MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 from app.config import settings
 from app.models.enums import FormaPagamento
@@ -109,6 +111,27 @@ def test_sem_taxa_configurada_nao_inclui_application_fee():
         requisicao = mock_urlopen.call_args[0][0]
         corpo_enviado = json.loads(requisicao.data)
         assert "application_fee" not in corpo_enviado
+
+
+def test_mercado_pago_recusa_vira_erro_com_motivo_legivel():
+    """Token inválido, conta sem chave Pix configurada etc. — o Mercado
+    Pago responde 4xx com um corpo de erro. Antes isso vazava como
+    urllib.error.HTTPError puro, virando um 500 sem JSON e quebrando o
+    frontend (JSON.parse do texto "Internal Server Error"). Agora vira um
+    HTTPException 502 com o motivo de verdade, que o frontend consegue
+    mostrar pro usuário."""
+    provider = MercadoPagoProvider("TOKEN-INVALIDO")
+    corpo_erro = json.dumps({"message": "invalid access token", "cause": []}).encode("utf-8")
+
+    with patch("app.services.pagamento_provider.urllib.request.urlopen") as mock_urlopen:
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            url="https://api.mercadopago.com/v1/payments", code=401, msg="Unauthorized", hdrs=None, fp=MagicMock(read=lambda: corpo_erro)
+        )
+        with pytest.raises(HTTPException) as excinfo:
+            provider.cobrar(forma_pagamento=FormaPagamento.PIX, valor=50.0, referencia_pedido="ref-8")
+
+        assert excinfo.value.status_code == 502
+        assert "invalid access token" in excinfo.value.detail
 
 
 def test_consultar_status():

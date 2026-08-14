@@ -36,6 +36,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -139,6 +140,20 @@ def _somente_digitos(texto: str) -> str:
     return "".join(c for c in texto if c.isdigit())
 
 
+def _extrair_mensagem_mp(corpo_erro: str) -> str:
+    """O corpo de erro do Mercado Pago normalmente é um JSON tipo
+    {"message": "...", "cause": [{"description": "..."}]} — pega a
+    descrição mais específica disponível, senão cai pro texto cru."""
+    try:
+        dados = json.loads(corpo_erro)
+    except (json.JSONDecodeError, TypeError):
+        return corpo_erro or "erro desconhecido"
+    causas = dados.get("cause") or []
+    if causas and isinstance(causas, list) and causas[0].get("description"):
+        return causas[0]["description"]
+    return dados.get("message") or corpo_erro
+
+
 class MercadoPagoProvider(PagamentoProvider):
     """Integração real com o Mercado Pago via API REST (Access Token em
     `GOTUR_GATEWAY_API_KEY`, ou por empresa/plataforma — pegue o de
@@ -192,7 +207,16 @@ class MercadoPagoProvider(PagamentoProvider):
         except urllib.error.HTTPError as erro:
             corpo_erro = erro.read().decode("utf-8", errors="ignore")
             logger.error("Mercado Pago recusou a chamada %s %s: %s", metodo, caminho, corpo_erro)
-            raise
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Mercado Pago recusou a cobrança: {_extrair_mensagem_mp(corpo_erro)}",
+            ) from erro
+        except urllib.error.URLError as erro:
+            logger.error("Falha de conexão com o Mercado Pago em %s %s: %s", metodo, caminho, erro)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Não foi possível conectar ao Mercado Pago agora. Tente novamente em instantes.",
+            ) from erro
 
     def _application_fee(self, valor: float) -> float | None:
         if not self.taxa_aplicacao_percentual:

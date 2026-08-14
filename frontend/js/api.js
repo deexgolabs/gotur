@@ -27,7 +27,15 @@ async function api(metodo, caminho, corpo) {
   });
 
   const texto = await resposta.text();
-  const dados = texto ? JSON.parse(texto) : null;
+  let dados = null;
+  if (texto) {
+    try {
+      dados = JSON.parse(texto);
+    } catch (e) {
+      if (!resposta.ok) throw new Error("O servidor teve um problema inesperado. Tente novamente em instantes.");
+      throw new Error("Resposta inesperada do servidor.");
+    }
+  }
 
   if (resposta.status === 401 && auth && auth.access_token) {
     limparAuth();
