@@ -10,6 +10,7 @@ from app.models.empresa import Empresa
 from app.models.enums import TipoOnibus, UserRole
 from app.models.onibus import Onibus, PoltronaOnibus
 from app.models.parada import Parada
+from app.models.plano import Plano
 from app.models.poltrona_viagem import PoltronaViagem
 from app.models.rota import Rota
 from app.models.usuario import Usuario
@@ -30,6 +31,69 @@ try:
         print("Super admin criado: super@gotur.com / super123")
     else:
         print("Super admin já existe.")
+
+    if not db.query(Plano).filter(Plano.nome == "Essencial").first():
+        db.add(
+            Plano(
+                nome="Essencial",
+                descricao="Pra quem tá começando a vender passagem online: controle de poltrona e venda, sem os módulos extras.",
+                preco_mensal=99.00,
+                max_onibus=3,
+                max_funcionarios=5,
+                max_viagens_mes=60,
+                modulo_passagens=True,
+                modulo_fretamento=False,
+                modulo_frete=False,
+                modulo_frota=False,
+                modulo_motorista=False,
+                modulo_dre=False,
+                modulo_white_label=False,
+                modulo_nfse=False,
+            )
+        )
+        print("Plano Essencial criado (R$ 99/mês)")
+
+    if not db.query(Plano).filter(Plano.nome == "Profissional").first():
+        db.add(
+            Plano(
+                nome="Profissional",
+                descricao="Pra viação que já roda fretamento e frete além da linha regular, com mais frota e equipe.",
+                preco_mensal=249.00,
+                max_onibus=15,
+                max_funcionarios=20,
+                max_viagens_mes=400,
+                modulo_passagens=True,
+                modulo_fretamento=True,
+                modulo_frete=True,
+                modulo_frota=False,
+                modulo_motorista=False,
+                modulo_dre=False,
+                modulo_white_label=False,
+                modulo_nfse=False,
+            )
+        )
+        print("Plano Profissional criado (R$ 249/mês)")
+
+    if not db.query(Plano).filter(Plano.nome == "Completo").first():
+        db.add(
+            Plano(
+                nome="Completo",
+                descricao="Tudo liberado: gestão de frota, app do motorista, DRE, loja com a marca própria (white-label) e NFS-e, sem limite de ônibus, funcionários ou viagens.",
+                preco_mensal=499.00,
+                max_onibus=None,
+                max_funcionarios=None,
+                max_viagens_mes=None,
+                modulo_passagens=True,
+                modulo_fretamento=True,
+                modulo_frete=True,
+                modulo_frota=True,
+                modulo_motorista=True,
+                modulo_dre=True,
+                modulo_white_label=True,
+                modulo_nfse=True,
+            )
+        )
+        print("Plano Completo criado (R$ 499/mês)")
 
     empresa = db.query(Empresa).filter(Empresa.cnpj == "00.000.000/0001-00").first()
     if not empresa:
