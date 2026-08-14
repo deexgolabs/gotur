@@ -181,7 +181,11 @@ class MercadoPagoProvider(PagamentoProvider):
     API_BASE = "https://api.mercadopago.com"
 
     def __init__(self, api_key: str, taxa_aplicacao_percentual: float | None = None):
-        self.api_key = api_key
+        # .strip() por segurança: espaço ou quebra de linha colado junto do
+        # token (comum ao copiar do painel do Mercado Pago) quebra o
+        # cabeçalho Authorization e o Mercado Pago responde "authorization
+        # value not present" em vez de um erro de token inválido.
+        self.api_key = api_key.strip()
         # Split de marketplace (ver ConfiguracaoPlataforma.taxa_transacao_percentual)
         # — só tem efeito de verdade se a conta da empresa estiver
         # conectada como sub-conta via OAuth marketplace do Mercado Pago;
