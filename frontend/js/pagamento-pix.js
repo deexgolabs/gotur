@@ -7,6 +7,19 @@ function _pixParseDataUtc(valorIso) {
 function _pixTempoRestante(expiraEm) {
   const ms = _pixParseDataUtc(expiraEm) - new Date();
   if (ms <= 0) return "expirado";
+
+  // Pix expira em minutos, então minutos:segundos faz sentido; boleto
+  // expira em dias, e o mesmo formato viraria algo tipo "4319:59" — ilegível.
+  // Acima de 1h mostra dias/horas (mais grosseiro, mas legível); abaixo
+  // disso mostra o cronômetro fino de sempre.
+  const umaHoraEmMs = 60 * 60000;
+  if (ms >= umaHoraEmMs) {
+    const dias = Math.floor(ms / (24 * umaHoraEmMs));
+    const horas = Math.floor((ms % (24 * umaHoraEmMs)) / umaHoraEmMs);
+    if (dias > 0) return `${dias} dia${dias > 1 ? "s" : ""}${horas > 0 ? ` e ${horas}h` : ""}`;
+    return `${horas}h`;
+  }
+
   const min = Math.floor(ms / 60000);
   const seg = Math.floor((ms % 60000) / 1000);
   return `${min}:${String(seg).padStart(2, "0")}`;
