@@ -19,7 +19,7 @@ def test_webhook_confirma_pedido_pendente_quando_pagamento_aprovado(client, db, 
     db_empresa.mercadopago_access_token = "TOKEN-FAKE-EMPRESA"
     db.commit()
 
-    def cobrar_falso(self, *, forma_pagamento, valor, referencia_pedido, dados_cartao=None):
+    def cobrar_falso(self, *, forma_pagamento, valor, referencia_pedido, dados_cartao=None, dados_boleto=None):
         return pp.ResultadoCobranca(
             gateway_ref="PAY-WEBHOOK-1",
             status="pendente",
@@ -62,7 +62,7 @@ def test_webhook_nao_confirma_quando_mercado_pago_ainda_nao_aprovou(client, db, 
     db_empresa.mercadopago_access_token = "TOKEN-FAKE-EMPRESA"
     db.commit()
 
-    def cobrar_falso(self, *, forma_pagamento, valor, referencia_pedido, dados_cartao=None):
+    def cobrar_falso(self, *, forma_pagamento, valor, referencia_pedido, dados_cartao=None, dados_boleto=None):
         return pp.ResultadoCobranca(
             gateway_ref="PAY-WEBHOOK-2",
             status="pendente",
@@ -121,7 +121,7 @@ def test_webhook_confirma_fatura_pendente_quando_aprovado(client, db, monkeypatc
 
     fatura_id = client.post(f"/api/empresas/{empresa['empresa_id']}/faturas", headers=headers_super).json()["id"]
 
-    def cobrar_falso(self, *, forma_pagamento, valor, referencia_pedido, dados_cartao=None):
+    def cobrar_falso(self, *, forma_pagamento, valor, referencia_pedido, dados_cartao=None, dados_boleto=None):
         return pp.ResultadoCobranca(
             gateway_ref="PAY-WEBHOOK-FATURA-1",
             status="pendente",

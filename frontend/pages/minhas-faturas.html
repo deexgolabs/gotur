@@ -19,6 +19,36 @@
 
     <div id="lista"></div>
     <p class="vazio escondido" id="vazio">Nenhuma fatura ainda.</p>
+
+    <div id="area-forma" class="cartao escondido" style="max-width:420px">
+      <h2 style="margin-top:0">Como você quer pagar?</h2>
+      <div class="grid-form">
+        <label><input type="radio" name="forma-pagamento" value="pix" checked /> Pix</label>
+        <label><input type="radio" name="forma-pagamento" value="cartao" /> Cartão de crédito</label>
+        <label><input type="radio" name="forma-pagamento" value="boleto" /> Boleto</label>
+      </div>
+
+      <div id="area-cartao-fatura" class="escondido" style="margin-top:12px"></div>
+
+      <form id="form-boleto" class="escondido" style="margin-top:12px">
+        <div class="grid-form">
+          <div><label for="boleto-nome">Nome completo</label><input id="boleto-nome" required /></div>
+          <div><label for="boleto-cpf-cnpj">CPF/CNPJ</label><input id="boleto-cpf-cnpj" required /></div>
+          <div><label for="boleto-cep">CEP</label><input id="boleto-cep" required /></div>
+          <div><label for="boleto-logradouro">Rua/Av</label><input id="boleto-logradouro" required /></div>
+          <div><label for="boleto-numero">Número</label><input id="boleto-numero" required /></div>
+          <div><label for="boleto-bairro">Bairro</label><input id="boleto-bairro" required /></div>
+          <div><label for="boleto-cidade">Cidade</label><input id="boleto-cidade" required /></div>
+          <div><label for="boleto-uf">UF</label><input id="boleto-uf" maxlength="2" required /></div>
+        </div>
+      </form>
+
+      <div class="linha-acoes">
+        <button type="button" id="btn-confirmar-pix">Gerar Pix</button>
+        <button type="button" class="secundario" id="btn-cancelar-forma">Cancelar</button>
+      </div>
+    </div>
+
     <div id="area-pix" class="escondido" style="max-width:420px"></div>
   </main>
 
@@ -26,22 +56,58 @@
   <script src="/js/auth.js"></script>
   <script src="/js/pwa.js"></script>
   <script src="/js/pagamento-pix.js"></script>
+  <script src="/js/mercadopago-checkout.js"></script>
   <script>
     const auth = exigirPapel("admin_empresa");
     const ROTULOS = { pendente: "Pendente", paga: "Paga", falhou: "Falhou", cancelada: "Cancelada" };
     const SELOS = { pendente: "hold", paga: "livre", falhou: "bloqueada", cancelada: "bloqueada" };
+    const ROTULOS_FORMA = { pix: "Pix", cartao: "cartão", boleto: "boleto" };
+    let faturaEmAndamentoId = null;
+    let chavePublicaMp = null;
+    let faturasCache = [];
 
     function mostrarAlerta(mensagem, tipo = "erro") {
       document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
       if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
     }
 
+    function pedidoNormalizadoDaFatura(fatura) {
+      return {
+        id: fatura.id,
+        valor: fatura.valor,
+        forma_pagamento: fatura.forma_pagamento,
+        pix_copia_cola: fatura.pix_copia_cola,
+        boleto_url: fatura.boleto_url,
+        boleto_codigo_barras: fatura.boleto_codigo_barras,
+        expira_em: fatura.pix_expira_em,
+        pagamento_simulado: fatura.pagamento_simulado,
+      };
+    }
+
+    function mostrarWidgetPagamento(fatura) {
+      const areaPix = document.getElementById("area-pix");
+      areaPix.classList.remove("escondido");
+      document.getElementById("area-forma").classList.add("escondido");
+      areaPix.scrollIntoView({ behavior: "smooth", block: "center" });
+      renderizarPagamentoPix(areaPix, pedidoNormalizadoDaFatura(fatura), {
+        endpointConfirmar: `/faturas/${fatura.id}/confirmar-simulado`,
+        semPolling: true,
+        aoConfirmar: () => {
+          areaPix.classList.add("escondido");
+          mostrarAlerta("Pagamento confirmado. Obrigado!", "sucesso");
+          carregar();
+        },
+      });
+    }
+
     async function carregar() {
       const lista = await api("GET", "/faturas/minhas");
+      faturasCache = lista;
       document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
       document.getElementById("lista").innerHTML = lista
-        .map(
-          (f) => `
+        .map((f) => {
+          const temPendenciaAberta = f.status === "pendente" && (f.pix_copia_cola || f.boleto_codigo_barras);
+          return `
         <div class="cartao" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
           <div>
             <div style="font-weight:700">Plano ${f.plano_nome || ""}</div>
@@ -50,48 +116,113 @@
           <div style="text-align:right">
             <div style="margin-bottom:8px"><span class="selo ${SELOS[f.status]}">${ROTULOS[f.status]}</span></div>
             <div style="font-weight:700;margin-bottom:8px">R$ ${Number(f.valor).toFixed(2)}</div>
-            ${f.status === "pendente" && f.pix_copia_cola ? `<button data-continuar="${f.id}">Continuar pagamento Pix</button>` : ""}
-            ${f.status === "pendente" && !f.pix_copia_cola ? `<button data-pagar="${f.id}">Pagar via Pix</button>` : ""}
+            ${
+              temPendenciaAberta
+                ? `<button data-continuar="${f.id}">Continuar pagamento ${ROTULOS_FORMA[f.forma_pagamento] || ""}</button>`
+                : f.status === "pendente"
+                ? `<button data-pagar="${f.id}">Pagar fatura</button>`
+                : ""
+            }
           </div>
-        </div>`
-        )
+        </div>`;
+        })
         .join("");
 
-      async function iniciarPagamento(faturaId) {
-        try {
-          const fatura = await api("POST", `/faturas/${faturaId}/pagar`);
-          if (fatura.status === "paga") {
-            mostrarAlerta("Pagamento confirmado. Obrigado!", "sucesso");
-            carregar();
-            return;
-          }
-          const areaPix = document.getElementById("area-pix");
-          areaPix.classList.remove("escondido");
-          areaPix.scrollIntoView({ behavior: "smooth", block: "center" });
-          const pedidoNormalizado = {
-            id: fatura.id,
-            valor: fatura.valor,
-            pix_copia_cola: fatura.pix_copia_cola,
-            expira_em: fatura.pix_expira_em,
-          };
-          renderizarPagamentoPix(areaPix, pedidoNormalizado, {
-            endpointConfirmar: `/faturas/${faturaId}/confirmar-simulado`,
-            semPolling: true,
-            aoConfirmar: () => {
-              areaPix.classList.add("escondido");
-              mostrarAlerta("Pagamento confirmado. Obrigado!", "sucesso");
-              carregar();
-            },
-          });
-        } catch (erro) {
-          mostrarAlerta(erro.message);
-        }
-      }
+      document.querySelectorAll("button[data-continuar]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const fatura = lista.find((f) => f.id === Number(btn.dataset.continuar));
+          if (fatura) mostrarWidgetPagamento(fatura);
+        });
+      });
 
-      document.querySelectorAll("button[data-pagar], button[data-continuar]").forEach((btn) => {
-        btn.addEventListener("click", () => iniciarPagamento(btn.dataset.pagar || btn.dataset.continuar));
+      document.querySelectorAll("button[data-pagar]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirSelecaoDeForma(Number(btn.dataset.pagar)));
       });
     }
+
+    function atualizarFormaSelecionada() {
+      const forma = document.querySelector('input[name="forma-pagamento"]:checked').value;
+      document.getElementById("area-cartao-fatura").classList.toggle("escondido", forma !== "cartao");
+      document.getElementById("form-boleto").classList.toggle("escondido", forma !== "boleto");
+      document.getElementById("btn-confirmar-pix").classList.toggle("escondido", forma === "cartao");
+      document.getElementById("btn-confirmar-pix").textContent = forma === "boleto" ? "Gerar boleto" : "Gerar Pix";
+
+      if (forma === "cartao") {
+        montarCartaoFatura();
+      } else {
+        desmontarCheckoutCartaoMP();
+      }
+    }
+
+    async function montarCartaoFatura() {
+      if (!chavePublicaMp) {
+        try {
+          const resposta = await api("GET", "/plataforma/chave-publica-mercadopago");
+          chavePublicaMp = resposta.public_key;
+        } catch (erro) {
+          chavePublicaMp = null;
+        }
+      }
+      const fatura = faturasCache.find((f) => f.id === faturaEmAndamentoId);
+      montarCheckoutCartaoMP("area-cartao-fatura", {
+        publicKey: chavePublicaMp,
+        valor: fatura ? fatura.valor : 0,
+        onPagar: (dadosCartao) =>
+          api("POST", `/faturas/${faturaEmAndamentoId}/pagar`, {
+            forma_pagamento: "cartao",
+            mp_token: dadosCartao.token,
+            mp_payment_method_id: dadosCartao.payment_method_id,
+            mp_installments: dadosCartao.installments,
+            mp_payer_email: dadosCartao.payer_email,
+          }).then((fatura) => {
+            document.getElementById("area-forma").classList.add("escondido");
+            mostrarAlerta("Pagamento confirmado. Obrigado!", "sucesso");
+            carregar();
+          }),
+      });
+    }
+
+    function abrirSelecaoDeForma(faturaId) {
+      faturaEmAndamentoId = faturaId;
+      document.getElementById("area-forma").classList.remove("escondido");
+      document.getElementById("area-forma").scrollIntoView({ behavior: "smooth", block: "center" });
+      document.querySelector('input[name="forma-pagamento"][value="pix"]').checked = true;
+      atualizarFormaSelecionada();
+    }
+
+    document.querySelectorAll('input[name="forma-pagamento"]').forEach((r) => r.addEventListener("change", atualizarFormaSelecionada));
+
+    document.getElementById("btn-cancelar-forma").addEventListener("click", () => {
+      desmontarCheckoutCartaoMP();
+      document.getElementById("area-forma").classList.add("escondido");
+    });
+
+    document.getElementById("btn-confirmar-pix").addEventListener("click", async () => {
+      const forma = document.querySelector('input[name="forma-pagamento"]:checked').value;
+      const corpo = { forma_pagamento: forma };
+      if (forma === "boleto") {
+        corpo.boleto_nome = document.getElementById("boleto-nome").value.trim();
+        corpo.boleto_cpf_cnpj = document.getElementById("boleto-cpf-cnpj").value.trim();
+        corpo.boleto_cep = document.getElementById("boleto-cep").value.trim();
+        corpo.boleto_logradouro = document.getElementById("boleto-logradouro").value.trim();
+        corpo.boleto_numero = document.getElementById("boleto-numero").value.trim();
+        corpo.boleto_bairro = document.getElementById("boleto-bairro").value.trim();
+        corpo.boleto_cidade = document.getElementById("boleto-cidade").value.trim();
+        corpo.boleto_uf = document.getElementById("boleto-uf").value.trim().toUpperCase();
+      }
+      try {
+        const fatura = await api("POST", `/faturas/${faturaEmAndamentoId}/pagar`, corpo);
+        if (fatura.status === "paga") {
+          document.getElementById("area-forma").classList.add("escondido");
+          mostrarAlerta("Pagamento confirmado. Obrigado!", "sucesso");
+          carregar();
+          return;
+        }
+        mostrarWidgetPagamento(fatura);
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
 
     if (auth) {
       montarTopo("topo");

@@ -5,7 +5,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.models.enums import StatusFatura
+from app.models.enums import FormaPagamento, StatusFatura
 
 
 class FaturaEmpresa(Base):
@@ -23,8 +23,11 @@ class FaturaEmpresa(Base):
     vencimento: Mapped[date] = mapped_column(Date, nullable=False)
     pago_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     gateway_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    forma_pagamento: Mapped[FormaPagamento | None] = mapped_column(SAEnum(FormaPagamento), nullable=True)
     pix_copia_cola: Mapped[str | None] = mapped_column(String(300), nullable=True)
     pix_expira_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    boleto_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    boleto_codigo_barras: Mapped[str | None] = mapped_column(String(60), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     empresa = relationship("Empresa", back_populates="faturas")

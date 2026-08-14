@@ -53,6 +53,8 @@ class ResultadoCobranca:
     status: str  # "pendente" | "aprovado" | "recusado"
     pix_copia_cola: str | None = None
     pix_expira_em: datetime | None = None
+    boleto_url: str | None = None
+    boleto_codigo_barras: str | None = None
 
 
 @dataclass
@@ -68,6 +70,23 @@ class DadosCartao:
     payer_documento: str | None = None  # CPF/CNPJ — a maioria dos emissores brasileiros exige
 
 
+@dataclass
+class DadosBoleto:
+    """O Mercado Pago exige endereço completo do pagador pra emitir
+    boleto (não pede isso pra Pix nem cartão) — sem isso a API recusa a
+    cobrança."""
+
+    cpf_cnpj: str
+    nome: str
+    cep: str
+    logradouro: str
+    numero: str
+    bairro: str
+    cidade: str
+    uf: str
+    email: str | None = None
+
+
 class PagamentoProvider(ABC):
     @abstractmethod
     def cobrar(
@@ -77,6 +96,7 @@ class PagamentoProvider(ABC):
         valor: float,
         referencia_pedido: str,
         dados_cartao: DadosCartao | None = None,
+        dados_boleto: DadosBoleto | None = None,
     ) -> ResultadoCobranca:
         ...
 
@@ -90,11 +110,24 @@ def _gerar_pix_copia_cola_simulado(valor: float, referencia_pedido: str) -> str:
     return f"00020126SIMULADO-GOTUR{referencia_pedido}5204000053039865{len(valor_formatado)}{valor_formatado}5802BR6009GOTUR SIM62070503{identificador}6304SIMU"
 
 
+def _gerar_boleto_simulado() -> str:
+    """Linha digitável no formato visual de um boleto (47 dígitos), mas de
+    mentira — não é aceita por nenhum banco. Só pra tela de pagamento
+    simulado mostrar algo com a cara de um boleto de verdade."""
+    return "".join(secrets.choice("0123456789") for _ in range(47))
+
+
 class PagamentoSimuladoProvider(PagamentoProvider):
     """Provider padrão (v2) quando nenhum gateway real está configurado."""
 
     def cobrar(
-        self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str, dados_cartao: DadosCartao | None = None
+        self,
+        *,
+        forma_pagamento: FormaPagamento,
+        valor: float,
+        referencia_pedido: str,
+        dados_cartao: DadosCartao | None = None,
+        dados_boleto: DadosBoleto | None = None,
     ) -> ResultadoCobranca:
         if forma_pagamento == FormaPagamento.PIX:
             return ResultadoCobranca(
@@ -102,6 +135,13 @@ class PagamentoSimuladoProvider(PagamentoProvider):
                 status="pendente",
                 pix_copia_cola=_gerar_pix_copia_cola_simulado(valor, referencia_pedido),
                 pix_expira_em=datetime.now(timezone.utc) + timedelta(minutes=settings.pix_expiracao_minutos),
+            )
+        if forma_pagamento == FormaPagamento.BOLETO:
+            return ResultadoCobranca(
+                gateway_ref=None,
+                status="pendente",
+                boleto_codigo_barras=_gerar_boleto_simulado(),
+                pix_expira_em=datetime.now(timezone.utc) + timedelta(days=3),
             )
         return ResultadoCobranca(gateway_ref=None, status="aprovado")
 
@@ -113,7 +153,13 @@ class PagamentoManualProvider(PagamentoProvider):
     dinheiro) e só quer usar o GoTur pra controlar poltrona/vaga."""
 
     def cobrar(
-        self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str, dados_cartao: DadosCartao | None = None
+        self,
+        *,
+        forma_pagamento: FormaPagamento,
+        valor: float,
+        referencia_pedido: str,
+        dados_cartao: DadosCartao | None = None,
+        dados_boleto: DadosBoleto | None = None,
     ) -> ResultadoCobranca:
         return ResultadoCobranca(gateway_ref=None, status="aprovado")
 
@@ -126,7 +172,13 @@ class PagamentoPendenteManualProvider(PagamentoProvider):
     liberada (em vez de aprovar tudo sozinho, como em DESATIVADA)."""
 
     def cobrar(
-        self, *, forma_pagamento: FormaPagamento, valor: float, referencia_pedido: str, dados_cartao: DadosCartao | None = None
+        self,
+        *,
+        forma_pagamento: FormaPagamento,
+        valor: float,
+        referencia_pedido: str,
+        dados_cartao: DadosCartao | None = None,
+        dados_boleto: DadosBoleto | None = None,
     ) -> ResultadoCobranca:
         return ResultadoCobranca(
             gateway_ref=None,
@@ -237,11 +289,14 @@ class MercadoPagoProvider(PagamentoProvider):
         valor: float,
         referencia_pedido: str,
         dados_cartao: DadosCartao | None = None,
+        dados_boleto: DadosBoleto | None = None,
     ) -> ResultadoCobranca:
         if forma_pagamento == FormaPagamento.PIX:
             return self._cobrar_pix(valor, referencia_pedido)
         if forma_pagamento == FormaPagamento.CARTAO:
             return self._cobrar_cartao(valor, referencia_pedido, dados_cartao)
+        if forma_pagamento == FormaPagamento.BOLETO:
+            return self._cobrar_boleto(valor, referencia_pedido, dados_boleto)
         # Dinheiro/outro: pago por fora, nada a cobrar no gateway.
         return ResultadoCobranca(gateway_ref=None, status="aprovado")
 
@@ -304,6 +359,53 @@ class MercadoPagoProvider(PagamentoProvider):
             status_local = "pendente"
 
         return ResultadoCobranca(gateway_ref=str(resultado["id"]), status=status_local)
+
+    def _cobrar_boleto(self, valor: float, referencia_pedido: str, dados_boleto: DadosBoleto | None) -> ResultadoCobranca:
+        if not dados_boleto:
+            raise ValueError("Pagamento por boleto exige nome, CPF/CNPJ e endereço completo do pagador.")
+
+        digitos = _somente_digitos(dados_boleto.cpf_cnpj)
+        partes_nome = dados_boleto.nome.strip().split(" ", 1)
+        primeiro_nome = partes_nome[0]
+        sobrenome = partes_nome[1] if len(partes_nome) > 1 else primeiro_nome
+
+        corpo = {
+            "transaction_amount": round(float(valor), 2),
+            "description": f"GoTur - {referencia_pedido}",
+            "payment_method_id": "bolbradesco",
+            "payer": {
+                "email": dados_boleto.email or f"comprador+{referencia_pedido}@gotur.app",
+                "first_name": primeiro_nome,
+                "last_name": sobrenome,
+                "identification": {"type": "CPF" if len(digitos) <= 11 else "CNPJ", "number": digitos},
+                "address": {
+                    "zip_code": _somente_digitos(dados_boleto.cep),
+                    "street_name": dados_boleto.logradouro,
+                    "street_number": dados_boleto.numero,
+                    "neighborhood": dados_boleto.bairro,
+                    "city": dados_boleto.cidade,
+                    "federal_unit": dados_boleto.uf,
+                },
+            },
+            "notification_url": self._notification_url(),
+        }
+        taxa = self._application_fee(valor)
+        if taxa:
+            corpo["application_fee"] = taxa
+
+        resultado = self._chamar("POST", "/v1/payments", corpo)
+
+        detalhes = resultado.get("transaction_details", {}) or {}
+        barcode = resultado.get("barcode", {}) or {}
+        expira_em = resultado.get("date_of_expiration")
+
+        return ResultadoCobranca(
+            gateway_ref=str(resultado["id"]),
+            status="pendente" if resultado.get("status") == "pending" else "aprovado",
+            boleto_url=detalhes.get("external_resource_url"),
+            boleto_codigo_barras=barcode.get("content"),
+            pix_expira_em=datetime.fromisoformat(expira_em) if expira_em else datetime.now(timezone.utc) + timedelta(days=3),
+        )
 
     def consultar_status(self, gateway_ref: str) -> str:
         """`status` bruto do Mercado Pago: "pending", "approved", "rejected"

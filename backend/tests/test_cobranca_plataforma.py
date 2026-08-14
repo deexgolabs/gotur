@@ -124,3 +124,68 @@ def test_fatura_em_modo_desativada_e_paga_na_hora(client, db):
     pagar = client.post(f"/api/faturas/{fatura_id}/pagar", headers=headers_empresa)
     assert pagar.status_code == 200
     assert pagar.json()["status"] == "paga"
+
+
+def test_pagar_fatura_com_cartao_simulado_aprova_na_hora(client, db):
+    empresa, headers_super = _empresa_com_plano(client, db, "CP6")
+    fatura_id = client.post(f"/api/empresas/{empresa['empresa_id']}/faturas", headers=headers_super).json()["id"]
+
+    headers_empresa = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+    pagar = client.post(
+        f"/api/faturas/{fatura_id}/pagar",
+        json={"forma_pagamento": "cartao", "mp_token": "TOK", "mp_payment_method_id": "visa"},
+        headers=headers_empresa,
+    )
+    assert pagar.status_code == 200, pagar.text
+    corpo = pagar.json()
+    assert corpo["status"] == "paga"
+    assert corpo["forma_pagamento"] == "cartao"
+
+
+def test_pagar_fatura_com_boleto_simulado_fica_pendente(client, db):
+    empresa, headers_super = _empresa_com_plano(client, db, "CP7")
+    fatura_id = client.post(f"/api/empresas/{empresa['empresa_id']}/faturas", headers=headers_super).json()["id"]
+
+    headers_empresa = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+    pagar = client.post(
+        f"/api/faturas/{fatura_id}/pagar",
+        json={"forma_pagamento": "boleto"},
+        headers=headers_empresa,
+    )
+    assert pagar.status_code == 200, pagar.text
+    corpo = pagar.json()
+    assert corpo["status"] == "pendente"
+    assert corpo["forma_pagamento"] == "boleto"
+    assert corpo["boleto_codigo_barras"]
+
+    confirmar = client.post(f"/api/faturas/{fatura_id}/confirmar-simulado", headers=headers_empresa)
+    assert confirmar.status_code == 200
+    assert confirmar.json()["status"] == "paga"
+
+
+def test_pagamento_simulado_fica_falso_com_gateway_real_configurado(client, db):
+    empresa, headers_super = _empresa_com_plano(client, db, "CP8")
+    fatura_id = client.post(f"/api/empresas/{empresa['empresa_id']}/faturas", headers=headers_super).json()["id"]
+
+    resposta_antes = client.get("/api/faturas/minhas", headers=auth_header(login(client, empresa["admin_email"], empresa["senha"])))
+    assert resposta_antes.json()[0]["pagamento_simulado"] is True
+
+    client.patch(
+        "/api/plataforma/cobranca",
+        json={"mercadopago_access_token": "TOKEN-REAL", "mercadopago_public_key": "chave-publica"},
+        headers=headers_super,
+    )
+
+    headers_empresa = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+    resposta_depois = client.get("/api/faturas/minhas", headers=headers_empresa)
+    assert resposta_depois.json()[0]["pagamento_simulado"] is False
+
+
+def test_chave_publica_mercadopago_visivel_pro_admin_da_empresa(client, db):
+    empresa, headers_super = _empresa_com_plano(client, db, "CP9")
+    client.patch("/api/plataforma/cobranca", json={"mercadopago_public_key": "chave-publica-xyz"}, headers=headers_super)
+
+    headers_empresa = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
+    resposta = client.get("/api/plataforma/chave-publica-mercadopago", headers=headers_empresa)
+    assert resposta.status_code == 200
+    assert resposta.json()["public_key"] == "chave-publica-xyz"

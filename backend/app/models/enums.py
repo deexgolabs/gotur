@@ -53,6 +53,7 @@ class FormaPagamento(str, enum.Enum):
     DINHEIRO = "dinheiro"
     CARTAO = "cartao"
     PIX = "pix"
+    BOLETO = "boleto"
     OUTRO = "outro"
 
 

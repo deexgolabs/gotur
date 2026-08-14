@@ -28,7 +28,7 @@ def _expirar_se_vencido(db: Session, pedido: PedidoPagamento) -> None:
         db.refresh(pedido)
 
 
-def _para_out(pedido: PedidoPagamento, paradas_por_id: dict[int, Parada]) -> PedidoPagamentoOut:
+def _para_out(pedido: PedidoPagamento, paradas_por_id: dict[int, Parada], *, pagamento_simulado: bool) -> PedidoPagamentoOut:
     parada_origem = paradas_por_id.get(pedido.parada_origem_id)
     parada_destino = paradas_por_id.get(pedido.parada_destino_id)
     return PedidoPagamentoOut(
@@ -46,6 +46,7 @@ def _para_out(pedido: PedidoPagamento, paradas_por_id: dict[int, Parada]) -> Ped
         poltrona_numero=pedido.poltrona_viagem.poltrona_onibus.numero if pedido.poltrona_viagem else None,
         origem_trecho=parada_origem.nome if parada_origem else None,
         destino_trecho=parada_destino.nome if parada_destino else None,
+        pagamento_simulado=pagamento_simulado,
     )
 
 
@@ -77,7 +78,8 @@ def listar_pedidos_pendentes_da_viagem(
     ids_paradas = {p.parada_origem_id for p in ainda_pendentes} | {p.parada_destino_id for p in ainda_pendentes}
     paradas_por_id = {p.id: p for p in db.query(Parada).filter(Parada.id.in_(ids_paradas)).all()} if ids_paradas else {}
 
-    return [_para_out(p, paradas_por_id) for p in ainda_pendentes]
+    simulado = modo_simulado(empresa=db.get(Empresa, viagem.tenant_id))
+    return [_para_out(p, paradas_por_id, pagamento_simulado=simulado) for p in ainda_pendentes]
 
 
 def _buscar_pedido_do_usuario(db: Session, pedido_id: int, usuario_atual: Usuario) -> PedidoPagamento:
@@ -106,7 +108,9 @@ def consultar_pedido(
     usuario_atual: Usuario = Depends(get_current_user),
 ):
     pedido = _buscar_pedido_do_usuario(db, pedido_id, usuario_atual)
-    return PedidoPagamentoOut.model_validate(pedido)
+    saida = PedidoPagamentoOut.model_validate(pedido)
+    saida.pagamento_simulado = modo_simulado(empresa=db.get(Empresa, pedido.tenant_id))
+    return saida
 
 
 def confirmar_pedido_pagamento(db: Session, pedido: PedidoPagamento, gateway_ref: str):

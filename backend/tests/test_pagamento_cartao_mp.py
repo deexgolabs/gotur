@@ -16,7 +16,7 @@ def test_compra_com_cartao_via_mercadopago_aprova_na_hora(client, db, monkeypatc
 
     capturado = {}
 
-    def cobrar_falso(self, *, forma_pagamento, valor, referencia_pedido, dados_cartao=None):
+    def cobrar_falso(self, *, forma_pagamento, valor, referencia_pedido, dados_cartao=None, dados_boleto=None):
         capturado["dados_cartao"] = dados_cartao
         return pp.ResultadoCobranca(gateway_ref="CARD-PAY-1", status="aprovado")
 
@@ -54,7 +54,7 @@ def test_compra_com_cartao_recusado_nao_vende_passagem(client, db, monkeypatch):
     db_empresa.mercadopago_access_token = "TOKEN-FAKE-EMPRESA"
     db.commit()
 
-    def cobrar_falso(self, *, forma_pagamento, valor, referencia_pedido, dados_cartao=None):
+    def cobrar_falso(self, *, forma_pagamento, valor, referencia_pedido, dados_cartao=None, dados_boleto=None):
         return pp.ResultadoCobranca(gateway_ref="CARD-PAY-2", status="recusado")
 
     monkeypatch.setattr(pp.MercadoPagoProvider, "cobrar", cobrar_falso)

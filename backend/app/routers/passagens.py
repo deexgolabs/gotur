@@ -28,7 +28,7 @@ from app.services.fidelidade import verificar_e_gerar_cupom_fidelidade
 from app.services.indicacao import verificar_e_gerar_cupons_indicacao
 from app.services.nfse_provider import obter_nfse_provider
 from app.services.notificacoes import enviar_confirmacao_compra
-from app.services.pagamento_provider import DadosCartao, obter_configuracao_plataforma, obter_provider
+from app.services.pagamento_provider import DadosCartao, modo_simulado, obter_configuracao_plataforma, obter_provider
 from app.services.trecho import (
     buscar_paradas_da_rota,
     calcular_preco_trecho,
@@ -291,7 +291,9 @@ def vender_passagem(
         db.add(pedido)
         db.commit()
         db.refresh(pedido)
-        return CompraPassagemResponse(pedido_pagamento=PedidoPagamentoOut.model_validate(pedido))
+        saida_pedido = PedidoPagamentoOut.model_validate(pedido)
+        saida_pedido.pagamento_simulado = modo_simulado(empresa=empresa_da_viagem)
+        return CompraPassagemResponse(pedido_pagamento=saida_pedido)
 
     passagem = _criar_passagem_confirmada(
         db,

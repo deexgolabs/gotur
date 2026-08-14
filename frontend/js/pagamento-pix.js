@@ -38,36 +38,40 @@ function renderizarPagamentoPix(container, pedido, opcoes = {}) {
     intervalo = null;
   }
 
-  // Sem `forma_pagamento` (ex: fatura da assinatura, que reaproveita este
-  // mesmo componente) trata como Pix — é o único meio que a fatura usa.
+  // Sem `forma_pagamento` (ex: passagem/pedido antigo) trata como Pix.
   const ehPix = !pedido.forma_pagamento || pedido.forma_pagamento === "pix";
+  const ehBoleto = pedido.forma_pagamento === "boleto";
+  const ehManualGenerico = !ehPix && !ehBoleto;
+
+  // Controla se mostra o botão "Já paguei" — com um gateway real
+  // configurado (mesmo em ambiente de teste do Mercado Pago), esse botão
+  // só ia dar erro de "confirmação manual desabilitada", então nesse caso
+  // só mostra que está esperando a confirmação automática. Vem de
+  // `pedido.pagamento_simulado` (é assim que a API já manda), com
+  // `opcoes.ehSimulado` como override explícito se precisar.
+  const ehSimulado = opcoes.ehSimulado !== undefined ? opcoes.ehSimulado !== false : pedido.pagamento_simulado !== false;
+
+  function _blocoConfirmarOuAguardar(rotulo) {
+    if (ehSimulado) {
+      return `<button type="button" id="pix-confirmar">Já paguei — confirmar pagamento</button>
+        <p class="rodape-form">Ambiente simulado: nenhuma cobrança real é feita. Este botão simula a confirmação que um gateway de pagamento real enviaria automaticamente assim que o pagamento cair.</p>`;
+    }
+    return `<p class="rodape-form">Assim que o pagamento cair, a confirmação é automática — não precisa fazer nada além de pagar o ${rotulo} acima.</p>`;
+  }
 
   function render() {
-    container.innerHTML = ehPix
-      ? `
+    if (ehPix) {
+      container.innerHTML = `
       <div class="pix-caixa">
         <h3>Pagamento via Pix</h3>
         <p>Escaneie ou copie o código abaixo no app do seu banco. Valor: <strong>R$ ${Number(pedido.valor).toFixed(2)}</strong></p>
         <textarea readonly class="pix-codigo" id="pix-codigo">${pedido.pix_copia_cola}</textarea>
         <button type="button" class="secundario" id="pix-copiar">Copiar código</button>
         <p class="pix-tempo" id="pix-tempo">Expira em <span id="pix-timer">${_pixTempoRestante(pedido.expira_em)}</span></p>
-        <button type="button" id="pix-confirmar">Já paguei — confirmar pagamento</button>
-        <p class="rodape-form">Ambiente simulado: nenhuma cobrança real é feita. Este botão simula a confirmação que um gateway de pagamento real enviaria automaticamente assim que o Pix cair na conta.</p>
-        <div id="pix-status"></div>
-      </div>
-    `
-      : `
-      <div class="pix-caixa">
-        <h3>Aguardando confirmação de pagamento</h3>
-        <p>Esta empresa confirma o pagamento manualmente. Valor: <strong>R$ ${Number(pedido.valor).toFixed(2)}</strong></p>
-        <p class="pix-tempo" id="pix-tempo">Expira em <span id="pix-timer">${_pixTempoRestante(pedido.expira_em)}</span></p>
-        <button type="button" id="pix-confirmar">Confirmar pagamento recebido</button>
-        <p class="rodape-form">Clique acima assim que receber o pagamento (dinheiro, maquininha própria etc.) pra liberar a venda.</p>
+        ${_blocoConfirmarOuAguardar("Pix")}
         <div id="pix-status"></div>
       </div>
     `;
-
-    if (ehPix) {
       document.getElementById("pix-copiar").addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(pedido.pix_copia_cola);
@@ -78,9 +82,47 @@ function renderizarPagamentoPix(container, pedido, opcoes = {}) {
           document.getElementById("pix-codigo").select();
         }
       });
+    } else if (ehBoleto) {
+      container.innerHTML = `
+      <div class="pix-caixa">
+        <h3>Pagamento via boleto</h3>
+        <p>Valor: <strong>R$ ${Number(pedido.valor).toFixed(2)}</strong> — o boleto pode levar até 3 dias úteis pra compensar depois de pago.</p>
+        ${pedido.boleto_codigo_barras ? `<textarea readonly class="pix-codigo" id="pix-codigo">${pedido.boleto_codigo_barras}</textarea>
+        <button type="button" class="secundario" id="pix-copiar">Copiar linha digitável</button>` : ""}
+        ${pedido.boleto_url ? `<p><a href="${pedido.boleto_url}" target="_blank" rel="noopener">Abrir/imprimir boleto</a></p>` : ""}
+        <p class="pix-tempo" id="pix-tempo">Vence em <span id="pix-timer">${_pixTempoRestante(pedido.expira_em)}</span></p>
+        ${_blocoConfirmarOuAguardar("boleto")}
+        <div id="pix-status"></div>
+      </div>
+    `;
+      const botaoCopiar = document.getElementById("pix-copiar");
+      if (botaoCopiar) {
+        botaoCopiar.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(pedido.boleto_codigo_barras);
+            botaoCopiar.textContent = "Copiado!";
+            setTimeout(() => (botaoCopiar.textContent = "Copiar linha digitável"), 2000);
+          } catch (erro) {
+            document.getElementById("pix-codigo").select();
+          }
+        });
+      }
+    } else if (ehManualGenerico) {
+      container.innerHTML = `
+      <div class="pix-caixa">
+        <h3>Aguardando confirmação de pagamento</h3>
+        <p>Esta empresa confirma o pagamento manualmente. Valor: <strong>R$ ${Number(pedido.valor).toFixed(2)}</strong></p>
+        <p class="pix-tempo" id="pix-tempo">Expira em <span id="pix-timer">${_pixTempoRestante(pedido.expira_em)}</span></p>
+        <button type="button" id="pix-confirmar">Confirmar pagamento recebido</button>
+        <p class="rodape-form">Clique acima assim que receber o pagamento (dinheiro, maquininha própria etc.) pra liberar a venda.</p>
+        <div id="pix-status"></div>
+      </div>
+    `;
     }
 
-    document.getElementById("pix-confirmar").addEventListener("click", async () => {
+    const botaoConfirmar = document.getElementById("pix-confirmar");
+    if (!botaoConfirmar) return;
+    botaoConfirmar.addEventListener("click", async () => {
       const botao = document.getElementById("pix-confirmar");
       botao.disabled = true;
       try {
@@ -113,7 +155,8 @@ function renderizarPagamentoPix(container, pedido, opcoes = {}) {
         document.getElementById("pix-status").innerHTML = ehPix
           ? '<div class="alerta erro">Pix expirado sem pagamento. Tente novamente.</div>'
           : '<div class="alerta erro">Prazo esgotado sem confirmação. Tente novamente.</div>';
-        document.getElementById("pix-confirmar").disabled = true;
+        const botaoConfirmar = document.getElementById("pix-confirmar");
+        if (botaoConfirmar) botaoConfirmar.disabled = true;
       } else {
         const span = document.getElementById("pix-timer");
         const linha = document.getElementById("pix-tempo");

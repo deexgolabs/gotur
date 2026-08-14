@@ -23,6 +23,10 @@ class PedidoPagamentoOut(BaseModel):
     poltrona_numero: str | None = None
     origem_trecho: str | None = None
     destino_trecho: str | None = None
+    # True quando não há gateway real configurado pra essa empresa (ou o
+    # modo de cobrança é MANUAL) — controla se a tela mostra o botão de
+    # "confirmar manualmente" ou só espera a confirmação automática.
+    pagamento_simulado: bool = True
 
 
 class CompraPassagemResponse(BaseModel):
