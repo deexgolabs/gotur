@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Acertos interline</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#400056" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Acertos interline</h1>
+    <p class="subtitulo">Dívidas e créditos entre a sua empresa e outras viações por causa de bilhetes interline vendidos.</p>
+
+    <div id="alerta"></div>
+
+    <div id="lista"></div>
+    <p class="vazio escondido" id="vazio">Nenhum acerto interline ainda.</p>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa", "funcionario");
+    const ROTULOS_STATUS = { pendente: "Pendente", pago: "Pago" };
+    const SELO_STATUS = { pendente: "hold", pago: "livre" };
+    let minhaEmpresaId = null;
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+    }
+
+    function formatarData(iso) {
+      return new Date(iso).toLocaleDateString("pt-BR");
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/interline/acertos");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      document.getElementById("lista").innerHTML = lista
+        .map((a) => {
+          const euDevo = a.empresa_devedora_id === minhaEmpresaId;
+          const rotulo = euDevo ? `Você deve pra ${a.empresa_credora_nome}` : `${a.empresa_devedora_nome} deve pra você`;
+          const podeMarcarPago = !euDevo && a.status === "pendente";
+          return `
+        <div class="cartao" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-weight:700">${rotulo}</div>
+            <div style="color:var(--cinza);font-size:.9rem">Gerado em ${formatarData(a.criado_em)}${a.pago_em ? ` · Pago em ${formatarData(a.pago_em)}` : ""}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="margin-bottom:8px"><span class="selo ${SELO_STATUS[a.status]}">${ROTULOS_STATUS[a.status]}</span></div>
+            <div style="font-weight:700;margin-bottom:8px">R$ ${Number(a.valor_devido).toFixed(2)}</div>
+            ${podeMarcarPago ? `<button data-marcar-pago="${a.id}">Marcar como recebido</button>` : ""}
+          </div>
+        </div>`;
+        })
+        .join("");
+
+      document.querySelectorAll("button[data-marcar-pago]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/interline/acertos/${btn.dataset.marcarPago}/marcar-pago`);
+            mostrarAlerta("Acerto marcado como recebido.", "sucesso");
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      api("GET", "/empresas/minha")
+        .then((empresa) => {
+          minhaEmpresaId = empresa.id;
+          return carregar();
+        })
+        .catch((e) => mostrarAlerta(e.message));
+    }
+  </script>
+</body>
+</html>

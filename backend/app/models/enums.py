@@ -178,3 +178,12 @@ class StatusPedidoPagamento(str, enum.Enum):
     CONFIRMADO = "confirmado"
     EXPIRADO = "expirado"
     CANCELADO = "cancelado"
+
+
+class StatusPedidoInterline(str, enum.Enum):
+    """Status da compra combinada de duas pernas operadas por empresas
+    diferentes (ver app.models.interline.PedidoInterline)."""
+
+    PENDENTE_PAGAMENTO = "pendente_pagamento"
+    CONFIRMADO = "confirmado"
+    CANCELADO = "cancelado"

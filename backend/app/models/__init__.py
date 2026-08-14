@@ -8,6 +8,7 @@ from app.models.empresa import Empresa
 from app.models.fatura_empresa import FaturaEmpresa
 from app.models.frete import Frete, PosicaoFrete
 from app.models.fretamento import Fretamento, PosicaoFretamento
+from app.models.interline import AcertoInterline, ConexaoInterline, PedidoInterline
 from app.models.jornada_motorista import JornadaMotorista
 from app.models.motorista import Motorista
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
@@ -56,4 +57,7 @@ __all__ = [
     "RepasseParceiro",
     "JornadaMotorista",
     "Motorista",
+    "ConexaoInterline",
+    "PedidoInterline",
+    "AcertoInterline",
 ]

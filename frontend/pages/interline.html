@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Interline</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#400056" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Interline entre empresas</h1>
+    <p class="subtitulo">Conecte a rota de uma empresa à de outra pra vender um bilhete único com baldeação — o cliente compra as duas pernas num só checkout.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Nova conexão</h2>
+      <form id="form-conexao">
+        <div class="grid-form">
+          <div>
+            <label for="rota-a">Perna A (quem embarca primeiro)</label>
+            <select id="rota-a" required></select>
+          </div>
+          <div>
+            <label for="rota-b">Perna B (quem completa a viagem)</label>
+            <select id="rota-b" required></select>
+          </div>
+          <div>
+            <label for="parada-conexao">Nome do ponto de baldeação</label>
+            <input id="parada-conexao" placeholder="Ex: Ribeirão Preto" required />
+          </div>
+          <div>
+            <label for="minutos-conexao">Conexão mínima (minutos)</label>
+            <input id="minutos-conexao" type="number" min="0" value="30" required />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Criar conexão</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Conexões cadastradas</h2>
+    <div class="cartao">
+      <table>
+        <thead>
+          <tr><th>Perna A</th><th>Perna B</th><th>Baldeação</th><th>Conexão mín.</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhuma conexão cadastrada ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("super_admin");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+    }
+
+    async function carregarRotas() {
+      const rotas = await api("GET", "/interline/rotas-disponiveis");
+      const opcoes = rotas.map((r) => `<option value="${r.id}">${r.empresa_nome}: ${r.origem} → ${r.destino}</option>`).join("");
+      document.getElementById("rota-a").innerHTML = opcoes;
+      document.getElementById("rota-b").innerHTML = opcoes;
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/interline/conexoes");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (c) => `
+        <tr>
+          <td>${c.empresa_a_nome}<br><span style="color:var(--cinza);font-size:.85rem">${c.origem_a} → ${c.destino_a}</span></td>
+          <td>${c.empresa_b_nome}<br><span style="color:var(--cinza);font-size:.85rem">${c.origem_b} → ${c.destino_b}</span></td>
+          <td>${c.parada_conexao_nome}</td>
+          <td>${c.minutos_conexao_minima} min</td>
+          <td><span class="selo ${c.ativo ? "livre" : "bloqueada"}">${c.ativo ? "Ativa" : "Desativada"}</span></td>
+          <td>
+            ${c.ativo ? `<button class="secundario" data-desativar="${c.id}">Desativar</button>` : `<button class="secundario" data-ativar="${c.id}">Ativar</button>`}
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-ativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/interline/conexoes/${btn.dataset.ativar}/ativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/interline/conexoes/${btn.dataset.desativar}/desativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    document.getElementById("form-conexao").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const rotaA = document.getElementById("rota-a").value;
+      const rotaB = document.getElementById("rota-b").value;
+      if (rotaA === rotaB) {
+        mostrarAlerta("Escolha duas rotas diferentes.");
+        return;
+      }
+      try {
+        await api("POST", "/interline/conexoes", {
+          rota_perna_a_id: parseInt(rotaA, 10),
+          rota_perna_b_id: parseInt(rotaB, 10),
+          parada_conexao_nome: document.getElementById("parada-conexao").value.trim(),
+          minutos_conexao_minima: parseInt(document.getElementById("minutos-conexao").value, 10),
+        });
+        ev.target.reset();
+        document.getElementById("minutos-conexao").value = "30";
+        mostrarAlerta("Conexão criada com sucesso.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    if (auth) {
+      montarTopo("topo");
+      carregarRotas().catch((e) => mostrarAlerta(e.message));
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+  </script>
+</body>
+</html>

@@ -7,6 +7,7 @@ from app.core.deps import require_roles, require_staff
 from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.enums import CategoriaPassageiro, StatusPassagem, StatusPoltrona, TipoDocumento, TipoRastreioPush, UserRole
+from app.models.interline import ConexaoInterline
 from app.models.motorista import Motorista
 from app.models.onibus import Onibus, PoltronaOnibus
 from app.models.ocupacao_poltrona import OcupacaoPoltrona
@@ -335,7 +336,22 @@ def cidades_atendidas_pela_loja(slug: str, db: Session = Depends(get_db)):
         .distinct()
         .all()
     )
-    return sorted({nome for (nome,) in nomes})
+    resultado = {nome for (nome,) in nomes}
+
+    # Destinos só alcançáveis via interline (conexão com outra empresa) —
+    # sem isso, o select nunca mostraria a cidade final de um trecho
+    # combinado, mesmo com a conexão cadastrada e ativa (ver app/routers/interline.py).
+    conexoes = (
+        db.query(ConexaoInterline)
+        .options(joinedload(ConexaoInterline.rota_perna_b))
+        .filter(ConexaoInterline.empresa_a_id == empresa.id, ConexaoInterline.ativo.is_(True))
+        .all()
+    )
+    for conexao in conexoes:
+        if conexao.rota_perna_b:
+            resultado.add(conexao.rota_perna_b.destino)
+
+    return sorted(resultado)
 
 
 @router.get("/buscar", response_model=list[ViagemBuscaOut])

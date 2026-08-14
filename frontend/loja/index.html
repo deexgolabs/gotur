@@ -86,6 +86,43 @@
           <button type="submit">Buscar viagens</button>
         </form>
         <div id="resultados-busca"></div>
+        <div id="resultados-interline"></div>
+      </section>
+
+      <section class="loja-vista" id="vista-compra-interline">
+        <button type="button" class="loja-voltar" id="btn-voltar-busca-interline">&larr; Voltar pra busca</button>
+        <div class="loja-titulo-vista" id="interline-titulo"></div>
+        <div class="loja-selo-vazio" id="interline-etapa-label" style="text-align:left;padding:0 0 10px"></div>
+        <div id="alerta-compra-interline"></div>
+        <div class="loja-card loja-poltronas">
+          <div class="mapa-onibus" id="mapa-onibus-interline"></div>
+          <div class="legenda">
+            <span><i class="i-livre"></i>Livre</span>
+            <span><i class="i-selecionada"></i>Selecionada</span>
+            <span><i class="i-hold"></i>Indisponível</span>
+            <span><i class="i-vendida"></i>Vendida</span>
+          </div>
+        </div>
+        <div class="loja-card escondido" id="card-form-compra-interline">
+          <div style="font-weight:700;margin-bottom:10px">
+            Poltronas <span id="interline-numero-a"></span> + <span id="interline-numero-b"></span> — <span id="interline-preco-total"></span>
+          </div>
+          <form class="loja-form" id="form-compra-interline">
+            <label for="interline-nome">Nome do passageiro</label>
+            <input id="interline-nome" required />
+            <label for="interline-documento">CPF</label>
+            <input id="interline-documento" required />
+            <label for="interline-forma">Forma de pagamento</label>
+            <select id="interline-forma">
+              <option value="pix">Pix</option>
+              <option value="cartao">Cartão</option>
+              <option value="dinheiro">Dinheiro</option>
+            </select>
+            <button type="submit" id="btn-confirmar-compra-interline">Confirmar compra</button>
+          </form>
+          <div id="area-cartao-interline" class="escondido" style="margin-top:12px"></div>
+          <div id="area-pix-interline" class="escondido"></div>
+        </div>
       </section>
 
       <section class="loja-vista" id="vista-compra">

@@ -38,6 +38,7 @@ function linksPorPapel(role) {
       ...base,
       { href: "/pages/empresas.html", label: "Empresas" },
       { href: "/pages/planos.html", label: "Planos" },
+      { href: "/pages/interline.html", label: "Interline" },
       { href: "/pages/plataforma.html", label: "Plataforma" },
     ];
   }
@@ -55,6 +56,7 @@ function linksPorPapel(role) {
       { href: "/pages/relatorios.html", label: "Relatórios", grupo: "Financeiro" },
       { href: "/pages/dre.html", label: "DRE", modulo: "dre", grupo: "Financeiro" },
       { href: "/pages/minhas-faturas.html", label: "Faturas", grupo: "Financeiro" },
+      { href: "/pages/acertos-interline.html", label: "Acertos interline", grupo: "Financeiro" },
       { href: "/pages/funcionarios.html", label: "Funcionários", grupo: "Equipe" },
       { href: "/pages/parceiros.html", label: "Parceiros", grupo: "Equipe" },
       { href: "/pages/avaliacoes.html", label: "Avaliações", grupo: "Equipe" },

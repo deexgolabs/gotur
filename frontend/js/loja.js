@@ -4,6 +4,10 @@ let viagemAtual = null;
 let poltronaSelecionadaId = null;
 let precoSelecionadoLoja = null;
 let retomarAposLogin = null;
+let interlineOpcaoAtual = null;
+let interlineEtapa = 1; // 1 = escolhendo poltrona da perna A, 2 = da perna B
+let interlinePoltronaA = null;
+let interlinePoltronaB = null;
 let mapaFretamento, marcadorFretamento, linhaFretamento;
 let mapaFrete, marcadorFrete, linhaFrete;
 
@@ -95,6 +99,7 @@ function configurarBusca() {
     const data = campoData.value;
     const resultados = document.getElementById("resultados-busca");
     resultados.innerHTML = `<p class="loja-selo-vazio">Buscando...</p>`;
+    buscarInterline(origem, destino, data); // em paralelo — não deixa o "return" abaixo pular essa busca
     try {
       const viagens = await fetch(
         `/api/viagens/buscar?origem=${encodeURIComponent(origem)}&destino=${encodeURIComponent(destino)}&data=${data}&tenant_id=${BRANDING.id}`
@@ -122,6 +127,236 @@ function configurarBusca() {
       });
     } catch (e) {
       resultados.innerHTML = `<p class="loja-selo-vazio">Erro ao buscar. Tente de novo.</p>`;
+    }
+  });
+}
+
+async function buscarInterline(origem, destino, data) {
+  const container = document.getElementById("resultados-interline");
+  container.innerHTML = "";
+  let opcoes = [];
+  try {
+    opcoes = await fetch(
+      `/api/interline/buscar?origem=${encodeURIComponent(origem)}&destino=${encodeURIComponent(destino)}&data=${data}`
+    ).then((r) => (r.ok ? r.json() : []));
+  } catch (e) {
+    return;
+  }
+  if (!opcoes.length) return;
+
+  container.innerHTML =
+    `<div class="loja-titulo-vista" style="font-size:1rem;margin-top:16px">Com conexão</div>` +
+    opcoes
+      .map(
+        (o, i) => `
+      <div class="loja-card loja-card-viagem" data-indice-interline="${i}">
+        <div>
+          <div class="trecho">${BRANDING.nome} → ${o.empresa_b_nome}, via ${o.parada_conexao_nome}</div>
+          <div class="info">${new Date(o.data_hora_partida_a).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} · baldeia ${new Date(o.data_hora_partida_b).toLocaleString("pt-BR", { timeStyle: "short" })}</div>
+        </div>
+        <div class="preco">R$ ${Number(o.valor_total).toFixed(2)}</div>
+      </div>`
+      )
+      .join("");
+
+  container.querySelectorAll(".loja-card-viagem").forEach((card) => {
+    card.addEventListener("click", () => abrirCompraInterline(opcoes[parseInt(card.dataset.indiceInterline, 10)]));
+  });
+}
+
+// ---------- Compra interline (duas pernas, empresas diferentes) ----------
+
+function abrirCompraInterline(opcao) {
+  interlineOpcaoAtual = opcao;
+  interlineEtapa = 1;
+  interlinePoltronaA = null;
+  interlinePoltronaB = null;
+  document.getElementById("alerta-compra-interline").innerHTML = "";
+  document.getElementById("interline-titulo").textContent = `${BRANDING.nome} → ${opcao.empresa_b_nome}`;
+  document.getElementById("card-form-compra-interline").classList.add("escondido");
+  document.getElementById("area-pix-interline").classList.add("escondido");
+  document.getElementById("form-compra-interline").classList.remove("escondido");
+
+  document.querySelectorAll(".loja-vista").forEach((v) => v.classList.remove("ativa"));
+  document.getElementById("vista-compra-interline").classList.add("ativa");
+
+  carregarMapaInterline();
+}
+
+function viagemIdEtapaAtual() {
+  return interlineEtapa === 1 ? interlineOpcaoAtual.viagem_perna_a_id : interlineOpcaoAtual.viagem_perna_b_id;
+}
+
+async function carregarMapaInterline() {
+  document.getElementById("interline-etapa-label").textContent =
+    interlineEtapa === 1
+      ? `Etapa 1 de 2 — escolha a poltrona com ${BRANDING.nome}`
+      : `Etapa 2 de 2 — escolha a poltrona com ${interlineOpcaoAtual.empresa_b_nome}`;
+
+  const poltronas = await fetch(`/api/viagens/${viagemIdEtapaAtual()}/poltronas`).then((r) => r.json());
+  const porFileira = {};
+  poltronas.forEach((p) => {
+    porFileira[p.fileira] = porFileira[p.fileira] || [];
+    porFileira[p.fileira].push(p);
+  });
+
+  const poltronaSelecionadaEtapa = interlineEtapa === 1 ? interlinePoltronaA : interlinePoltronaB;
+  const container = document.getElementById("mapa-onibus-interline");
+  container.innerHTML = Object.keys(porFileira)
+    .sort((a, b) => a - b)
+    .map((fileira) => {
+      const assentos = porFileira[fileira].sort((a, b) => a.coluna - b.coluna);
+      const celulas = [];
+      assentos.forEach((p) => {
+        if (p.coluna === 3) celulas.push('<div class="poltrona corredor"></div>');
+        const classes = ["poltrona", p.status];
+        if (poltronaSelecionadaEtapa && p.poltrona_viagem_id === poltronaSelecionadaEtapa.id) classes.push("selecionada");
+        celulas.push(
+          `<div class="${classes.join(" ")}" data-id="${p.poltrona_viagem_id}" data-status="${p.status}" data-numero="${p.numero}" data-preco="${p.preco}">${p.numero}</div>`
+        );
+      });
+      return `<div class="fileira-poltronas">${celulas.join("")}</div>`;
+    })
+    .join("");
+
+  container.querySelectorAll(".poltrona[data-id]").forEach((el) => {
+    el.addEventListener("click", () => onClicarPoltronaInterline(el));
+  });
+}
+
+async function onClicarPoltronaInterline(el) {
+  if (el.dataset.status !== "livre") {
+    mostrarAlerta("Essa poltrona não está disponível.", "erro", "alerta-compra-interline");
+    return;
+  }
+  if (!obterAuth()) {
+    mostrarAlerta("Crie uma conta ou faça login pra escolher sua poltrona — é rápido.", "erro", "alerta-compra-interline");
+    trocarVista("conta");
+    return;
+  }
+
+  try {
+    await api("POST", `/viagens/${viagemIdEtapaAtual()}/poltronas/${el.dataset.id}/hold`);
+  } catch (erro) {
+    mostrarAlerta(erro.message, "erro", "alerta-compra-interline");
+    carregarMapaInterline();
+    return;
+  }
+
+  const poltronaEscolhida = { id: parseInt(el.dataset.id, 10), numero: el.dataset.numero, preco: Number(el.dataset.preco) };
+  if (interlineEtapa === 1) {
+    interlinePoltronaA = poltronaEscolhida;
+    interlineEtapa = 2;
+    document.getElementById("alerta-compra-interline").innerHTML = "";
+    carregarMapaInterline();
+    return;
+  }
+
+  interlinePoltronaB = poltronaEscolhida;
+  document.getElementById("alerta-compra-interline").innerHTML = "";
+  document.getElementById("interline-numero-a").textContent = `Nº ${interlinePoltronaA.numero} (${BRANDING.nome})`;
+  document.getElementById("interline-numero-b").textContent = `Nº ${interlinePoltronaB.numero} (${interlineOpcaoAtual.empresa_b_nome})`;
+  document.getElementById("interline-preco-total").textContent = `R$ ${(interlinePoltronaA.preco + interlinePoltronaB.preco).toFixed(2)}`;
+  const auth = obterAuth();
+  if (auth && !document.getElementById("interline-nome").value) {
+    document.getElementById("interline-nome").value = auth.nome || "";
+  }
+  document.getElementById("card-form-compra-interline").classList.remove("escondido");
+  atualizarFormaPagamentoInterline();
+  carregarMapaInterline();
+}
+
+function dadosBaseCompraInterline(formaPagamento) {
+  return {
+    conexao_id: interlineOpcaoAtual.conexao_id,
+    viagem_perna_a_id: interlineOpcaoAtual.viagem_perna_a_id,
+    poltrona_perna_a_id: interlinePoltronaA.id,
+    viagem_perna_b_id: interlineOpcaoAtual.viagem_perna_b_id,
+    poltrona_perna_b_id: interlinePoltronaB.id,
+    cliente_nome: document.getElementById("interline-nome").value.trim(),
+    cliente_documento: document.getElementById("interline-documento").value.trim(),
+    forma_pagamento: formaPagamento,
+  };
+}
+
+function pedidoNormalizadoDoInterline(pedido) {
+  return {
+    id: pedido.id,
+    valor: pedido.valor_total,
+    pix_copia_cola: pedido.pix_copia_cola,
+    expira_em: pedido.pix_expira_em,
+    pagamento_simulado: pedido.pagamento_simulado,
+  };
+}
+
+function tratarRespostaCompraInterline(resposta) {
+  if (resposta.pedido_interline) {
+    document.getElementById("form-compra-interline").classList.add("escondido");
+    document.getElementById("area-cartao-interline").classList.add("escondido");
+    const areaPix = document.getElementById("area-pix-interline");
+    areaPix.classList.remove("escondido");
+    renderizarPagamentoPix(areaPix, pedidoNormalizadoDoInterline(resposta.pedido_interline), {
+      endpointConfirmar: `/interline/pedidos/${resposta.pedido_interline.id}/confirmar-simulado`,
+      semPolling: true,
+      aoConfirmar: () => {
+        mostrarAlerta("Compra confirmada!", "sucesso", "alerta-compra-interline");
+        setTimeout(() => trocarVista("minhas"), 1200);
+      },
+    });
+    return;
+  }
+
+  mostrarAlerta(
+    `Compra confirmada! Localizadores: ${resposta.localizador_perna_a} e ${resposta.localizador_perna_b}`,
+    "sucesso",
+    "alerta-compra-interline"
+  );
+  setTimeout(() => trocarVista("minhas"), 1200);
+}
+
+function atualizarFormaPagamentoInterline() {
+  const forma = document.getElementById("interline-forma").value;
+  const btnConfirmar = document.getElementById("btn-confirmar-compra-interline");
+  const areaCartao = document.getElementById("area-cartao-interline");
+
+  if (forma !== "cartao") {
+    desmontarCheckoutCartaoMP();
+    areaCartao.classList.add("escondido");
+    btnConfirmar.classList.remove("escondido");
+    return;
+  }
+
+  btnConfirmar.classList.add("escondido");
+  areaCartao.classList.remove("escondido");
+
+  montarCheckoutCartaoMP("area-cartao-interline", {
+    publicKey: BRANDING.mercadopago_public_key,
+    valor: interlinePoltronaA.preco + interlinePoltronaB.preco,
+    onPagar: (dadosCartao) =>
+      api("POST", "/interline/pedidos", {
+        ...dadosBaseCompraInterline("cartao"),
+        mp_token: dadosCartao.token,
+        mp_payment_method_id: dadosCartao.payment_method_id,
+        mp_installments: dadosCartao.installments,
+        mp_payer_email: dadosCartao.payer_email,
+      }).then((resposta) => tratarRespostaCompraInterline(resposta)),
+  });
+}
+
+function configurarCompraInterline() {
+  document.getElementById("btn-voltar-busca-interline").addEventListener("click", () => trocarVista("buscar"));
+  document.getElementById("interline-forma").addEventListener("change", atualizarFormaPagamentoInterline);
+
+  document.getElementById("form-compra-interline").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const forma = document.getElementById("interline-forma").value;
+    if (forma === "cartao") return; // o próprio Brick tem o botão de pagar
+
+    try {
+      const resposta = await api("POST", "/interline/pedidos", dadosBaseCompraInterline(forma));
+      tratarRespostaCompraInterline(resposta);
+    } catch (erro) {
+      mostrarAlerta(erro.message, "erro", "alerta-compra-interline");
     }
   });
 }
@@ -861,6 +1096,7 @@ async function iniciar() {
     configurarCidadesBusca();
   }
   configurarCompra();
+  configurarCompraInterline();
   configurarFretamento();
   configurarFrete();
   configurarConta();

@@ -5,10 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.empresa import Empresa
-from app.models.enums import StatusFatura, StatusPedidoPagamento
+from app.models.enums import StatusFatura, StatusPedidoInterline, StatusPedidoPagamento
 from app.models.fatura_empresa import FaturaEmpresa
+from app.models.interline import ConexaoInterline, PedidoInterline
 from app.models.pedido_pagamento import PedidoPagamento
 from app.routers.faturas import _marcar_fatura_paga
+from app.routers.interline import _criar_passagens_do_pedido_interline
 from app.routers.pedidos_pagamento import confirmar_pedido_pagamento
 from app.services.pagamento_provider import MercadoPagoProvider, _chave_ativa, obter_configuracao_plataforma
 
@@ -62,6 +64,31 @@ async def webhook_mercadopago(request: Request, db: Session = Depends(get_db)):
                 confirmar_pedido_pagamento(db, pedido, gateway_ref=payment_id)
             except HTTPException:
                 logger.exception("Webhook Mercado Pago: falha ao confirmar pedido %s (payment_id=%s)", pedido.id, payment_id)
+        return {"status": "processado"}
+
+    pedido_interline = (
+        db.query(PedidoInterline)
+        .filter(PedidoInterline.gateway_ref == payment_id, PedidoInterline.status == StatusPedidoInterline.PENDENTE_PAGAMENTO)
+        .first()
+    )
+    if pedido_interline:
+        conexao = db.get(ConexaoInterline, pedido_interline.conexao_id)
+        empresa_vendedora = db.get(Empresa, conexao.empresa_a_id) if conexao else None
+        chave = _chave_ativa(empresa_vendedora, None)
+        if not chave:
+            logger.warning(
+                "Webhook Mercado Pago: pedido interline %s pendente sem nenhuma credencial ativa pra revalidar", pedido_interline.id
+            )
+            return {"status": "sem_credencial"}
+
+        status_mp = MercadoPagoProvider(chave).consultar_status(payment_id)
+        if status_mp == "approved":
+            try:
+                _criar_passagens_do_pedido_interline(db, pedido_interline, gateway_ref_perna_a=payment_id)
+            except HTTPException:
+                logger.exception(
+                    "Webhook Mercado Pago: falha ao confirmar pedido interline %s (payment_id=%s)", pedido_interline.id, payment_id
+                )
         return {"status": "processado"}
 
     fatura = (
