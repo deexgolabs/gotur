@@ -34,8 +34,8 @@
         ],
         admin_empresa: [
           { href: "/pages/funcionarios.html", titulo: "Funcionários", desc: "Gerencie a equipe da sua empresa" },
-          { href: "/pages/parceiros.html", titulo: "Parceiros", desc: "Agências/vendedores que vendem passagem ou despacham frete pra você" },
-          { href: "/pages/onibus.html", titulo: "Ônibus", desc: "Cadastre veículos e o layout de poltronas" },
+          { href: "/pages/parceiros.html", titulo: "Parceiros", desc: "Agências/vendedores que vendem passagem ou despacham frete pra você", modulo: ["passagens", "frete"] },
+          { href: "/pages/onibus.html", titulo: "Ônibus", desc: "Cadastre veículos e o layout de poltronas", modulo: ["passagens", "fretamento"] },
           { href: "/pages/motoristas.html", titulo: "Motoristas", desc: "Cadastre motoristas pra vincular em viagens, fretamentos e fretes", modulo: "motorista" },
           { href: "/pages/rotas.html", titulo: "Rotas", desc: "Origens e destinos atendidos", modulo: "passagens" },
           { href: "/pages/viagens.html", titulo: "Viagens", desc: "Crie viagens, venda passagens e gerencie poltronas", modulo: "passagens" },
@@ -43,9 +43,16 @@
           { href: "/pages/fretamentos.html", titulo: "Fretamentos", desc: "Aluguel de ônibus com preço por km e rastreio ao vivo", modulo: "fretamento" },
           { href: "/pages/fretes.html", titulo: "Fretes", desc: "Envio de encomendas com rastreio ao vivo", modulo: "frete" },
           { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem", modulo: "passagens" },
-          { href: "/pages/relatorios.html", titulo: "Relatórios", desc: "Ocupação, vendas e desempenho da equipe" },
+          { href: "/pages/locais.html", titulo: "Locais", desc: "Teatros, cinemas, estádios e outros espaços com lugar marcado", modulo: "eventos" },
+          { href: "/pages/sessoes.html", titulo: "Sessões", desc: "Crie sessões de evento e venda ingressos", modulo: "eventos" },
+          { href: "/pages/checkin-eventos.html", titulo: "Check-in eventos", desc: "Confirme entrada pelo código do ingresso", modulo: "eventos" },
+          { href: "/pages/turmas.html", titulo: "Turmas", desc: "Aulas recorrentes com vaga limitada (spinning, pilates, crossfit)", modulo: "academia" },
+          { href: "/pages/ocorrencias-turma.html", titulo: "Agenda", desc: "Próximas ocorrências das turmas", modulo: "academia" },
+          { href: "/pages/matriculas.html", titulo: "Matrículas", desc: "Matricule alunos e acompanhe mensalidades", modulo: "academia" },
+          { href: "/pages/checkin-academia.html", titulo: "Check-in academia", desc: "Confirme presença do aluno na aula", modulo: "academia" },
+          { href: "/pages/relatorios.html", titulo: "Relatórios", desc: "Ocupação, vendas e desempenho da equipe", modulo: "passagens" },
           { href: "/pages/dre.html", titulo: "DRE", desc: "Receita líquida do período: passagens, fretamento e frete", modulo: "dre" },
-          { href: "/pages/avaliacoes.html", titulo: "Avaliações", desc: "O que os clientes acharam das viagens e fretamentos" },
+          { href: "/pages/avaliacoes.html", titulo: "Avaliações", desc: "O que os clientes acharam das viagens e fretamentos", modulo: ["passagens", "fretamento"] },
           { href: "/pages/minhas-faturas.html", titulo: "Faturas", desc: "Cobranças da assinatura do GoTur" },
         ],
         funcionario: [
@@ -53,7 +60,14 @@
           { href: "/pages/fretamentos.html", titulo: "Fretamentos", desc: "Gerencie fretamentos e compartilhe localização", modulo: "fretamento" },
           { href: "/pages/fretes.html", titulo: "Fretes", desc: "Gerencie fretes e compartilhe localização", modulo: "frete" },
           { href: "/pages/checkin.html", titulo: "Check-in", desc: "Confirme embarque pelo código da passagem", modulo: "passagens" },
-          { href: "/pages/avaliacoes.html", titulo: "Avaliações", desc: "O que os clientes acharam das viagens e fretamentos" },
+          { href: "/pages/locais.html", titulo: "Locais", desc: "Teatros, cinemas, estádios e outros espaços com lugar marcado", modulo: "eventos" },
+          { href: "/pages/sessoes.html", titulo: "Sessões", desc: "Crie sessões de evento e venda ingressos", modulo: "eventos" },
+          { href: "/pages/checkin-eventos.html", titulo: "Check-in eventos", desc: "Confirme entrada pelo código do ingresso", modulo: "eventos" },
+          { href: "/pages/turmas.html", titulo: "Turmas", desc: "Aulas recorrentes com vaga limitada (spinning, pilates, crossfit)", modulo: "academia" },
+          { href: "/pages/ocorrencias-turma.html", titulo: "Agenda", desc: "Próximas ocorrências das turmas", modulo: "academia" },
+          { href: "/pages/matriculas.html", titulo: "Matrículas", desc: "Matricule alunos e acompanhe mensalidades", modulo: "academia" },
+          { href: "/pages/checkin-academia.html", titulo: "Check-in academia", desc: "Confirme presença do aluno na aula", modulo: "academia" },
+          { href: "/pages/avaliacoes.html", titulo: "Avaliações", desc: "O que os clientes acharam das viagens e fretamentos", modulo: ["passagens", "fretamento"] },
         ],
         cliente: [
           { href: "/pages/busca.html", titulo: "Buscar viagem", desc: "Encontre passagens disponíveis" },
@@ -81,7 +95,7 @@
       document.getElementById("cartoes").innerHTML = cartoes
         .map(
           (c) => `
-        <a class="cartao-resumo" href="${c.href}"${c.modulo ? ` data-modulo="${c.modulo}"` : ""}>
+        <a class="cartao-resumo" href="${c.href}"${c.modulo ? ` data-modulo="${Array.isArray(c.modulo) ? c.modulo.join(" ") : c.modulo}"` : ""}>
           <div class="titulo">${c.titulo}</div>
           <div class="desc">${c.desc}</div>
         </a>`
@@ -97,11 +111,13 @@
               frete: empresa.frete_habilitado,
               motorista: empresa.motorista_habilitado,
               dre: empresa.dre_habilitado,
+              eventos: empresa.eventos_habilitado,
+              academia: empresa.academia_habilitado,
             };
-            Object.entries(modulosHabilitados).forEach(([modulo, habilitado]) => {
-              if (!habilitado) {
-                document.querySelectorAll(`[data-modulo="${modulo}"]`).forEach((el) => el.classList.add("escondido"));
-              }
+            document.querySelectorAll("[data-modulo]").forEach((el) => {
+              const modulosDoCartao = el.dataset.modulo.split(" ");
+              const algumHabilitado = modulosDoCartao.some((m) => modulosHabilitados[m]);
+              if (!algumHabilitado) el.classList.add("escondido");
             });
           })
           .catch(() => {});

@@ -48,7 +48,7 @@ function linksPorPapel(role) {
       { href: "/pages/viagens.html", label: "Viagens", modulo: "passagens", grupo: "Vendas" },
       { href: "/pages/cupons.html", label: "Cupons", modulo: "passagens", grupo: "Vendas" },
       { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens", grupo: "Vendas" },
-      { href: "/pages/onibus.html", label: "Ônibus", grupo: "Frota" },
+      { href: "/pages/onibus.html", label: "Ônibus", modulo: ["passagens", "fretamento"], grupo: "Frota" },
       { href: "/pages/motoristas.html", label: "Motoristas", modulo: "motorista", grupo: "Frota" },
       { href: "/pages/rotas.html", label: "Rotas", modulo: "passagens", grupo: "Frota" },
       { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento", grupo: "Fretamento e frete" },
@@ -60,13 +60,13 @@ function linksPorPapel(role) {
       { href: "/pages/ocorrencias-turma.html", label: "Agenda", modulo: "academia", grupo: "Academia" },
       { href: "/pages/matriculas.html", label: "Matrículas", modulo: "academia", grupo: "Academia" },
       { href: "/pages/checkin-academia.html", label: "Check-in academia", modulo: "academia", grupo: "Academia" },
-      { href: "/pages/relatorios.html", label: "Relatórios", grupo: "Financeiro" },
+      { href: "/pages/relatorios.html", label: "Relatórios", modulo: "passagens", grupo: "Financeiro" },
       { href: "/pages/dre.html", label: "DRE", modulo: "dre", grupo: "Financeiro" },
       { href: "/pages/minhas-faturas.html", label: "Faturas", grupo: "Financeiro" },
-      { href: "/pages/acertos-interline.html", label: "Acertos interline", grupo: "Financeiro" },
+      { href: "/pages/acertos-interline.html", label: "Acertos interline", modulo: "passagens", grupo: "Financeiro" },
       { href: "/pages/funcionarios.html", label: "Funcionários", grupo: "Equipe" },
-      { href: "/pages/parceiros.html", label: "Parceiros", grupo: "Equipe" },
-      { href: "/pages/avaliacoes.html", label: "Avaliações", grupo: "Equipe" },
+      { href: "/pages/parceiros.html", label: "Parceiros", modulo: ["passagens", "frete"], grupo: "Equipe" },
+      { href: "/pages/avaliacoes.html", label: "Avaliações", modulo: ["passagens", "fretamento"], grupo: "Equipe" },
       { href: "/pages/auditoria.html", label: "Auditoria", grupo: "Equipe" },
       { href: "/pages/configuracoes.html", label: "Configurações" },
     ];
@@ -97,7 +97,7 @@ function linksPorPapel(role) {
       { href: "/pages/ocorrencias-turma.html", label: "Agenda", modulo: "academia", grupo: "Academia" },
       { href: "/pages/matriculas.html", label: "Matrículas", modulo: "academia", grupo: "Academia" },
       { href: "/pages/checkin-academia.html", label: "Check-in academia", modulo: "academia", grupo: "Academia" },
-      { href: "/pages/avaliacoes.html", label: "Avaliações" },
+      { href: "/pages/avaliacoes.html", label: "Avaliações", modulo: ["passagens", "fretamento"] },
     ];
   }
   if (role === "cliente") {
@@ -143,7 +143,7 @@ function montarTopo(containerId) {
       const linksDoBloco = bloco.links
         .map(
           (l) =>
-            `<a href="${l.href}" class="link-nav${caminhoAtual === l.href ? " ativo" : ""}"${l.modulo ? ` data-modulo="${l.modulo}"` : ""}>${l.label}</a>`
+            `<a href="${l.href}" class="link-nav${caminhoAtual === l.href ? " ativo" : ""}"${l.modulo ? ` data-modulo="${Array.isArray(l.modulo) ? l.modulo.join(" ") : l.modulo}"` : ""}>${l.label}</a>`
         )
         .join("");
       if (!bloco.grupo) return linksDoBloco;
@@ -246,10 +246,13 @@ function montarTopo(containerId) {
           eventos: empresa.eventos_habilitado,
           academia: empresa.academia_habilitado,
         };
-        Object.entries(modulosHabilitados).forEach(([modulo, habilitado]) => {
-          if (!habilitado) {
-            container.querySelectorAll(`[data-modulo="${modulo}"]`).forEach((el) => el.classList.add("escondido"));
-          }
+        // Um link pode listar mais de um módulo (ex: "Ônibus" serve tanto
+        // passagens quanto fretamento) — nesse caso ele só some se NENHUM
+        // dos módulos listados estiver ligado.
+        container.querySelectorAll("[data-modulo]").forEach((el) => {
+          const modulosDoLink = el.dataset.modulo.split(" ");
+          const algumHabilitado = modulosDoLink.some((m) => modulosHabilitados[m]);
+          if (!algumHabilitado) el.classList.add("escondido");
         });
         container.querySelectorAll(".nav-grupo").forEach((grupoEl) => {
           const linksDoGrupo = grupoEl.querySelectorAll(".nav-dropdown .link-nav");

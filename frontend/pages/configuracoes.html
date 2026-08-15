@@ -78,6 +78,16 @@
           Frete (envio de encomendas, rastreio ao vivo)
         </label>
         <p class="rodape-form" style="text-align:left;margin:0 0 14px" id="aviso-plano-frete"></p>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="modulo-eventos" style="width:auto" />
+          Eventos (cinema, teatro, show, estádio — ingresso com lugar marcado)
+        </label>
+        <p class="rodape-form" style="text-align:left;margin:0 0 14px" id="aviso-plano-eventos"></p>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="modulo-academia" style="width:auto" />
+          Academia (matrícula + aulas com vaga limitada — spinning, pilates, crossfit)
+        </label>
+        <p class="rodape-form" style="text-align:left;margin:0 0 14px" id="aviso-plano-academia"></p>
         <div class="linha-acoes">
           <button type="submit">Salvar módulos</button>
         </div>
@@ -289,15 +299,23 @@
       const permitePassagens = empresa.plano ? empresa.plano.modulo_passagens : true;
       const permiteFretamento = empresa.plano ? empresa.plano.modulo_fretamento : true;
       const permiteFrete = empresa.plano ? empresa.plano.modulo_frete : true;
+      const permiteEventos = empresa.plano ? empresa.plano.modulo_eventos : true;
+      const permiteAcademia = empresa.plano ? empresa.plano.modulo_academia : true;
       const chkPassagens = document.getElementById("modulo-passagens");
       const chkFretamento = document.getElementById("modulo-fretamento");
       const chkFrete = document.getElementById("modulo-frete");
+      const chkEventos = document.getElementById("modulo-eventos");
+      const chkAcademia = document.getElementById("modulo-academia");
       chkPassagens.checked = empresa.passagens_ativo && permitePassagens;
       chkPassagens.disabled = !permitePassagens;
       chkFretamento.checked = empresa.fretamento_ativo && permiteFretamento;
       chkFretamento.disabled = !permiteFretamento;
       chkFrete.checked = empresa.frete_ativo && permiteFrete;
       chkFrete.disabled = !permiteFrete;
+      chkEventos.checked = empresa.eventos_ativo && permiteEventos;
+      chkEventos.disabled = !permiteEventos;
+      chkAcademia.checked = empresa.academia_ativo && permiteAcademia;
+      chkAcademia.disabled = !permiteAcademia;
       document.getElementById("aviso-plano-passagens").textContent = permitePassagens
         ? ""
         : "Seu plano atual não inclui esse módulo.";
@@ -305,6 +323,12 @@
         ? ""
         : "Seu plano atual não inclui esse módulo.";
       document.getElementById("aviso-plano-frete").textContent = permiteFrete
+        ? ""
+        : "Seu plano atual não inclui esse módulo.";
+      document.getElementById("aviso-plano-eventos").textContent = permiteEventos
+        ? ""
+        : "Seu plano atual não inclui esse módulo.";
+      document.getElementById("aviso-plano-academia").textContent = permiteAcademia
         ? ""
         : "Seu plano atual não inclui esse módulo.";
 
@@ -417,6 +441,8 @@
           passagens_ativo: document.getElementById("modulo-passagens").checked,
           fretamento_ativo: document.getElementById("modulo-fretamento").checked,
           frete_ativo: document.getElementById("modulo-frete").checked,
+          eventos_ativo: document.getElementById("modulo-eventos").checked,
+          academia_ativo: document.getElementById("modulo-academia").checked,
         });
         mostrarAlerta("Módulos atualizados.", "sucesso");
       } catch (erro) {
