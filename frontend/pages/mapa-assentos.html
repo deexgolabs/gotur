@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Mapa de assentos</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#400056" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Mapa de assentos</h1>
+    <p class="subtitulo" id="subtitulo">Selecione um assento livre para iniciar a venda.</p>
+
+    <div id="alerta"></div>
+
+    <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start">
+      <div>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:400">
+          <input type="checkbox" id="modo-bloqueio" style="width:auto" />
+          Modo bloqueio administrativo (assento indisponível, manutenção, etc.)
+        </label>
+
+        <div class="mapa-onibus" id="mapa-assentos"></div>
+
+        <div class="legenda">
+          <span><i class="i-livre"></i>Livre</span>
+          <span><i class="i-selecionada"></i>Selecionada</span>
+          <span><i class="i-hold"></i>Em reserva (hold)</span>
+          <span><i class="i-vendida"></i>Vendida</span>
+          <span><i class="i-bloqueada"></i>Bloqueada</span>
+        </div>
+      </div>
+
+      <div class="cartao escondido" id="cartao-venda" style="min-width:280px">
+        <h2 style="margin-top:0">Vender assento <span id="numero-selecionada"></span></h2>
+        <p class="rodape-form" style="text-align:left;margin-top:-8px" id="preco-selecionada"></p>
+        <form id="form-venda">
+          <div style="margin-bottom:12px">
+            <label for="cliente-nome">Nome do cliente</label>
+            <input id="cliente-nome" required />
+          </div>
+          <div style="margin-bottom:12px">
+            <label for="cliente-documento">CPF</label>
+            <input id="cliente-documento" required />
+          </div>
+          <div style="margin-bottom:12px">
+            <label for="forma-pagamento">Forma de pagamento</label>
+            <select id="forma-pagamento">
+              <option value="dinheiro">Dinheiro</option>
+              <option value="cartao">Cartão</option>
+              <option value="pix">Pix</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+          <div class="linha-acoes">
+            <button type="submit">Confirmar venda</button>
+            <button type="button" class="secundario" id="btn-liberar">Liberar assento</button>
+          </div>
+        </form>
+        <div id="area-pix" class="escondido"></div>
+      </div>
+    </div>
+
+    <h2>Ingressos vendidos</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Código</th><th>Cliente</th><th>CPF</th><th>Assento</th><th>Preço</th><th>Status</th><th></th></tr></thead>
+        <tbody id="corpo-ingressos"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio-ingressos">Nenhum ingresso vendido ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script src="/js/pagamento-pix.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa", "funcionario");
+    const params = new URLSearchParams(window.location.search);
+    const sessaoId = params.get("sessao_id");
+    let assentoSelecionadoId = null;
+    let intervaloAtualizacao = null;
+
+    if (!sessaoId) {
+      window.location.href = "/pages/sessoes.html";
+    }
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") {
+        setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+      }
+    }
+
+    function esconderFormularioVenda() {
+      assentoSelecionadoId = null;
+      document.getElementById("cartao-venda").classList.add("escondido");
+      document.getElementById("form-venda").reset();
+    }
+
+    async function carregarMapa() {
+      const assentos = await api("GET", `/sessoes/${sessaoId}/assentos`);
+      const porFileira = {};
+      assentos.forEach((a) => {
+        porFileira[a.fileira] = porFileira[a.fileira] || [];
+        porFileira[a.fileira].push(a);
+      });
+
+      const container = document.getElementById("mapa-assentos");
+      container.innerHTML = Object.keys(porFileira)
+        .sort((a, b) => a - b)
+        .map((fileira) => {
+          const linha = porFileira[fileira].sort((a, b) => a.coluna - b.coluna);
+          const celulas = [];
+          linha.forEach((a) => {
+            if (a.coluna === 3) celulas.push('<div class="poltrona corredor"></div>');
+            const classes = ["poltrona", a.status];
+            if (a.assento_sessao_id === assentoSelecionadoId) classes.push("selecionada");
+            const tituloCategoria = a.categoria && a.categoria !== "padrao" ? `${a.categoria} · R$ ${a.preco.toFixed(2)}` : `R$ ${a.preco.toFixed(2)}`;
+            celulas.push(
+              `<div class="${classes.join(" ")}" data-id="${a.assento_sessao_id}" data-status="${a.status}" data-numero="${a.numero}" data-preco="${a.preco}" title="${tituloCategoria}">${a.numero}</div>`
+            );
+          });
+          return `<div class="fileira-poltronas">${celulas.join("")}</div>`;
+        })
+        .join("");
+
+      container.querySelectorAll(".poltrona[data-id]").forEach((el) => {
+        el.addEventListener("click", () => onClicarAssento(el));
+      });
+    }
+
+    async function onClicarAssento(el) {
+      const assentoId = parseInt(el.dataset.id, 10);
+      const status = el.dataset.status;
+      const modoBloqueio = document.getElementById("modo-bloqueio").checked;
+
+      try {
+        if (modoBloqueio) {
+          if (status === "bloqueada") {
+            await api("POST", `/sessoes/${sessaoId}/assentos/${assentoId}/desbloquear`);
+            mostrarAlerta("Assento desbloqueado.", "sucesso");
+          } else if (status === "livre") {
+            const motivo = prompt("Motivo do bloqueio (ex: manutenção, reservado):");
+            if (!motivo) return;
+            await api("POST", `/sessoes/${sessaoId}/assentos/${assentoId}/bloquear`, { motivo });
+            mostrarAlerta("Assento bloqueado.", "sucesso");
+          } else {
+            mostrarAlerta("Só é possível bloquear assentos livres.");
+            return;
+          }
+          await carregarMapa();
+          return;
+        }
+
+        if (status !== "livre") {
+          mostrarAlerta("Este assento não está disponível.");
+          return;
+        }
+
+        await api("POST", `/sessoes/${sessaoId}/assentos/${assentoId}/hold`);
+        assentoSelecionadoId = assentoId;
+        document.getElementById("numero-selecionada").textContent = el.dataset.numero;
+        document.getElementById("preco-selecionada").textContent = `Preço: R$ ${Number(el.dataset.preco).toFixed(2)}`;
+        document.getElementById("cartao-venda").classList.remove("escondido");
+        await carregarMapa();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    }
+
+    document.getElementById("btn-liberar").addEventListener("click", async () => {
+      if (!assentoSelecionadoId) return;
+      try {
+        await api("POST", `/sessoes/${sessaoId}/assentos/${assentoSelecionadoId}/liberar`);
+        esconderFormularioVenda();
+        carregarMapa();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    document.getElementById("form-venda").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      if (!assentoSelecionadoId) return;
+      try {
+        const resposta = await api("POST", `/sessoes/${sessaoId}/ingressos`, {
+          assento_sessao_id: assentoSelecionadoId,
+          cliente_nome: document.getElementById("cliente-nome").value.trim(),
+          cliente_documento: document.getElementById("cliente-documento").value.trim(),
+          forma_pagamento: document.getElementById("forma-pagamento").value,
+        });
+
+        if (resposta.pedido_ingresso) {
+          document.getElementById("form-venda").classList.add("escondido");
+          const areaPix = document.getElementById("area-pix");
+          areaPix.classList.remove("escondido");
+          renderizarPagamentoPix(areaPix, resposta.pedido_ingresso, {
+            endpointConfirmar: `/pedidos-ingresso/${resposta.pedido_ingresso.id}/confirmar-simulado`,
+            endpointConsultar: `/pedidos-ingresso/${resposta.pedido_ingresso.id}`,
+            aoConfirmar: async (corpo) => {
+              const codigo = corpo && corpo.ingresso ? corpo.ingresso.codigo : null;
+              mostrarAlerta(codigo ? `Pagamento confirmado! Código: ${codigo}` : "Pagamento confirmado!", "sucesso");
+              document.getElementById("form-venda").classList.remove("escondido");
+              areaPix.classList.add("escondido");
+              esconderFormularioVenda();
+              await Promise.all([carregarMapa(), carregarIngressos()]);
+            },
+          });
+          return;
+        }
+
+        mostrarAlerta(`Ingresso vendido! Código: ${resposta.ingresso.codigo}`, "sucesso");
+        esconderFormularioVenda();
+        await Promise.all([carregarMapa(), carregarIngressos()]);
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    async function carregarIngressos() {
+      const lista = await api("GET", `/sessoes/${sessaoId}/ingressos`);
+      const corpo = document.getElementById("corpo-ingressos");
+      document.getElementById("vazio-ingressos").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (i) => `
+        <tr>
+          <td>${i.codigo}</td>
+          <td>${i.cliente_nome}</td>
+          <td>${i.cliente_documento}</td>
+          <td>${i.numero_assento || "-"}</td>
+          <td>R$ ${Number(i.preco).toFixed(2)}</td>
+          <td>
+            <span class="selo ${i.status}">${i.status === "confirmada" ? "Confirmada" : "Cancelada"}</span>
+            ${i.reembolsado_em ? `<span class="selo confirmada">Reembolsado R$ ${Number(i.valor_reembolsado).toFixed(2)}</span>` : ""}
+          </td>
+          <td>
+            ${i.status === "confirmada" ? `<button class="secundario" data-bilhete="${i.codigo}">Bilhete PDF</button>` : ""}
+            ${i.status === "confirmada" ? `<button class="perigo" data-cancelar="${i.id}">Cancelar</button>` : ""}
+            ${i.status === "cancelada" && !i.reembolsado_em ? `<button class="secundario" data-reembolsar="${i.id}">Reembolsar</button>` : ""}
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-bilhete]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          abrirArquivoAutenticado(`/ingressos/${btn.dataset.bilhete}/bilhete.pdf`, "ingresso").catch((e) => mostrarAlerta(e.message));
+        });
+      });
+
+      corpo.querySelectorAll("button[data-cancelar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Cancelar este ingresso e liberar o assento?")) return;
+          try {
+            await api("POST", `/ingressos/${btn.dataset.cancelar}/cancelar`);
+            mostrarAlerta("Ingresso cancelado.", "sucesso");
+            await Promise.all([carregarMapa(), carregarIngressos()]);
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-reembolsar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const ingresso = lista.find((i) => i.id == btn.dataset.reembolsar);
+          const valorStr = prompt(`Valor a reembolsar (R$, máx ${Number(ingresso.preco).toFixed(2)}):`, Number(ingresso.preco).toFixed(2));
+          if (valorStr === null) return;
+          const motivo = prompt("Motivo do reembolso:");
+          if (!motivo) return;
+          try {
+            await api("POST", `/ingressos/${ingresso.id}/reembolsar`, {
+              valor: parseFloat(valorStr),
+              motivo,
+            });
+            mostrarAlerta("Reembolso registrado.", "sucesso");
+            carregarIngressos();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    if (auth && sessaoId) {
+      montarTopo("topo");
+      Promise.all([carregarMapa(), carregarIngressos()]).catch((e) => mostrarAlerta(e.message));
+      intervaloAtualizacao = setInterval(() => {
+        if (!assentoSelecionadoId) carregarMapa().catch(() => {});
+      }, 15000);
+    }
+  </script>
+</body>
+</html>

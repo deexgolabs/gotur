@@ -15,19 +15,23 @@ if settings.sentry_dsn:
 
     sentry_sdk.init(dsn=settings.sentry_dsn, traces_sample_rate=0.1, environment="debug" if settings.debug else "production")
 from app.routers import (
+    assentos_sessao,
     auditoria,
     auth,
     avaliacoes,
     checkin,
+    checkin_eventos,
     checklists,
     cupons,
     empresas,
     faturas,
     fretamentos,
     fretes,
+    ingressos,
     interline,
     jornadas,
     loja,
+    locais,
     motoristas,
     onibus,
     parceiros,
@@ -39,6 +43,7 @@ from app.routers import (
     push,
     relatorios,
     rotas,
+    sessoes,
     usuarios,
     viagens,
     webhooks,
@@ -105,6 +110,11 @@ for router in (
     jornadas.router,
     motoristas.router,
     checklists.router,
+    locais.router,
+    sessoes.router,
+    assentos_sessao.router,
+    ingressos.router,
+    checkin_eventos.router,
     webhooks.router,
 ):
     api.include_router(router)

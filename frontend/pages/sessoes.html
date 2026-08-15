@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Sessões</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#400056" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Sessões</h1>
+    <p class="subtitulo">Crie sessões de evento e gerencie a venda de ingressos.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao escondido" id="cartao-nova-sessao">
+      <h2 style="margin-top:0">Nova sessão</h2>
+      <form id="form-sessao">
+        <div class="grid-form">
+          <div>
+            <label for="local">Local</label>
+            <select id="local" required></select>
+          </div>
+          <div>
+            <label for="nome-evento">Nome do evento</label>
+            <input id="nome-evento" required />
+          </div>
+          <div>
+            <label for="data-hora">Data e hora</label>
+            <input id="data-hora" type="datetime-local" required />
+          </div>
+          <div>
+            <label for="preco">Preço base (R$)</label>
+            <input id="preco" type="number" min="0" step="0.01" required />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Criar sessão</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Próximas sessões</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Evento</th><th>Local</th><th>Data/Hora</th><th>Preço base</th><th>Status</th><th></th></tr></thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhuma sessão cadastrada ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa", "funcionario");
+    const ehAdmin = auth && auth.role === "admin_empresa";
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    function formatarDataHora(iso) {
+      return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    async function carregarSelects() {
+      const locais = await api("GET", "/locais");
+      document.getElementById("local").innerHTML = locais
+        .filter((l) => l.ativo)
+        .map((l) => `<option value="${l.id}">${l.nome} (${l.assentos.length} assentos)</option>`)
+        .join("");
+    }
+
+    async function carregarSessoes() {
+      const lista = await api("GET", "/sessoes");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (s) => `
+        <tr>
+          <td>${s.nome_evento}</td>
+          <td>${s.local.nome}</td>
+          <td>${formatarDataHora(s.data_hora)}</td>
+          <td>R$ ${Number(s.preco).toFixed(2)}</td>
+          <td><span class="selo ${s.ativo ? "livre" : "bloqueada"}">${s.ativo ? "Ativa" : "Cancelada"}</span></td>
+          <td>
+            <a href="/pages/mapa-assentos.html?sessao_id=${s.id}"><button>Mapa de assentos</button></a>
+            ${ehAdmin ? `<button class="secundario" data-editar="${s.id}">Editar</button>` : ""}
+            ${ehAdmin
+              ? s.ativo
+                ? `<button class="perigo" data-desativar="${s.id}">Cancelar</button>`
+                : ""
+              : ""}
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      if (!ehAdmin) return;
+
+      corpo.querySelectorAll("button[data-editar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const item = lista.find((s) => s.id == btn.dataset.editar);
+          const novoPreco = prompt("Novo preço base (R$):", Number(item.preco).toFixed(2));
+          if (novoPreco === null) return;
+          try {
+            await api("PATCH", `/sessoes/${item.id}`, { preco: parseFloat(novoPreco) });
+            mostrarAlerta("Sessão atualizada.", "sucesso");
+            carregarSessoes();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Cancelar esta sessão? Ela sai da busca de clientes, mas ingressos já vendidos continuam válidos.")) return;
+          try {
+            await api("PATCH", `/sessoes/${btn.dataset.desativar}/cancelar`);
+            carregarSessoes();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      if (ehAdmin) {
+        document.getElementById("cartao-nova-sessao").classList.remove("escondido");
+        carregarSelects().catch((e) => mostrarAlerta(e.message));
+      }
+      carregarSessoes().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-sessao").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const dataHora = document.getElementById("data-hora").value;
+        await api("POST", "/sessoes", {
+          local_id: parseInt(document.getElementById("local").value, 10),
+          nome_evento: document.getElementById("nome-evento").value.trim(),
+          data_hora: new Date(dataHora).toISOString(),
+          preco: parseFloat(document.getElementById("preco").value),
+        });
+        ev.target.reset();
+        mostrarAlerta("Sessão criada com sucesso.", "sucesso");
+        carregarSessoes();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

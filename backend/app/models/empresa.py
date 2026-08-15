@@ -42,6 +42,7 @@ class Empresa(Base):
     fretamento_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     passagens_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     frete_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    eventos_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Programa de fidelidade: a cada N passagens confirmadas de um mesmo
     # cliente (com conta, cliente_usuario_id preenchido), gera automaticamente
@@ -101,6 +102,12 @@ class Empresa(Base):
         """Só usa frete se o plano incluir E a empresa não tiver desligado."""
         permitido_pelo_plano = self.plano.modulo_frete if self.plano else True
         return permitido_pelo_plano and self.frete_ativo
+
+    @property
+    def eventos_habilitado(self) -> bool:
+        """Só usa eventos se o plano incluir E a empresa não tiver desligado."""
+        permitido_pelo_plano = self.plano.modulo_eventos if self.plano else True
+        return permitido_pelo_plano and self.eventos_ativo
 
     @property
     def mercadopago_configurado(self) -> bool:

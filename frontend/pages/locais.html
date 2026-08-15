@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Locais</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#400056" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Locais</h1>
+    <p class="subtitulo">Teatros, cinemas, estádios e outros espaços com lugar marcado.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Novo local</h2>
+      <form id="form-local">
+        <div class="grid-form">
+          <div>
+            <label for="nome">Nome</label>
+            <input id="nome" required />
+          </div>
+          <div>
+            <label for="endereco">Endereço (opcional)</label>
+            <input id="endereco" />
+          </div>
+          <div>
+            <label for="total">Total de assentos</label>
+            <input id="total" type="number" min="1" max="5000" value="100" required />
+          </div>
+        </div>
+        <p class="rodape-form" style="text-align:left">O layout de assentos (2+corredor+2 por fileira) é gerado automaticamente.</p>
+        <div class="linha-acoes">
+          <button type="submit">Cadastrar local</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Locais cadastrados</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Nome</th><th>Endereço</th><th>Assentos</th><th>Status</th><th></th></tr></thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhum local cadastrado ainda.</p>
+    </div>
+  </main>
+
+  <dialog id="dialog-assentos" style="border:none;border-radius:8px;padding:24px;max-width:520px;width:100%">
+    <h2 style="margin-top:0" id="titulo-dialog-assentos">Categorias de assentos</h2>
+    <p class="rodape-form" style="text-align:left">Clique num assento para definir a categoria e o multiplicador de preço (ex: "vip", 2x = o dobro do preço base da sessão).</p>
+    <div class="mapa-onibus" id="mapa-assentos-local" style="margin:14px 0"></div>
+    <div class="linha-acoes">
+      <button type="button" class="secundario" id="btn-fechar-assentos">Fechar</button>
+    </div>
+  </dialog>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/locais");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (l) => `
+        <tr>
+          <td>${l.nome}</td>
+          <td>${l.endereco || "—"}</td>
+          <td>${l.assentos.length}</td>
+          <td><span class="selo ${l.ativo ? "livre" : "bloqueada"}">${l.ativo ? "Ativo" : "Inativo"}</span></td>
+          <td>
+            <button class="secundario" data-editar="${l.id}">Editar</button>
+            <button class="secundario" data-assentos="${l.id}">Categorias</button>
+            ${l.ativo
+              ? `<button class="perigo" data-desativar="${l.id}">Desativar</button>`
+              : `<button class="secundario" data-ativar="${l.id}">Reativar</button>`}
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-assentos]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirDialogAssentos(lista.find((l) => l.id == btn.dataset.assentos)));
+      });
+
+      corpo.querySelectorAll("button[data-editar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const item = lista.find((l) => l.id == btn.dataset.editar);
+          const novoNome = prompt("Nome do local:", item.nome);
+          if (novoNome === null) return;
+          try {
+            await api("PATCH", `/locais/${item.id}`, { nome: novoNome.trim() });
+            mostrarAlerta("Local atualizado.", "sucesso");
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/locais/${btn.dataset.desativar}/desativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-ativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await api("PATCH", `/locais/${btn.dataset.ativar}/ativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    let localAtualId = null;
+
+    function renderizarMapaAssentos(local) {
+      const porFileira = {};
+      local.assentos.forEach((a) => {
+        porFileira[a.fileira] = porFileira[a.fileira] || [];
+        porFileira[a.fileira].push(a);
+      });
+
+      const container = document.getElementById("mapa-assentos-local");
+      container.innerHTML = Object.keys(porFileira)
+        .sort((a, b) => a - b)
+        .map((fileira) => {
+          const assentos = porFileira[fileira].sort((a, b) => a.coluna - b.coluna);
+          const celulas = [];
+          assentos.forEach((a) => {
+            if (a.coluna === 3) celulas.push('<div class="poltrona corredor"></div>');
+            const destaque = a.multiplicador_preco != 1 ? "selecionada" : "livre";
+            celulas.push(
+              `<div class="poltrona ${destaque}" data-id="${a.id}" title="${a.categoria} · ${Number(a.multiplicador_preco).toFixed(2)}x">${a.numero}</div>`
+            );
+          });
+          return `<div class="fileira-poltronas">${celulas.join("")}</div>`;
+        })
+        .join("");
+
+      container.querySelectorAll(".poltrona[data-id]").forEach((el) => {
+        el.addEventListener("click", async () => {
+          const assento = local.assentos.find((a) => a.id == el.dataset.id);
+          const categoria = prompt("Categoria (ex: padrao, vip, camarote):", assento.categoria);
+          if (categoria === null) return;
+          const multiplicador = prompt("Multiplicador de preço (1 = preço normal, 2 = o dobro):", Number(assento.multiplicador_preco).toFixed(2));
+          if (multiplicador === null) return;
+          try {
+            await api("PATCH", `/locais/${local.id}/assentos/${assento.id}`, {
+              categoria: categoria.trim() || "padrao",
+              multiplicador_preco: parseFloat(multiplicador),
+            });
+            assento.categoria = categoria.trim() || "padrao";
+            assento.multiplicador_preco = parseFloat(multiplicador);
+            renderizarMapaAssentos(local);
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    function abrirDialogAssentos(local) {
+      localAtualId = local.id;
+      document.getElementById("titulo-dialog-assentos").textContent = `Categorias de assentos — ${local.nome}`;
+      renderizarMapaAssentos(local);
+      document.getElementById("dialog-assentos").showModal();
+    }
+
+    document.getElementById("btn-fechar-assentos").addEventListener("click", () => {
+      document.getElementById("dialog-assentos").close();
+      carregar();
+    });
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-local").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("POST", "/locais", {
+          nome: document.getElementById("nome").value.trim(),
+          endereco: document.getElementById("endereco").value.trim() || null,
+          total_assentos: parseInt(document.getElementById("total").value, 10),
+        });
+        ev.target.reset();
+        document.getElementById("total").value = 100;
+        mostrarAlerta("Local cadastrado com sucesso.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

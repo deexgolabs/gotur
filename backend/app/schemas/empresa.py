@@ -40,6 +40,7 @@ class ConfiguracaoModulosRequest(BaseModel):
     fretamento_ativo: bool | None = None
     passagens_ativo: bool | None = None
     frete_ativo: bool | None = None
+    eventos_ativo: bool | None = None
 
 
 class ConfiguracaoFidelidadeRequest(BaseModel):
@@ -92,9 +93,11 @@ class EmpresaOut(BaseModel):
     fretamento_ativo: bool = True
     passagens_ativo: bool = True
     frete_ativo: bool = True
+    eventos_ativo: bool = True
     fretamento_habilitado: bool = True
     passagens_habilitado: bool = True
     frete_habilitado: bool = True
+    eventos_habilitado: bool = True
     fidelidade_ativa: bool = False
     fidelidade_passagens_necessarias: int | None = None
     fidelidade_desconto_percentual: float | None = None
@@ -122,6 +125,7 @@ class LojaInfoOut(BaseModel):
     fretamento_habilitado: bool = True
     passagens_habilitado: bool = True
     frete_habilitado: bool = True
+    eventos_habilitado: bool = True
     # Public Key (não é segredo — é pra rodar no navegador do cliente)
     # usada pelo Card Payment Brick do Mercado Pago na loja. None =
     # empresa não configurou Mercado Pago, ou o modo de cobrança não é

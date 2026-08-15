@@ -5,6 +5,7 @@ from app.models.configuracao_plataforma import ConfiguracaoPlataforma
 from app.models.cupom import Cupom
 from app.models.documento_onibus import DocumentoOnibus
 from app.models.empresa import Empresa
+from app.models.evento import AssentoLocal, AssentoSessao, Ingresso, Local, PedidoIngressoPendente, Sessao
 from app.models.fatura_empresa import FaturaEmpresa
 from app.models.frete import Frete, PosicaoFrete
 from app.models.fretamento import Fretamento, PosicaoFretamento
@@ -60,4 +61,10 @@ __all__ = [
     "ConexaoInterline",
     "PedidoInterline",
     "AcertoInterline",
+    "Local",
+    "AssentoLocal",
+    "Sessao",
+    "AssentoSessao",
+    "Ingresso",
+    "PedidoIngressoPendente",
 ]

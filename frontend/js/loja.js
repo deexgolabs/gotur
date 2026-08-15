@@ -54,6 +54,8 @@ function trocarVista(nome) {
   document.querySelectorAll(".loja-nav-item").forEach((b) => b.classList.toggle("ativo", b.dataset.vista === nome));
   if (nome === "minhas") carregarMinhasViagens();
   if (nome === "conta") renderizarConta();
+  if (nome === "eventos") carregarEventos();
+  if (nome === "meus-ingressos") carregarMeusIngressos();
 }
 
 // ---------- Busca ----------
@@ -870,6 +872,236 @@ async function rastrearFreteLoja() {
 
 // ---------- Conta ----------
 
+// ---------- Eventos ----------
+
+let sessaoAtual = null;
+let assentoSelecionadoIdEvento = null;
+let precoSelecionadoEvento = null;
+
+async function carregarEventos() {
+  const container = document.getElementById("eventos-lista");
+  container.innerHTML = `<p class="loja-selo-vazio">Carregando...</p>`;
+  try {
+    const lista = await fetch(`/api/sessoes/loja/${SLUG}`).then((r) => (r.ok ? r.json() : []));
+    if (!lista.length) {
+      container.innerHTML = `<p class="loja-selo-vazio">Nenhum evento disponível no momento.</p>`;
+      return;
+    }
+    container.innerHTML = lista
+      .map(
+        (s, i) => `
+      <div class="loja-card loja-card-viagem" data-indice="${i}">
+        <div>
+          <div class="trecho">${s.nome_evento}</div>
+          <div class="info">${s.local_nome} · ${new Date(s.data_hora).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} · ${s.assentos_livres} vagas</div>
+        </div>
+        <div class="preco">R$ ${Number(s.preco).toFixed(2)}</div>
+      </div>`
+      )
+      .join("");
+    container.querySelectorAll("[data-indice]").forEach((el) => {
+      el.addEventListener("click", () => abrirCompraEvento(lista[parseInt(el.dataset.indice, 10)]));
+    });
+  } catch (erro) {
+    container.innerHTML = `<p class="loja-selo-vazio">Erro ao carregar eventos.</p>`;
+  }
+}
+
+function abrirCompraEvento(sessao) {
+  sessaoAtual = sessao;
+  assentoSelecionadoIdEvento = null;
+  document.getElementById("alerta-compra-evento").innerHTML = "";
+  document.getElementById("evento-titulo").textContent = `${sessao.nome_evento} — ${sessao.local_nome}`;
+  document.getElementById("card-form-compra-evento").classList.add("escondido");
+  document.getElementById("area-pix-evento").classList.add("escondido");
+  document.getElementById("form-compra-evento").classList.remove("escondido");
+
+  document.querySelectorAll(".loja-vista").forEach((v) => v.classList.remove("ativa"));
+  document.getElementById("vista-compra-evento").classList.add("ativa");
+
+  carregarMapaEvento();
+}
+
+async function carregarMapaEvento() {
+  const assentos = await fetch(`/api/sessoes/${sessaoAtual.id}/assentos`).then((r) => r.json());
+  const porFileira = {};
+  assentos.forEach((a) => {
+    porFileira[a.fileira] = porFileira[a.fileira] || [];
+    porFileira[a.fileira].push(a);
+  });
+
+  const container = document.getElementById("mapa-assentos-evento");
+  container.innerHTML = Object.keys(porFileira)
+    .sort((a, b) => a - b)
+    .map((fileira) => {
+      const linha = porFileira[fileira].sort((a, b) => a.coluna - b.coluna);
+      const celulas = [];
+      linha.forEach((a) => {
+        if (a.coluna === 3) celulas.push('<div class="poltrona corredor"></div>');
+        const classes = ["poltrona", a.status];
+        if (a.assento_sessao_id === assentoSelecionadoIdEvento) classes.push("selecionada");
+        celulas.push(
+          `<div class="${classes.join(" ")}" data-id="${a.assento_sessao_id}" data-status="${a.status}" data-numero="${a.numero}" data-preco="${a.preco}">${a.numero}</div>`
+        );
+      });
+      return `<div class="fileira-poltronas">${celulas.join("")}</div>`;
+    })
+    .join("");
+
+  container.querySelectorAll(".poltrona[data-id]").forEach((el) => {
+    el.addEventListener("click", () => onClicarAssentoEvento(el));
+  });
+}
+
+async function onClicarAssentoEvento(el) {
+  if (el.dataset.status !== "livre") {
+    mostrarAlerta("Esse assento não está disponível.", "erro", "alerta-compra-evento");
+    return;
+  }
+  if (!obterAuth()) {
+    mostrarAlerta("Crie uma conta ou faça login pra escolher seu assento — é rápido.", "erro", "alerta-compra-evento");
+    trocarVista("conta");
+    return;
+  }
+
+  try {
+    await api("POST", `/sessoes/${sessaoAtual.id}/assentos/${el.dataset.id}/hold`);
+  } catch (erro) {
+    mostrarAlerta(erro.message, "erro", "alerta-compra-evento");
+    carregarMapaEvento();
+    return;
+  }
+
+  document.getElementById("alerta-compra-evento").innerHTML = "";
+  assentoSelecionadoIdEvento = parseInt(el.dataset.id, 10);
+  precoSelecionadoEvento = Number(el.dataset.preco);
+  document.getElementById("evento-numero-selecionado").textContent = el.dataset.numero;
+  document.getElementById("evento-preco-selecionado").textContent = `R$ ${precoSelecionadoEvento.toFixed(2)}`;
+  const auth = obterAuth();
+  if (auth && !document.getElementById("evento-nome").value) {
+    document.getElementById("evento-nome").value = auth.nome || "";
+  }
+  document.getElementById("card-form-compra-evento").classList.remove("escondido");
+  atualizarFormaPagamentoEvento();
+  carregarMapaEvento();
+}
+
+function tratarRespostaCompraEvento(resposta) {
+  if (resposta.pedido_ingresso) {
+    document.getElementById("form-compra-evento").classList.add("escondido");
+    document.getElementById("area-cartao-evento").classList.add("escondido");
+    const areaPix = document.getElementById("area-pix-evento");
+    areaPix.classList.remove("escondido");
+    renderizarPagamentoPix(areaPix, resposta.pedido_ingresso, {
+      endpointConfirmar: `/pedidos-ingresso/${resposta.pedido_ingresso.id}/confirmar-simulado`,
+      endpointConsultar: `/pedidos-ingresso/${resposta.pedido_ingresso.id}`,
+      aoConfirmar: (corpo) => {
+        const codigo = corpo && corpo.ingresso ? corpo.ingresso.codigo : null;
+        mostrarAlerta(codigo ? `Compra confirmada! Código: ${codigo}` : "Compra confirmada!", "sucesso", "alerta-compra-evento");
+        setTimeout(() => trocarVista("meus-ingressos"), 1200);
+      },
+    });
+    return;
+  }
+
+  mostrarAlerta(`Compra confirmada! Código: ${resposta.ingresso.codigo}`, "sucesso", "alerta-compra-evento");
+  setTimeout(() => trocarVista("meus-ingressos"), 1200);
+}
+
+function dadosBaseCompraEvento(formaPagamento) {
+  return {
+    assento_sessao_id: assentoSelecionadoIdEvento,
+    cliente_nome: document.getElementById("evento-nome").value.trim(),
+    cliente_documento: document.getElementById("evento-documento").value.trim(),
+    forma_pagamento: formaPagamento,
+  };
+}
+
+function atualizarFormaPagamentoEvento() {
+  const forma = document.getElementById("evento-forma").value;
+  const btnConfirmar = document.getElementById("btn-confirmar-compra-evento");
+  const areaCartao = document.getElementById("area-cartao-evento");
+
+  if (forma !== "cartao") {
+    desmontarCheckoutCartaoMP();
+    areaCartao.classList.add("escondido");
+    btnConfirmar.classList.remove("escondido");
+    return;
+  }
+
+  btnConfirmar.classList.add("escondido");
+  areaCartao.classList.remove("escondido");
+  if (!assentoSelecionadoIdEvento) return;
+
+  montarCheckoutCartaoMP("area-cartao-evento", {
+    publicKey: BRANDING.mercadopago_public_key,
+    valor: precoSelecionadoEvento,
+    onPagar: (dadosCartao) =>
+      api("POST", `/sessoes/${sessaoAtual.id}/ingressos`, {
+        ...dadosBaseCompraEvento("cartao"),
+        mp_token: dadosCartao.token,
+        mp_payment_method_id: dadosCartao.payment_method_id,
+        mp_installments: dadosCartao.installments,
+        mp_payer_email: dadosCartao.payer_email,
+      }).then((resposta) => {
+        tratarRespostaCompraEvento(resposta);
+      }),
+  });
+}
+
+function configurarCompraEvento() {
+  document.getElementById("btn-voltar-eventos").addEventListener("click", () => trocarVista("eventos"));
+
+  document.getElementById("evento-forma").addEventListener("change", atualizarFormaPagamentoEvento);
+
+  document.getElementById("form-compra-evento").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if (!assentoSelecionadoIdEvento) return;
+    const forma = document.getElementById("evento-forma").value;
+    if (forma === "cartao") return; // o próprio Brick tem o botão de pagar
+
+    try {
+      const resposta = await api("POST", `/sessoes/${sessaoAtual.id}/ingressos`, dadosBaseCompraEvento(forma));
+      tratarRespostaCompraEvento(resposta);
+    } catch (erro) {
+      mostrarAlerta(erro.message, "erro", "alerta-compra-evento");
+    }
+  });
+}
+
+async function carregarMeusIngressos() {
+  const container = document.getElementById("meus-ingressos-conteudo");
+  const auth = obterAuth();
+  if (!auth) {
+    container.innerHTML = `<p class="loja-selo-vazio">Faça login pra ver seus ingressos.</p>`;
+    return;
+  }
+  container.innerHTML = `<p class="loja-selo-vazio">Carregando...</p>`;
+  try {
+    const lista = await api("GET", "/ingressos/minhas");
+    if (!lista.length) {
+      container.innerHTML = `<p class="loja-selo-vazio">Você ainda não comprou nenhum ingresso aqui.</p>`;
+      return;
+    }
+    container.innerHTML = lista
+      .map(
+        (i) => `
+      <div class="loja-card">
+        <div class="trecho">${i.nome_evento || "-"}</div>
+        <div class="info">${i.local_nome || ""} ${i.data_hora ? "· " + new Date(i.data_hora).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : ""} · Assento ${i.numero_assento || "-"}</div>
+        <div class="info">Código: <strong>${i.codigo}</strong></div>
+        <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+          <span class="selo ${i.status}">${i.status === "confirmada" ? "Confirmado" : "Cancelado"}</span>
+          <span style="font-weight:700">R$ ${Number(i.preco).toFixed(2)}</span>
+        </div>
+      </div>`
+      )
+      .join("");
+  } catch (erro) {
+    container.innerHTML = `<p class="loja-selo-vazio">Erro ao carregar seus ingressos.</p>`;
+  }
+}
+
 function configurarConta() {
   renderizarConta();
 }
@@ -884,9 +1116,14 @@ function renderizarConta() {
         <div style="font-weight:700;font-size:1.1rem">${auth.nome}</div>
         <div class="info" style="color:var(--cinza)">${auth.role === "cliente" ? "Cliente" : auth.role}</div>
         <div class="linha-acoes" style="margin-top:14px">
+          ${BRANDING.eventos_habilitado ? `<button type="button" class="secundario" id="btn-meus-ingressos-loja">Meus ingressos</button>` : ""}
           <button type="button" class="secundario" id="btn-sair-loja">Sair</button>
         </div>
       </div>`;
+    const btnMeusIngressos = document.getElementById("btn-meus-ingressos-loja");
+    if (btnMeusIngressos) {
+      btnMeusIngressos.addEventListener("click", () => trocarVista("meus-ingressos"));
+    }
     document.getElementById("btn-sair-loja").addEventListener("click", () => {
       limparAuth();
       renderizarConta();
@@ -1087,8 +1324,11 @@ async function iniciar() {
   if (!BRANDING.frete_habilitado) {
     document.querySelector('.loja-nav-item[data-vista="frete"]').classList.add("escondido");
   }
-  if (!BRANDING.passagens_habilitado && (BRANDING.fretamento_habilitado || BRANDING.frete_habilitado)) {
-    trocarVista(BRANDING.fretamento_habilitado ? "fretamento" : "frete");
+  if (!BRANDING.eventos_habilitado) {
+    document.querySelector('.loja-nav-item[data-vista="eventos"]').classList.add("escondido");
+  }
+  if (!BRANDING.passagens_habilitado && (BRANDING.fretamento_habilitado || BRANDING.frete_habilitado || BRANDING.eventos_habilitado)) {
+    trocarVista(BRANDING.fretamento_habilitado ? "fretamento" : BRANDING.frete_habilitado ? "frete" : "eventos");
   }
 
   configurarBusca();
@@ -1099,6 +1339,7 @@ async function iniciar() {
   configurarCompraInterline();
   configurarFretamento();
   configurarFrete();
+  configurarCompraEvento();
   configurarConta();
 
   // Link direto de acompanhamento (ex: compartilhado por WhatsApp), no

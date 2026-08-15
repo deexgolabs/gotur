@@ -265,11 +265,13 @@ def configurar_modulos(
         empresa.passagens_ativo = dados.passagens_ativo
     if dados.frete_ativo is not None:
         empresa.frete_ativo = dados.frete_ativo
+    if dados.eventos_ativo is not None:
+        empresa.eventos_ativo = dados.eventos_ativo
 
-    if not empresa.fretamento_ativo and not empresa.passagens_ativo and not empresa.frete_ativo:
+    if not empresa.fretamento_ativo and not empresa.passagens_ativo and not empresa.frete_ativo and not empresa.eventos_ativo:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Pelo menos um módulo (passagens, fretamento ou frete) precisa ficar ligado.",
+            detail="Pelo menos um módulo (passagens, fretamento, frete ou eventos) precisa ficar ligado.",
         )
 
     db.commit()
@@ -377,6 +379,7 @@ def info_loja_publica(slug: str, db: Session = Depends(get_db)):
         fretamento_habilitado=empresa.fretamento_habilitado,
         passagens_habilitado=empresa.passagens_habilitado,
         frete_habilitado=empresa.frete_habilitado,
+        eventos_habilitado=empresa.eventos_habilitado,
         mercadopago_public_key=empresa.mercadopago_public_key if empresa.modo_cobranca == ModoCobranca.AUTOMATICA else None,
     )
 

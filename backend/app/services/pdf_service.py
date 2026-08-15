@@ -246,3 +246,71 @@ def gerar_bilhete_pdf(dados: DadosBilhete) -> bytes:
 
     saida = pdf.output()
     return bytes(saida)
+
+
+@dataclass
+class DadosIngresso:
+    empresa_nome: str
+    nome_evento: str
+    local_nome: str
+    data_hora: datetime
+    numero_assento: str
+    categoria_assento: str
+    cliente_nome: str
+    cliente_documento: str
+    codigo: str
+    preco: float
+
+
+def gerar_ingresso_pdf(dados: DadosIngresso) -> bytes:
+    """Ingresso em formato de recibo estreito (80mm) — mesmo layout de
+    gerar_bilhete_pdf, só troca os campos (evento/local/assento em vez de
+    trecho/partida/poltrona)."""
+    pdf = FPDF(format=(80, 150))
+    pdf.set_auto_page_break(auto=False)
+    pdf.add_page()
+    pdf.set_margin(5)
+
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 8, "GoTur", new_x="LMARGIN", new_y="NEXT", align="C")
+
+    pdf.set_font("Helvetica", "", 9)
+    pdf.cell(0, 5, dados.empresa_nome, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.ln(3)
+
+    pdf.set_draw_color(200, 200, 200)
+    pdf.line(5, pdf.get_y(), 75, pdf.get_y())
+    pdf.ln(3)
+
+    def linha(rotulo: str, valor: str, negrito: bool = False) -> None:
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(0, 4.5, rotulo, new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "B" if negrito else "", 10)
+        pdf.cell(0, 5.5, valor, new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+
+    linha("EVENTO", dados.nome_evento, negrito=True)
+    linha("LOCAL", dados.local_nome)
+    linha("SESSAO", dados.data_hora.strftime("%d/%m/%Y as %H:%M"))
+    linha("ASSENTO", f"{dados.numero_assento} ({dados.categoria_assento})")
+    linha("PASSAGEIRO", dados.cliente_nome)
+    linha("CPF", dados.cliente_documento)
+    linha("VALOR PAGO", f"R$ {dados.preco:.2f}")
+
+    pdf.ln(2)
+    pdf.line(5, pdf.get_y(), 75, pdf.get_y())
+    pdf.ln(4)
+
+    qr_png = gerar_qrcode_png(dados.codigo)
+    pdf.image(io.BytesIO(qr_png), x=20, w=40)
+    pdf.ln(2)
+
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(0, 6, dados.codigo, new_x="LMARGIN", new_y="NEXT", align="C")
+
+    pdf.set_font("Helvetica", "", 7)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 4, "Apresente este codigo na entrada", new_x="LMARGIN", new_y="NEXT", align="C")
+
+    saida = pdf.output()
+    return bytes(saida)

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Check-in de eventos</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#400056" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Check-in de evento</h1>
+    <p class="subtitulo">Digite ou escaneie o código do ingresso.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <form id="form-buscar">
+        <div class="grid-form">
+          <div>
+            <label for="codigo">Código</label>
+            <input id="codigo" required autofocus autocomplete="off" style="text-transform:uppercase" placeholder="Ex: SRJIA6" />
+          </div>
+        </div>
+        <div class="linha-acoes">
+          <button type="submit">Buscar ingresso</button>
+          <button type="button" class="secundario" id="btn-escanear">Ler QR Code</button>
+        </div>
+      </form>
+
+      <div id="area-leitor" class="escondido" style="margin-top:16px">
+        <div id="qr-reader" style="max-width:360px"></div>
+        <div class="linha-acoes">
+          <button type="button" class="secundario" id="btn-cancelar-leitura">Cancelar leitura</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cartao escondido" id="cartao-resultado">
+      <h2 style="margin-top:0" id="titulo-resultado"></h2>
+      <p id="detalhes-resultado" style="color:var(--cinza)"></p>
+      <div id="selo-checkin"></div>
+      <div class="linha-acoes">
+        <button id="btn-confirmar-checkin">Confirmar entrada</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa", "funcionario");
+    let codigoAtual = null;
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") {
+        setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+      }
+    }
+
+    function formatarDataHora(iso) {
+      return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    function renderizarResultado(i) {
+      codigoAtual = i.codigo;
+      document.getElementById("cartao-resultado").classList.remove("escondido");
+      document.getElementById("titulo-resultado").textContent = `${i.cliente_nome} — Assento ${i.numero_assento}`;
+      document.getElementById("detalhes-resultado").textContent =
+        `${i.nome_evento} · ${i.local_nome} · ${formatarDataHora(i.data_hora)} · Código ${i.codigo}`;
+
+      const jaFezCheckin = !!i.checkin_em;
+      const cancelado = i.status_ingresso === "cancelada";
+      document.getElementById("selo-checkin").innerHTML = cancelado
+        ? `<span class="selo cancelada">Ingresso cancelado</span>`
+        : jaFezCheckin
+        ? `<span class="selo confirmada">Entrada confirmada em ${formatarDataHora(i.checkin_em)}</span>`
+        : `<span class="selo hold">Aguardando entrada</span>`;
+
+      const btn = document.getElementById("btn-confirmar-checkin");
+      btn.classList.toggle("escondido", cancelado || jaFezCheckin);
+    }
+
+    async function buscarPorCodigo(codigo) {
+      document.getElementById("cartao-resultado").classList.add("escondido");
+      try {
+        const ingresso = await api("GET", `/checkin-eventos/${codigo.trim().toUpperCase()}`);
+        renderizarResultado(ingresso);
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    }
+
+    document.getElementById("form-buscar").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      buscarPorCodigo(document.getElementById("codigo").value);
+    });
+
+    let leitorQr = null;
+
+    async function pararLeitura() {
+      document.getElementById("area-leitor").classList.add("escondido");
+      if (leitorQr) {
+        try {
+          await leitorQr.stop();
+        } catch (e) {
+          // já parado
+        }
+        leitorQr = null;
+      }
+    }
+
+    document.getElementById("btn-escanear").addEventListener("click", async () => {
+      if (typeof Html5Qrcode === "undefined") {
+        mostrarAlerta("Não foi possível carregar o leitor de QR Code. Verifique sua conexão e tente novamente.");
+        return;
+      }
+      document.getElementById("area-leitor").classList.remove("escondido");
+      leitorQr = new Html5Qrcode("qr-reader");
+      try {
+        await leitorQr.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          async (codigoLido) => {
+            await pararLeitura();
+            document.getElementById("codigo").value = codigoLido.trim().toUpperCase();
+            buscarPorCodigo(codigoLido);
+          },
+          () => {} // leitura ainda não encontrou um código no quadro — ignora, tenta de novo sozinho
+        );
+      } catch (erro) {
+        mostrarAlerta("Não foi possível acessar a câmera. Verifique a permissão do navegador.");
+        document.getElementById("area-leitor").classList.add("escondido");
+        leitorQr = null;
+      }
+    });
+
+    document.getElementById("btn-cancelar-leitura").addEventListener("click", pararLeitura);
+
+    document.getElementById("btn-confirmar-checkin").addEventListener("click", async () => {
+      if (!codigoAtual) return;
+      try {
+        const ingresso = await api("POST", `/checkin-eventos/${codigoAtual}`);
+        renderizarResultado(ingresso);
+        mostrarAlerta("Entrada confirmada com sucesso.", "sucesso");
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+
+    if (auth) {
+      montarTopo("topo");
+    }
+  </script>
+</body>
+</html>

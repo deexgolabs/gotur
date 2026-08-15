@@ -53,6 +53,9 @@ function linksPorPapel(role) {
       { href: "/pages/rotas.html", label: "Rotas", modulo: "passagens", grupo: "Frota" },
       { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento", grupo: "Fretamento e frete" },
       { href: "/pages/fretes.html", label: "Fretes", modulo: "frete", grupo: "Fretamento e frete" },
+      { href: "/pages/locais.html", label: "Locais", modulo: "eventos", grupo: "Eventos" },
+      { href: "/pages/sessoes.html", label: "Sessões", modulo: "eventos", grupo: "Eventos" },
+      { href: "/pages/checkin-eventos.html", label: "Check-in eventos", modulo: "eventos", grupo: "Eventos" },
       { href: "/pages/relatorios.html", label: "Relatórios", grupo: "Financeiro" },
       { href: "/pages/dre.html", label: "DRE", modulo: "dre", grupo: "Financeiro" },
       { href: "/pages/minhas-faturas.html", label: "Faturas", grupo: "Financeiro" },
@@ -83,6 +86,9 @@ function linksPorPapel(role) {
       { href: "/pages/checkin.html", label: "Check-in", modulo: "passagens", grupo: "Vendas" },
       { href: "/pages/fretamentos.html", label: "Fretamentos", modulo: "fretamento", grupo: "Fretamento e frete" },
       { href: "/pages/fretes.html", label: "Fretes", modulo: "frete", grupo: "Fretamento e frete" },
+      { href: "/pages/locais.html", label: "Locais", modulo: "eventos", grupo: "Eventos" },
+      { href: "/pages/sessoes.html", label: "Sessões", modulo: "eventos", grupo: "Eventos" },
+      { href: "/pages/checkin-eventos.html", label: "Check-in eventos", modulo: "eventos", grupo: "Eventos" },
       { href: "/pages/avaliacoes.html", label: "Avaliações" },
     ];
   }
@@ -229,6 +235,7 @@ function montarTopo(containerId) {
           frete: empresa.frete_habilitado,
           motorista: empresa.motorista_habilitado,
           dre: empresa.dre_habilitado,
+          eventos: empresa.eventos_habilitado,
         };
         Object.entries(modulosHabilitados).forEach(([modulo, habilitado]) => {
           if (!habilitado) {

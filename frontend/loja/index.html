@@ -241,6 +241,49 @@
         </div>
       </section>
 
+      <section class="loja-vista" id="vista-eventos">
+        <div class="loja-titulo-vista">Eventos</div>
+        <div id="eventos-lista"></div>
+      </section>
+
+      <section class="loja-vista" id="vista-compra-evento">
+        <button type="button" class="loja-voltar" id="btn-voltar-eventos">&larr; Voltar pra eventos</button>
+        <div class="loja-titulo-vista" id="evento-titulo"></div>
+        <div id="alerta-compra-evento"></div>
+        <div class="loja-card loja-poltronas">
+          <div class="mapa-onibus" id="mapa-assentos-evento"></div>
+          <div class="legenda">
+            <span><i class="i-livre"></i>Livre</span>
+            <span><i class="i-selecionada"></i>Selecionada</span>
+            <span><i class="i-hold"></i>Indisponível</span>
+            <span><i class="i-vendida"></i>Vendida</span>
+          </div>
+        </div>
+        <div class="loja-card escondido" id="card-form-compra-evento">
+          <div style="font-weight:700;margin-bottom:10px">Assento <span id="evento-numero-selecionado"></span> — <span id="evento-preco-selecionado"></span></div>
+          <form class="loja-form" id="form-compra-evento">
+            <label for="evento-nome">Seu nome</label>
+            <input id="evento-nome" required />
+            <label for="evento-documento">CPF</label>
+            <input id="evento-documento" required />
+            <label for="evento-forma">Forma de pagamento</label>
+            <select id="evento-forma">
+              <option value="pix">Pix</option>
+              <option value="cartao">Cartão</option>
+              <option value="dinheiro">Dinheiro</option>
+            </select>
+            <button type="submit" id="btn-confirmar-compra-evento">Confirmar compra</button>
+          </form>
+          <div id="area-cartao-evento" class="escondido" style="margin-top:12px"></div>
+          <div id="area-pix-evento" class="escondido"></div>
+        </div>
+      </section>
+
+      <section class="loja-vista" id="vista-meus-ingressos">
+        <div class="loja-titulo-vista">Meus ingressos</div>
+        <div id="meus-ingressos-conteudo"></div>
+      </section>
+
       <section class="loja-vista" id="vista-conta">
         <div class="loja-titulo-vista">Conta</div>
         <div id="conta-conteudo"></div>
@@ -263,6 +306,10 @@
       <button type="button" class="loja-nav-item" data-vista="frete">
         <svg viewBox="0 0 24 24"><rect x="1" y="9" width="13" height="8" rx="1"/><path d="M14 12h4l3 3v2h-7z"/><circle cx="6" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>
         Frete
+      </button>
+      <button type="button" class="loja-nav-item" data-vista="eventos">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+        Eventos
       </button>
       <button type="button" class="loja-nav-item" data-vista="conta">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
