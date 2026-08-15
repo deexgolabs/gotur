@@ -29,7 +29,7 @@
             <label for="preco">Preço mensal (R$)</label>
             <input id="preco" type="number" min="0" step="0.01" required />
           </div>
-          <div>
+          <div id="campo-max-onibus">
             <label for="max-onibus">Limite de ônibus</label>
             <input id="max-onibus" type="number" min="0" placeholder="Vazio = ilimitado" />
           </div>
@@ -37,7 +37,7 @@
             <label for="max-funcionarios">Limite de funcionários</label>
             <input id="max-funcionarios" type="number" min="0" placeholder="Vazio = ilimitado" />
           </div>
-          <div>
+          <div id="campo-max-viagens">
             <label for="max-viagens">Limite de viagens/mês</label>
             <input id="max-viagens" type="number" min="0" placeholder="Vazio = ilimitado" />
           </div>
@@ -115,7 +115,7 @@
           <label for="editar-preco">Preço mensal (R$)</label>
           <input id="editar-preco" type="number" min="0" step="0.01" required />
         </div>
-        <div>
+        <div id="campo-editar-max-onibus">
           <label for="editar-max-onibus">Limite de ônibus</label>
           <input id="editar-max-onibus" type="number" min="0" placeholder="Vazio = ilimitado" />
         </div>
@@ -123,7 +123,7 @@
           <label for="editar-max-funcionarios">Limite de funcionários</label>
           <input id="editar-max-funcionarios" type="number" min="0" placeholder="Vazio = ilimitado" />
         </div>
-        <div>
+        <div id="campo-editar-max-viagens">
           <label for="editar-max-viagens">Limite de viagens/mês</label>
           <input id="editar-max-viagens" type="number" min="0" placeholder="Vazio = ilimitado" />
         </div>
@@ -194,6 +194,21 @@
     function fmtLimite(v) {
       return v === null || v === undefined ? "Ilimitado" : v;
     }
+
+    function atualizarCamposDeViagem(prefixo) {
+      const usaModuloDeViagem =
+        document.getElementById(`${prefixo}inclui-passagens`).checked ||
+        document.getElementById(`${prefixo}inclui-fretamento`).checked;
+      const sufixo = prefixo ? `-${prefixo.replace(/-$/, "")}` : "";
+      document.getElementById(`campo${sufixo}-max-onibus`).classList.toggle("escondido", !usaModuloDeViagem);
+      document.getElementById(`campo${sufixo}-max-viagens`).classList.toggle("escondido", !usaModuloDeViagem);
+    }
+
+    document.getElementById("inclui-passagens").addEventListener("change", () => atualizarCamposDeViagem(""));
+    document.getElementById("inclui-fretamento").addEventListener("change", () => atualizarCamposDeViagem(""));
+    document.getElementById("editar-inclui-passagens").addEventListener("change", () => atualizarCamposDeViagem("editar-"));
+    document.getElementById("editar-inclui-fretamento").addEventListener("change", () => atualizarCamposDeViagem("editar-"));
+    atualizarCamposDeViagem("");
 
     async function carregar() {
       const lista = await api("GET", "/planos");
@@ -300,6 +315,7 @@
       document.getElementById("editar-inclui-dre").checked = plano.modulo_dre;
       document.getElementById("editar-inclui-white-label").checked = plano.modulo_white_label;
       document.getElementById("editar-inclui-nfse").checked = plano.modulo_nfse;
+      atualizarCamposDeViagem("editar-");
       document.getElementById("dialog-editar-plano").showModal();
     }
 
@@ -371,6 +387,7 @@
           modulo_nfse: document.getElementById("inclui-nfse").checked,
         });
         ev.target.reset();
+        atualizarCamposDeViagem("");
         mostrarAlerta("Plano cadastrado com sucesso.", "sucesso");
         carregar();
       } catch (erro) {
