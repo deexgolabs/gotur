@@ -56,6 +56,10 @@ function linksPorPapel(role) {
       { href: "/pages/locais.html", label: "Locais", modulo: "eventos", grupo: "Eventos" },
       { href: "/pages/sessoes.html", label: "Sessões", modulo: "eventos", grupo: "Eventos" },
       { href: "/pages/checkin-eventos.html", label: "Check-in eventos", modulo: "eventos", grupo: "Eventos" },
+      { href: "/pages/turmas.html", label: "Turmas", modulo: "academia", grupo: "Academia" },
+      { href: "/pages/ocorrencias-turma.html", label: "Agenda", modulo: "academia", grupo: "Academia" },
+      { href: "/pages/matriculas.html", label: "Matrículas", modulo: "academia", grupo: "Academia" },
+      { href: "/pages/checkin-academia.html", label: "Check-in academia", modulo: "academia", grupo: "Academia" },
       { href: "/pages/relatorios.html", label: "Relatórios", grupo: "Financeiro" },
       { href: "/pages/dre.html", label: "DRE", modulo: "dre", grupo: "Financeiro" },
       { href: "/pages/minhas-faturas.html", label: "Faturas", grupo: "Financeiro" },
@@ -89,6 +93,10 @@ function linksPorPapel(role) {
       { href: "/pages/locais.html", label: "Locais", modulo: "eventos", grupo: "Eventos" },
       { href: "/pages/sessoes.html", label: "Sessões", modulo: "eventos", grupo: "Eventos" },
       { href: "/pages/checkin-eventos.html", label: "Check-in eventos", modulo: "eventos", grupo: "Eventos" },
+      { href: "/pages/turmas.html", label: "Turmas", modulo: "academia", grupo: "Academia" },
+      { href: "/pages/ocorrencias-turma.html", label: "Agenda", modulo: "academia", grupo: "Academia" },
+      { href: "/pages/matriculas.html", label: "Matrículas", modulo: "academia", grupo: "Academia" },
+      { href: "/pages/checkin-academia.html", label: "Check-in academia", modulo: "academia", grupo: "Academia" },
       { href: "/pages/avaliacoes.html", label: "Avaliações" },
     ];
   }
@@ -236,6 +244,7 @@ function montarTopo(containerId) {
           motorista: empresa.motorista_habilitado,
           dre: empresa.dre_habilitado,
           eventos: empresa.eventos_habilitado,
+          academia: empresa.academia_habilitado,
         };
         Object.entries(modulosHabilitados).forEach(([modulo, habilitado]) => {
           if (!habilitado) {

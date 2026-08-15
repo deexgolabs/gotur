@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Turmas</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#400056" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Turmas</h1>
+    <p class="subtitulo">Aulas recorrentes com vaga limitada (spinning, pilates, crossfit...).</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Nova turma</h2>
+      <form id="form-turma">
+        <div class="grid-form">
+          <div>
+            <label for="nome">Nome</label>
+            <input id="nome" required />
+          </div>
+          <div>
+            <label for="dia-semana">Dia da semana</label>
+            <select id="dia-semana" required>
+              <option value="0">Segunda-feira</option>
+              <option value="1">Terça-feira</option>
+              <option value="2">Quarta-feira</option>
+              <option value="3">Quinta-feira</option>
+              <option value="4">Sexta-feira</option>
+              <option value="5">Sábado</option>
+              <option value="6">Domingo</option>
+            </select>
+          </div>
+          <div>
+            <label for="hora-inicio">Horário de início</label>
+            <input id="hora-inicio" type="time" required />
+          </div>
+          <div>
+            <label for="duracao">Duração (minutos)</label>
+            <input id="duracao" type="number" min="1" value="50" required />
+          </div>
+          <div>
+            <label for="capacidade">Vagas</label>
+            <input id="capacidade" type="number" min="1" value="20" required />
+          </div>
+          <div>
+            <label for="instrutor">Instrutor (opcional)</label>
+            <input id="instrutor" />
+          </div>
+          <div>
+            <label for="preco-avulso">Preço da aula avulsa (opcional)</label>
+            <input id="preco-avulso" type="number" min="0" step="0.01" placeholder="Deixe em branco pra não aceitar drop-in" />
+          </div>
+        </div>
+        <p class="rodape-form" style="text-align:left">As próximas ocorrências (datas) são geradas automaticamente ao criar a turma.</p>
+        <div class="linha-acoes">
+          <button type="submit">Cadastrar turma</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Turmas cadastradas</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Nome</th><th>Dia</th><th>Horário</th><th>Duração</th><th>Vagas</th><th>Instrutor</th><th>Avulsa</th><th>Status</th><th></th></tr></thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhuma turma cadastrada ainda.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa");
+    const DIAS_SEMANA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+    }
+
+    function formatarHora(horaIso) {
+      return horaIso ? horaIso.slice(0, 5) : "-";
+    }
+
+    async function carregar() {
+      const lista = await api("GET", "/turmas");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (t) => `
+        <tr>
+          <td>${t.nome}</td>
+          <td>${DIAS_SEMANA[t.dia_semana]}</td>
+          <td>${formatarHora(t.hora_inicio)}</td>
+          <td>${t.duracao_minutos} min</td>
+          <td>${t.capacidade_vagas}</td>
+          <td>${t.instrutor || "—"}</td>
+          <td>${t.preco_avulso != null ? `R$ ${Number(t.preco_avulso).toFixed(2)}` : "—"}</td>
+          <td><span class="selo ${t.ativa ? "livre" : "bloqueada"}">${t.ativa ? "Ativa" : "Inativa"}</span></td>
+          <td>
+            <a href="/pages/ocorrencias-turma.html?turma_id=${t.id}"><button>Agenda</button></a>
+            <button class="secundario" data-editar="${t.id}">Editar</button>
+            ${t.ativa ? `<button class="perigo" data-desativar="${t.id}">Desativar</button>` : ""}
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-editar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const item = lista.find((t) => t.id == btn.dataset.editar);
+          const novoNome = prompt("Nome da turma:", item.nome);
+          if (novoNome === null) return;
+          const novaCapacidade = prompt("Vagas:", item.capacidade_vagas);
+          if (novaCapacidade === null) return;
+          try {
+            await api("PATCH", `/turmas/${item.id}`, {
+              nome: novoNome.trim(),
+              capacidade_vagas: parseInt(novaCapacidade, 10),
+            });
+            mostrarAlerta("Turma atualizada. Só afeta as próximas ocorrências geradas.", "sucesso");
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-desativar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Desativar esta turma? Ocorrências futuras já geradas continuam existindo, mas paradas de gerar novas.")) return;
+          try {
+            await api("PATCH", `/turmas/${btn.dataset.desativar}/desativar`);
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-turma").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const precoAvulso = document.getElementById("preco-avulso").value.trim();
+        await api("POST", "/turmas", {
+          nome: document.getElementById("nome").value.trim(),
+          dia_semana: parseInt(document.getElementById("dia-semana").value, 10),
+          hora_inicio: document.getElementById("hora-inicio").value + ":00",
+          duracao_minutos: parseInt(document.getElementById("duracao").value, 10),
+          capacidade_vagas: parseInt(document.getElementById("capacidade").value, 10),
+          instrutor: document.getElementById("instrutor").value.trim() || null,
+          preco_avulso: precoAvulso ? parseFloat(precoAvulso) : null,
+        });
+        ev.target.reset();
+        document.getElementById("duracao").value = 50;
+        document.getElementById("capacidade").value = 20;
+        mostrarAlerta("Turma cadastrada com sucesso.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

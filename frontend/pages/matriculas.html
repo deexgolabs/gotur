@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoTur — Matrículas</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#400056" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+  <div id="topo"></div>
+  <main>
+    <h1>Matrículas</h1>
+    <p class="subtitulo">Alunos com mensalidade recorrente na academia.</p>
+
+    <div id="alerta"></div>
+
+    <div class="cartao">
+      <h2 style="margin-top:0">Nova matrícula</h2>
+      <form id="form-matricula">
+        <div class="grid-form">
+          <div>
+            <label for="email-cliente">E-mail do cliente</label>
+            <input id="email-cliente" type="email" required placeholder="cliente@exemplo.com" />
+          </div>
+          <div>
+            <label for="tipo">Tipo</label>
+            <select id="tipo">
+              <option value="mensal_ilimitado">Mensal ilimitado</option>
+              <option value="pacote_aulas">Pacote de aulas por ciclo</option>
+            </select>
+          </div>
+          <div>
+            <label for="valor-mensalidade">Valor da mensalidade (R$)</label>
+            <input id="valor-mensalidade" type="number" min="0" step="0.01" required />
+          </div>
+          <div id="campo-aulas-por-ciclo" class="escondido">
+            <label for="aulas-por-ciclo">Aulas por ciclo</label>
+            <input id="aulas-por-ciclo" type="number" min="1" />
+          </div>
+        </div>
+        <p class="rodape-form" style="text-align:left">O cliente precisa já ter uma conta criada (loja/portal do cliente) com esse e-mail. A primeira fatura é gerada na hora.</p>
+        <div class="linha-acoes">
+          <button type="submit">Matricular</button>
+        </div>
+      </form>
+    </div>
+
+    <h2>Matrículas cadastradas</h2>
+    <div class="cartao">
+      <table>
+        <thead><tr><th>Cliente</th><th>Tipo</th><th>Mensalidade</th><th>Aulas usadas</th><th>Status</th><th></th></tr></thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+      <p class="vazio escondido" id="vazio">Nenhuma matrícula cadastrada ainda.</p>
+    </div>
+  </main>
+
+  <dialog id="dialog-faturas" style="border:none;border-radius:8px;padding:24px;max-width:560px;width:100%">
+    <h2 style="margin-top:0" id="titulo-dialog-faturas">Faturas</h2>
+    <table>
+      <thead><tr><th>Vencimento</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+      <tbody id="corpo-faturas"></tbody>
+    </table>
+    <p class="vazio escondido" id="vazio-faturas">Nenhuma fatura ainda.</p>
+    <div class="linha-acoes">
+      <button type="button" class="secundario" id="btn-fechar-faturas">Fechar</button>
+    </div>
+  </dialog>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    const auth = exigirPapel("admin_empresa", "funcionario");
+    const ROTULOS_TIPO = { mensal_ilimitado: "Mensal ilimitado", pacote_aulas: "Pacote de aulas" };
+    const ROTULOS_STATUS = { pendente: "Pendente", ativa: "Ativa", inadimplente: "Inadimplente", suspensa: "Suspensa", cancelada: "Cancelada" };
+    const CLASSES_STATUS = { pendente: "hold", ativa: "livre", inadimplente: "hold", suspensa: "bloqueada", cancelada: "bloqueada" };
+
+    function mostrarAlerta(mensagem, tipo = "erro") {
+      document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
+      if (tipo === "sucesso") {
+        setTimeout(() => (document.getElementById("alerta").innerHTML = ""), 4000);
+      }
+    }
+
+    document.getElementById("tipo").addEventListener("change", (ev) => {
+      document.getElementById("campo-aulas-por-ciclo").classList.toggle("escondido", ev.target.value !== "pacote_aulas");
+    });
+
+    async function carregar() {
+      const lista = await api("GET", "/matriculas");
+      const corpo = document.getElementById("corpo-tabela");
+      document.getElementById("vazio").classList.toggle("escondido", lista.length > 0);
+      corpo.innerHTML = lista
+        .map(
+          (m) => `
+        <tr>
+          <td>${m.cliente_nome || "—"}</td>
+          <td>${ROTULOS_TIPO[m.tipo] || m.tipo}</td>
+          <td>R$ ${Number(m.valor_mensalidade).toFixed(2)}</td>
+          <td>${m.aulas_por_ciclo != null ? `${m.aulas_utilizadas_ciclo_atual} / ${m.aulas_por_ciclo}` : "—"}</td>
+          <td><span class="selo ${CLASSES_STATUS[m.status] || ""}">${ROTULOS_STATUS[m.status] || m.status}</span></td>
+          <td>
+            <button class="secundario" data-faturas="${m.id}">Faturas</button>
+            ${m.status !== "cancelada" ? `<button class="perigo" data-cancelar="${m.id}">Cancelar</button>` : ""}
+          </td>
+        </tr>`
+        )
+        .join("");
+
+      corpo.querySelectorAll("button[data-faturas]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirDialogFaturas(lista.find((m) => m.id == btn.dataset.faturas)));
+      });
+
+      corpo.querySelectorAll("button[data-cancelar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Cancelar esta matrícula? O aluno perde acesso a novas reservas.")) return;
+          try {
+            await api("PATCH", `/matriculas/${btn.dataset.cancelar}/cancelar`);
+            mostrarAlerta("Matrícula cancelada.", "sucesso");
+            carregar();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+    }
+
+    let matriculaAtualId = null;
+
+    async function abrirDialogFaturas(matricula) {
+      matriculaAtualId = matricula.id;
+      document.getElementById("titulo-dialog-faturas").textContent = `Faturas — ${matricula.cliente_nome || "cliente"}`;
+      await renderizarFaturas();
+      document.getElementById("dialog-faturas").showModal();
+    }
+
+    async function renderizarFaturas() {
+      try {
+        const faturas = await api("GET", `/matriculas/${matriculaAtualId}/faturas`);
+        const corpo = document.getElementById("corpo-faturas");
+        document.getElementById("vazio-faturas").classList.toggle("escondido", faturas.length > 0);
+        corpo.innerHTML = faturas
+          .map(
+            (f) => `
+          <tr>
+            <td>${new Date(f.vencimento + "T00:00:00").toLocaleDateString("pt-BR")}</td>
+            <td>R$ ${Number(f.valor).toFixed(2)}</td>
+            <td><span class="selo ${f.status === "paga" ? "livre" : f.status === "pendente" ? "hold" : "bloqueada"}">${f.status}</span></td>
+            <td>${f.status === "pendente" ? `<button class="secundario" data-pagar-dinheiro="${f.id}">Recebi em dinheiro</button>` : ""}</td>
+          </tr>`
+          )
+          .join("");
+
+        corpo.querySelectorAll("button[data-pagar-dinheiro]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            try {
+              await api("POST", `/faturas-matricula/${btn.dataset.pagarDinheiro}/pagar`, { forma_pagamento: "dinheiro" });
+              mostrarAlerta("Fatura marcada como paga.", "sucesso");
+              await renderizarFaturas();
+              carregar();
+            } catch (erro) {
+              mostrarAlerta(erro.message);
+            }
+          });
+        });
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    }
+
+    document.getElementById("btn-fechar-faturas").addEventListener("click", () => {
+      document.getElementById("dialog-faturas").close();
+    });
+
+    if (auth) {
+      montarTopo("topo");
+      carregar().catch((e) => mostrarAlerta(e.message));
+    }
+
+    document.getElementById("form-matricula").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const email = document.getElementById("email-cliente").value.trim();
+        const cliente = await api("GET", `/usuarios/clientes/buscar?email=${encodeURIComponent(email)}`);
+
+        const tipo = document.getElementById("tipo").value;
+        const payload = {
+          cliente_usuario_id: cliente.id,
+          tipo,
+          valor_mensalidade: parseFloat(document.getElementById("valor-mensalidade").value),
+        };
+        if (tipo === "pacote_aulas") {
+          payload.aulas_por_ciclo = parseInt(document.getElementById("aulas-por-ciclo").value, 10);
+        }
+
+        await api("POST", "/matriculas", payload);
+        ev.target.reset();
+        document.getElementById("campo-aulas-por-ciclo").classList.add("escondido");
+        mostrarAlerta("Matrícula criada. A primeira fatura já foi gerada.", "sucesso");
+        carregar();
+      } catch (erro) {
+        mostrarAlerta(erro.message);
+      }
+    });
+  </script>
+</body>
+</html>

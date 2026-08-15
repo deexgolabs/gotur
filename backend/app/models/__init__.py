@@ -1,3 +1,4 @@
+from app.models.academia import FaturaMatricula, Matricula, OcorrenciaTurma, ReservaAula, Turma
 from app.models.auditoria import RegistroAuditoria
 from app.models.avaliacao import Avaliacao
 from app.models.checklist_viagem import ChecklistViagem
@@ -67,4 +68,9 @@ __all__ = [
     "AssentoSessao",
     "Ingresso",
     "PedidoIngressoPendente",
+    "Turma",
+    "OcorrenciaTurma",
+    "Matricula",
+    "FaturaMatricula",
+    "ReservaAula",
 ]

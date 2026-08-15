@@ -24,6 +24,10 @@ class ConfiguracaoFretamentoRequest(BaseModel):
     preco_km_fretamento: float | None = None
 
 
+class ConfiguracaoAcademiaRequest(BaseModel):
+    preco_padrao_mensalidade_academia: float | None = None
+
+
 class ConfiguracaoEmpresaRequest(BaseModel):
     nome: str | None = None
     email_contato: str | None = None
@@ -41,6 +45,7 @@ class ConfiguracaoModulosRequest(BaseModel):
     passagens_ativo: bool | None = None
     frete_ativo: bool | None = None
     eventos_ativo: bool | None = None
+    academia_ativo: bool | None = None
 
 
 class ConfiguracaoFidelidadeRequest(BaseModel):
@@ -87,6 +92,7 @@ class EmpresaOut(BaseModel):
     status_assinatura: StatusAssinatura
     plano: PlanoOut | None = None
     preco_km_fretamento: float | None = None
+    preco_padrao_mensalidade_academia: float | None = None
     slug: str | None = None
     cor_primaria: str | None = None
     logo_url: str | None = None
@@ -94,10 +100,12 @@ class EmpresaOut(BaseModel):
     passagens_ativo: bool = True
     frete_ativo: bool = True
     eventos_ativo: bool = True
+    academia_ativo: bool = True
     fretamento_habilitado: bool = True
     passagens_habilitado: bool = True
     frete_habilitado: bool = True
     eventos_habilitado: bool = True
+    academia_habilitado: bool = True
     fidelidade_ativa: bool = False
     fidelidade_passagens_necessarias: int | None = None
     fidelidade_desconto_percentual: float | None = None
@@ -126,6 +134,8 @@ class LojaInfoOut(BaseModel):
     passagens_habilitado: bool = True
     frete_habilitado: bool = True
     eventos_habilitado: bool = True
+    academia_habilitado: bool = True
+    preco_padrao_mensalidade_academia: float | None = None
     # Public Key (não é segredo — é pra rodar no navegador do cliente)
     # usada pelo Card Payment Brick do Mercado Pago na loja. None =
     # empresa não configurou Mercado Pago, ou o modo de cobrança não é

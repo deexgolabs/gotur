@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, require_roles
+from app.core.deps import get_current_user, require_roles, require_staff
 from app.core.security import hash_senha, verificar_senha
 from app.database import get_db
 from app.models.empresa import Empresa
@@ -75,6 +75,22 @@ def desativar_funcionario(
     db.commit()
     db.refresh(funcionario)
     return funcionario
+
+
+@router.get("/clientes/buscar", response_model=UsuarioOut)
+def buscar_cliente_por_email(
+    email: str,
+    db: Session = Depends(get_db),
+    _usuario_atual: Usuario = Depends(require_staff),
+):
+    """Usado por telas de staff que precisam achar o `usuario_id` de um
+    cliente a partir do e-mail (ex: matricular alguém numa academia) — não
+    existe busca de cliente por nome/lista paginada hoje, só por e-mail
+    exato, que é único."""
+    cliente = db.query(Usuario).filter(Usuario.email == email, Usuario.role == UserRole.CLIENTE).first()
+    if not cliente:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente não encontrado")
+    return cliente
 
 
 @router.get("/me", response_model=UsuarioOut)

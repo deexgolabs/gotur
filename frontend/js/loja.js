@@ -56,6 +56,7 @@ function trocarVista(nome) {
   if (nome === "conta") renderizarConta();
   if (nome === "eventos") carregarEventos();
   if (nome === "meus-ingressos") carregarMeusIngressos();
+  if (nome === "academia") carregarAcademia();
 }
 
 // ---------- Busca ----------
@@ -1102,6 +1103,328 @@ async function carregarMeusIngressos() {
   }
 }
 
+// ---------- Academia ----------
+
+let minhasMatriculasAcademia = [];
+let ocorrenciasAcademiaCache = [];
+let ocorrenciaAvulsaAtual = null;
+
+const ROTULOS_STATUS_MATRICULA = {
+  pendente: "Pendente de pagamento",
+  ativa: "Ativa",
+  inadimplente: "Inadimplente",
+  suspensa: "Suspensa",
+  cancelada: "Cancelada",
+};
+
+function pedidoNormalizadoDaFaturaMatricula(fatura) {
+  return {
+    id: fatura.id,
+    valor: fatura.valor,
+    forma_pagamento: fatura.forma_pagamento,
+    pix_copia_cola: fatura.pix_copia_cola,
+    expira_em: fatura.pix_expira_em,
+    pagamento_simulado: fatura.pagamento_simulado,
+  };
+}
+
+function mostrarPagamentoMatricula(fatura, container) {
+  container.classList.remove("escondido");
+  renderizarPagamentoPix(container, pedidoNormalizadoDaFaturaMatricula(fatura), {
+    endpointConfirmar: `/faturas-matricula/${fatura.id}/confirmar-simulado`,
+    semPolling: true,
+    aoConfirmar: () => {
+      mostrarAlerta("Matrícula ativada! Bem-vindo(a).", "sucesso");
+      carregarAcademia();
+    },
+  });
+}
+
+async function iniciarPagamentoMatricula(fatura, container) {
+  // Fatura recém-criada ainda não tem Pix gerado — o código Pix só nasce
+  // quando alguém chama POST .../pagar (mesmo padrão de FaturaEmpresa em
+  // minhas-faturas.html). Autoatendimento sempre gera via Pix.
+  let faturaAtualizada = fatura;
+  if (fatura.status === "pendente" && !fatura.pix_copia_cola) {
+    try {
+      faturaAtualizada = await api("POST", `/faturas-matricula/${fatura.id}/pagar`, { forma_pagamento: "pix" });
+    } catch (erro) {
+      mostrarAlerta(erro.message);
+      return;
+    }
+  }
+  mostrarPagamentoMatricula(faturaAtualizada, container);
+}
+
+async function carregarStatusMatricula() {
+  const container = document.getElementById("academia-status-matricula");
+  document.getElementById("academia-form-matricula").classList.add("escondido");
+
+  if (!obterAuth()) {
+    container.innerHTML = `<p class="loja-selo-vazio">Faça login pra se matricular ou reservar aulas.</p>`;
+    minhasMatriculasAcademia = [];
+    return;
+  }
+
+  try {
+    minhasMatriculasAcademia = await api("GET", "/matriculas/minhas");
+  } catch (erro) {
+    minhasMatriculasAcademia = [];
+  }
+
+  const ativa = minhasMatriculasAcademia.find((m) => m.status === "ativa" || m.status === "inadimplente");
+  const pendente = minhasMatriculasAcademia.find((m) => m.status === "pendente");
+
+  if (ativa) {
+    const avisoInadimplente =
+      ativa.status === "inadimplente"
+        ? `<p style="color:#c0392b;margin-top:6px">Sua mensalidade está atrasada — pague pra não perder o acesso.</p>`
+        : "";
+    container.innerHTML = `
+      <div class="loja-card">
+        <div style="font-weight:700">Matrícula ${ROTULOS_STATUS_MATRICULA[ativa.status]}</div>
+        <div class="info">${
+          ativa.tipo === "pacote_aulas"
+            ? `${ativa.aulas_utilizadas_ciclo_atual} / ${ativa.aulas_por_ciclo} aulas usadas neste ciclo`
+            : "Mensal ilimitado"
+        }</div>
+        ${avisoInadimplente}
+      </div>`;
+    return;
+  }
+
+  if (pendente) {
+    container.innerHTML = `
+      <div class="loja-card">
+        <div style="font-weight:700">Matrícula pendente de pagamento</div>
+        <div id="area-pix-matricula-pendente" style="margin-top:10px"></div>
+      </div>`;
+    try {
+      const faturas = await api("GET", "/faturas-matricula/minhas");
+      const fatura = faturas.find((f) => f.matricula_id === pendente.id && f.status === "pendente");
+      if (fatura) iniciarPagamentoMatricula(fatura, document.getElementById("area-pix-matricula-pendente"));
+    } catch (erro) {
+      // sem fatura pra mostrar — segue sem o widget de pagamento
+    }
+    return;
+  }
+
+  container.innerHTML = `<p class="loja-selo-vazio">Você ainda não é aluno.</p><button type="button" id="btn-abrir-matricula">Matricular-se</button>`;
+  document.getElementById("btn-abrir-matricula").addEventListener("click", () => {
+    document.getElementById("academia-form-matricula").classList.remove("escondido");
+  });
+}
+
+async function carregarAulasAcademia() {
+  const container = document.getElementById("academia-lista-aulas");
+  container.innerHTML = `<p class="loja-selo-vazio">Carregando...</p>`;
+  try {
+    const lista = await fetch(`/api/ocorrencias-turma/loja/${SLUG}`).then((r) => (r.ok ? r.json() : []));
+    ocorrenciasAcademiaCache = lista;
+    if (!lista.length) {
+      container.innerHTML = `<p class="loja-selo-vazio">Nenhuma aula disponível no momento.</p>`;
+      return;
+    }
+    container.innerHTML = lista
+      .map((o, i) => {
+        const vagas = o.capacidade_vagas - o.vagas_ocupadas;
+        return `
+      <div class="loja-card loja-card-viagem" data-indice-aula="${i}">
+        <div>
+          <div class="trecho">${o.nome_turma}</div>
+          <div class="info">${new Date(o.data_hora_inicio).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} · ${vagas} vaga${vagas === 1 ? "" : "s"}</div>
+        </div>
+        <div class="preco">${o.preco_avulso != null ? `R$ ${Number(o.preco_avulso).toFixed(2)}` : ""}</div>
+      </div>`;
+      })
+      .join("");
+    container.querySelectorAll("[data-indice-aula]").forEach((el) => {
+      el.addEventListener("click", () => reservarAula(lista[parseInt(el.dataset.indiceAula, 10)]));
+    });
+  } catch (erro) {
+    container.innerHTML = `<p class="loja-selo-vazio">Erro ao carregar aulas.</p>`;
+  }
+}
+
+async function reservarAula(ocorrencia) {
+  if (!obterAuth()) {
+    mostrarAlerta("Crie uma conta ou faça login pra reservar — é rápido.");
+    trocarVista("conta");
+    return;
+  }
+
+  document.getElementById("academia-form-avulsa").classList.add("escondido");
+
+  const matriculaAtiva = minhasMatriculasAcademia.find((m) => m.status === "ativa" || m.status === "inadimplente");
+  if (matriculaAtiva) {
+    try {
+      await api("POST", `/ocorrencias-turma/${ocorrencia.id}/reservas`, { matricula_id: matriculaAtiva.id });
+      mostrarAlerta("Aula reservada!", "sucesso");
+      carregarAulasAcademia();
+      carregarMinhasAulasAcademia();
+    } catch (erro) {
+      mostrarAlerta(erro.message);
+    }
+    return;
+  }
+
+  if (!ocorrencia.preco_avulso) {
+    mostrarAlerta("Essa turma é só pra aluno matriculado. Matricule-se pra reservar.");
+    return;
+  }
+
+  abrirFormAvulsa(ocorrencia);
+}
+
+function abrirFormAvulsa(ocorrencia) {
+  ocorrenciaAvulsaAtual = ocorrencia;
+  document.getElementById("academia-avulsa-titulo").textContent =
+    `${ocorrencia.nome_turma} — ${new Date(ocorrencia.data_hora_inicio).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} — R$ ${Number(ocorrencia.preco_avulso).toFixed(2)}`;
+  document.getElementById("form-avulsa-academia").classList.remove("escondido");
+  document.getElementById("area-cartao-avulsa").classList.add("escondido");
+  const auth = obterAuth();
+  if (auth && !document.getElementById("avulsa-nome").value) {
+    document.getElementById("avulsa-nome").value = auth.nome || "";
+  }
+  document.getElementById("academia-form-avulsa").classList.remove("escondido");
+  atualizarFormaPagamentoAvulsa();
+  document.getElementById("academia-form-avulsa").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function dadosBaseAvulsaAcademia(formaPagamento) {
+  return {
+    cliente_nome: document.getElementById("avulsa-nome").value.trim(),
+    cliente_documento: document.getElementById("avulsa-documento").value.trim(),
+    forma_pagamento: formaPagamento,
+  };
+}
+
+function tratarRespostaAvulsaAcademia() {
+  mostrarAlerta("Aula reservada!", "sucesso");
+  document.getElementById("form-avulsa-academia").reset();
+  document.getElementById("academia-form-avulsa").classList.add("escondido");
+  carregarAulasAcademia();
+  carregarMinhasAulasAcademia();
+}
+
+function atualizarFormaPagamentoAvulsa() {
+  const forma = document.getElementById("avulsa-forma").value;
+  const btnConfirmar = document.getElementById("btn-confirmar-avulsa");
+  const areaCartao = document.getElementById("area-cartao-avulsa");
+
+  if (forma !== "cartao") {
+    desmontarCheckoutCartaoMP();
+    areaCartao.classList.add("escondido");
+    btnConfirmar.classList.remove("escondido");
+    return;
+  }
+
+  btnConfirmar.classList.add("escondido");
+  areaCartao.classList.remove("escondido");
+  if (!ocorrenciaAvulsaAtual) return;
+
+  montarCheckoutCartaoMP("area-cartao-avulsa", {
+    publicKey: BRANDING.mercadopago_public_key,
+    valor: Number(ocorrenciaAvulsaAtual.preco_avulso),
+    onPagar: (dadosCartao) =>
+      api("POST", `/ocorrencias-turma/${ocorrenciaAvulsaAtual.id}/reservas`, {
+        ...dadosBaseAvulsaAcademia("cartao"),
+        mp_token: dadosCartao.token,
+        mp_payment_method_id: dadosCartao.payment_method_id,
+        mp_installments: dadosCartao.installments,
+        mp_payer_email: dadosCartao.payer_email,
+      }).then(() => tratarRespostaAvulsaAcademia()),
+  });
+}
+
+async function carregarMinhasAulasAcademia() {
+  const container = document.getElementById("academia-minhas-aulas");
+  if (!obterAuth()) {
+    container.innerHTML = "";
+    return;
+  }
+  try {
+    const lista = await api("GET", "/reservas/minhas");
+    if (!lista.length) {
+      container.innerHTML = `<p class="loja-selo-vazio">Você ainda não reservou nenhuma aula.</p>`;
+      return;
+    }
+    container.innerHTML = lista
+      .map(
+        (r) => `
+      <div class="loja-card">
+        <div class="trecho">${r.nome_turma || "-"}</div>
+        <div class="info">${r.data_hora_inicio ? new Date(r.data_hora_inicio).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : ""} · Código ${r.codigo}</div>
+        <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+          <span class="selo ${r.status}">${r.status === "confirmada" ? "Confirmada" : "Cancelada"}</span>
+          ${r.status === "confirmada" ? `<button class="secundario" data-cancelar-reserva="${r.id}">Cancelar</button>` : ""}
+        </div>
+      </div>`
+      )
+      .join("");
+
+    container.querySelectorAll("button[data-cancelar-reserva]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Cancelar esta reserva?")) return;
+        try {
+          await api("POST", `/reservas/${btn.dataset.cancelarReserva}/cancelar`);
+          mostrarAlerta("Reserva cancelada.", "sucesso");
+          carregarAulasAcademia();
+          carregarMinhasAulasAcademia();
+        } catch (erro) {
+          mostrarAlerta(erro.message);
+        }
+      });
+    });
+  } catch (erro) {
+    container.innerHTML = `<p class="loja-selo-vazio">Erro ao carregar suas aulas.</p>`;
+  }
+}
+
+async function carregarAcademia() {
+  await Promise.all([carregarStatusMatricula(), carregarAulasAcademia(), carregarMinhasAulasAcademia()]);
+}
+
+function configurarAcademia() {
+  document.getElementById("matricula-tipo").addEventListener("change", (ev) => {
+    document.getElementById("matricula-campo-aulas").classList.toggle("escondido", ev.target.value !== "pacote_aulas");
+  });
+
+  document.getElementById("form-matricula-loja").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    try {
+      const tipo = document.getElementById("matricula-tipo").value;
+      const payload = { tipo };
+      if (tipo === "pacote_aulas") {
+        payload.aulas_por_ciclo = parseInt(document.getElementById("matricula-aulas-por-ciclo").value, 10);
+      }
+      const matricula = await api("POST", `/matriculas/loja/${SLUG}`, payload);
+      const faturas = await api("GET", "/faturas-matricula/minhas");
+      const fatura = faturas.find((f) => f.matricula_id === matricula.id);
+      document.getElementById("form-matricula-loja").classList.add("escondido");
+      if (fatura) iniciarPagamentoMatricula(fatura, document.getElementById("area-pix-matricula"));
+    } catch (erro) {
+      mostrarAlerta(erro.message);
+    }
+  });
+
+  document.getElementById("avulsa-forma").addEventListener("change", atualizarFormaPagamentoAvulsa);
+
+  document.getElementById("form-avulsa-academia").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if (!ocorrenciaAvulsaAtual) return;
+    const forma = document.getElementById("avulsa-forma").value;
+    if (forma === "cartao") return; // o próprio Brick tem o botão de pagar
+
+    try {
+      await api("POST", `/ocorrencias-turma/${ocorrenciaAvulsaAtual.id}/reservas`, dadosBaseAvulsaAcademia(forma));
+      tratarRespostaAvulsaAcademia();
+    } catch (erro) {
+      mostrarAlerta(erro.message);
+    }
+  });
+}
+
 function configurarConta() {
   renderizarConta();
 }
@@ -1327,8 +1650,14 @@ async function iniciar() {
   if (!BRANDING.eventos_habilitado) {
     document.querySelector('.loja-nav-item[data-vista="eventos"]').classList.add("escondido");
   }
-  if (!BRANDING.passagens_habilitado && (BRANDING.fretamento_habilitado || BRANDING.frete_habilitado || BRANDING.eventos_habilitado)) {
-    trocarVista(BRANDING.fretamento_habilitado ? "fretamento" : BRANDING.frete_habilitado ? "frete" : "eventos");
+  if (!BRANDING.academia_habilitado) {
+    document.querySelector('.loja-nav-item[data-vista="academia"]').classList.add("escondido");
+  }
+  if (
+    !BRANDING.passagens_habilitado &&
+    (BRANDING.fretamento_habilitado || BRANDING.frete_habilitado || BRANDING.eventos_habilitado || BRANDING.academia_habilitado)
+  ) {
+    trocarVista(BRANDING.fretamento_habilitado ? "fretamento" : BRANDING.frete_habilitado ? "frete" : BRANDING.eventos_habilitado ? "eventos" : "academia");
   }
 
   configurarBusca();
@@ -1340,6 +1669,7 @@ async function iniciar() {
   configurarFretamento();
   configurarFrete();
   configurarCompraEvento();
+  configurarAcademia();
   configurarConta();
 
   // Link direto de acompanhamento (ex: compartilhado por WhatsApp), no

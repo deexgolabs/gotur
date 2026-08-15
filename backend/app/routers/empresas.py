@@ -9,6 +9,7 @@ from app.models.enums import ModoCobranca, StatusAssinatura, UserRole
 from app.models.plano import Plano
 from app.models.usuario import Usuario
 from app.schemas.empresa import (
+    ConfiguracaoAcademiaRequest,
     ConfiguracaoEmpresaRequest,
     ConfiguracaoFidelidadeRequest,
     ConfiguracaoFretamentoRequest,
@@ -267,11 +268,19 @@ def configurar_modulos(
         empresa.frete_ativo = dados.frete_ativo
     if dados.eventos_ativo is not None:
         empresa.eventos_ativo = dados.eventos_ativo
+    if dados.academia_ativo is not None:
+        empresa.academia_ativo = dados.academia_ativo
 
-    if not empresa.fretamento_ativo and not empresa.passagens_ativo and not empresa.frete_ativo and not empresa.eventos_ativo:
+    if (
+        not empresa.fretamento_ativo
+        and not empresa.passagens_ativo
+        and not empresa.frete_ativo
+        and not empresa.eventos_ativo
+        and not empresa.academia_ativo
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Pelo menos um módulo (passagens, fretamento, frete ou eventos) precisa ficar ligado.",
+            detail="Pelo menos um módulo (passagens, fretamento, frete, eventos ou academia) precisa ficar ligado.",
         )
 
     db.commit()
@@ -380,6 +389,8 @@ def info_loja_publica(slug: str, db: Session = Depends(get_db)):
         passagens_habilitado=empresa.passagens_habilitado,
         frete_habilitado=empresa.frete_habilitado,
         eventos_habilitado=empresa.eventos_habilitado,
+        academia_habilitado=empresa.academia_habilitado,
+        preco_padrao_mensalidade_academia=float(empresa.preco_padrao_mensalidade_academia) if empresa.preco_padrao_mensalidade_academia else None,
         mercadopago_public_key=empresa.mercadopago_public_key if empresa.modo_cobranca == ModoCobranca.AUTOMATICA else None,
     )
 
@@ -395,6 +406,22 @@ def configurar_preco_fretamento(
     fretamento."""
     empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
     empresa.preco_km_fretamento = dados.preco_km_fretamento
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
+@router.patch("/minha/academia", response_model=EmpresaOut)
+def configurar_preco_academia(
+    dados: ConfiguracaoAcademiaRequest,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """Preço da mensalidade usado quando um cliente se matricula sozinho
+    pela loja — sem isso configurado, o autoatendimento fica bloqueado e
+    só o staff pode matricular (com preço negociado na hora)."""
+    empresa = _buscar_empresa_ou_404(db, usuario_atual.tenant_id)
+    empresa.preco_padrao_mensalidade_academia = dados.preco_padrao_mensalidade_academia
     db.commit()
     db.refresh(empresa)
     return empresa

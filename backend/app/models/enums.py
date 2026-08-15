@@ -187,3 +187,29 @@ class StatusPedidoInterline(str, enum.Enum):
     PENDENTE_PAGAMENTO = "pendente_pagamento"
     CONFIRMADO = "confirmado"
     CANCELADO = "cancelado"
+
+
+class TipoMatricula(str, enum.Enum):
+    MENSAL_ILIMITADO = "mensal_ilimitado"
+    PACOTE_AULAS = "pacote_aulas"
+
+
+class StatusMatricula(str, enum.Enum):
+    """Situação da matrícula de um aluno numa academia (ver
+    app.models.academia.Matricula) — mesmo espírito de StatusAssinatura,
+    mas sem TRIAL (não existe período de teste pra aluno na V1) e com
+    PENDENTE (aguardando pagamento da 1ª fatura, antes de virar ATIVA)."""
+
+    PENDENTE = "pendente"
+    ATIVA = "ativa"
+    INADIMPLENTE = "inadimplente"
+    SUSPENSA = "suspensa"
+    CANCELADA = "cancelada"
+
+
+class TipoReserva(str, enum.Enum):
+    """Se uma ReservaAula foi autorizada por uma Matricula ativa ou paga
+    avulsa (drop-in, sem matrícula)."""
+
+    MATRICULA = "matricula"
+    AVULSA = "avulsa"

@@ -26,6 +26,7 @@ class Plano(Base):
     modulo_passagens: Mapped[bool] = mapped_column(Boolean, default=True)
     modulo_frete: Mapped[bool] = mapped_column(Boolean, default=True)
     modulo_eventos: Mapped[bool] = mapped_column(Boolean, default=True)
+    modulo_academia: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Diferenciais do plano Completo — sem toggle próprio na Empresa (ao
     # contrário dos três acima): ou o plano inclui, ou não inclui. Ver

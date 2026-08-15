@@ -88,6 +88,7 @@ def test_nao_pode_desligar_os_dois_modulos_ao_mesmo_tempo(client, db):
     client.patch("/api/empresas/minha/modulos", json={"fretamento_ativo": False}, headers=headers)
     client.patch("/api/empresas/minha/modulos", json={"frete_ativo": False}, headers=headers)
     client.patch("/api/empresas/minha/modulos", json={"eventos_ativo": False}, headers=headers)
+    client.patch("/api/empresas/minha/modulos", json={"academia_ativo": False}, headers=headers)
     resposta = client.patch("/api/empresas/minha/modulos", json={"passagens_ativo": False}, headers=headers)
     assert resposta.status_code == 400
 

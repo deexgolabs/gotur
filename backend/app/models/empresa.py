@@ -28,6 +28,13 @@ class Empresa(Base):
 
     preco_km_fretamento: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
 
+    # Preço da mensalidade usado quando um cliente se matricula sozinho
+    # pela loja (ver app/routers/matriculas.py::matricular_se_pela_loja) —
+    # o cliente NUNCA escolhe o próprio preço; só o admin configura este
+    # valor. Matrícula feita por staff continua podendo usar um valor
+    # diferente por aluno (negociação caso a caso).
+    preco_padrao_mensalidade_academia: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+
     # White-label: cada empresa pode ter sua própria "loja" em /loja/{slug},
     # com nome/cor/logo próprios (ver app/routers/loja.py). `slug` é único
     # quando definido, mas fica nulo até o admin configurar em
@@ -43,6 +50,7 @@ class Empresa(Base):
     passagens_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     frete_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     eventos_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    academia_ativo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Programa de fidelidade: a cada N passagens confirmadas de um mesmo
     # cliente (com conta, cliente_usuario_id preenchido), gera automaticamente
@@ -108,6 +116,12 @@ class Empresa(Base):
         """Só usa eventos se o plano incluir E a empresa não tiver desligado."""
         permitido_pelo_plano = self.plano.modulo_eventos if self.plano else True
         return permitido_pelo_plano and self.eventos_ativo
+
+    @property
+    def academia_habilitado(self) -> bool:
+        """Só usa academia se o plano incluir E a empresa não tiver desligado."""
+        permitido_pelo_plano = self.plano.modulo_academia if self.plano else True
+        return permitido_pelo_plano and self.academia_ativo
 
     @property
     def mercadopago_configurado(self) -> bool:

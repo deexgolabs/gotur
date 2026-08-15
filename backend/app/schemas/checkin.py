@@ -25,3 +25,13 @@ class CheckinEventoConsultaOut(BaseModel):
     data_hora: datetime
     status_ingresso: str
     checkin_em: datetime | None = None
+
+
+class CheckinAcademiaConsultaOut(BaseModel):
+    reserva_id: int
+    codigo: str
+    cliente_nome: str
+    nome_turma: str
+    data_hora_inicio: datetime
+    status_reserva: str
+    checkin_em: datetime | None = None

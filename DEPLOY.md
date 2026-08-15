@@ -124,23 +124,32 @@ pytest
 
 ## Tarefa diária: backup + cobrança recorrente
 
-Duas coisas precisam rodar sozinhas todo dia:
+Estas coisas precisam rodar sozinhas todo dia:
 
 - **Backup do banco** (`backend/scripts/backup_db.py`) — copia o `gotur.db`
   pra `backend/backups/` com carimbo de data/hora, e apaga as cópias mais
   antigas (mantém as 14 mais recentes por padrão). Só cuida de SQLite — se
   `GOTUR_DATABASE_URL` apontar pra Postgres/MySQL, use o backup do próprio
   provedor em vez disso.
-- **Cobrança recorrente** (`backend/scripts/gerar_faturas_mensais.py`) —
+- **Cobrança recorrente da assinatura** (`backend/scripts/gerar_faturas_mensais.py`) —
   gera a fatura de quem venceu o ciclo (30 dias desde a última, ou o fim do
   trial pra empresa nova) e atualiza quem ficou inadimplente/suspenso por
   atraso. Sem isso, é o super admin que precisa entrar no painel e gerar
   fatura na mão pra cada empresa. Ver `app/services/faturamento.py` pra
   entender a regra do ciclo.
+- **Documentos da frota vencendo** (`backend/scripts/verificar_vencimentos.py`)
+  — alerta por e-mail/WhatsApp quando CRLV/seguro/revisão de um ônibus está
+  perto do vencimento.
+- **Academia** (`backend/scripts/gerar_faturas_matricula.py`) — mantém a
+  agenda de ocorrências de cada Turma sempre 8 semanas à frente, gera a
+  mensalidade de quem venceu o ciclo, e atualiza matrícula inadimplente/
+  suspensa por atraso. Mesmo espírito da cobrança da assinatura, mas pro
+  aluno de uma academia, não pra empresa — ver
+  `app/services/faturamento_matricula.py`.
 
 O plano gratuito do PythonAnywhere só dá **1 tarefa agendada** — por isso
-existe `backend/scripts/tarefas_diarias.py`, que roda as duas em sequência.
-Pra ativar:
+existe `backend/scripts/tarefas_diarias.py`, que roda tudo isso em
+sequência. Pra ativar:
 1. Aba **Tasks**.
 2. Em **Scheduled Tasks**, escolha um horário (ex: 03:00) e cole:
    ```bash
@@ -148,12 +157,16 @@ Pra ativar:
    ```
    Troque `--base-url` pelo domínio real — é o que entra no link de
    pagamento mandado por e-mail/WhatsApp quando uma fatura é gerada.
-3. Salve. A partir daí roda todo dia sem precisar mexer em nada.
+3. Salve. A partir daí roda todo dia sem precisar mexer em nada. Depois de
+   um `git pull` que traga mudanças em algum desses scripts (ex: a Fase 3
+   de Academias), não precisa reconfigurar nada aqui — é o mesmo comando de
+   sempre, só o conteúdo de `tarefas_diarias.py` muda.
 
 Se você estiver num plano pago do PythonAnywhere (mais de 1 tarefa
-agendada) ou fora do PythonAnywhere, pode preferir agendar
-`backup_db.py` e `gerar_faturas_mensais.py` como duas tarefas separadas em
-horários diferentes — os dois continuam funcionando sozinhos também.
+agendada) ou fora do PythonAnywhere, pode preferir agendar `backup_db.py`,
+`gerar_faturas_mensais.py`, `verificar_vencimentos.py` e
+`gerar_faturas_matricula.py` como tarefas separadas em horários
+diferentes — todos continuam funcionando sozinhos também.
 
 ## Gateway de pagamento real (Mercado Pago, opcional)
 
