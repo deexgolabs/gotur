@@ -1,16 +1,16 @@
 const API_BASE = "/api";
 
 function obterAuth() {
-  const bruto = localStorage.getItem("gotur_auth");
+  const bruto = localStorage.getItem("kivo_auth");
   return bruto ? JSON.parse(bruto) : null;
 }
 
 function salvarAuth(dados) {
-  localStorage.setItem("gotur_auth", JSON.stringify(dados));
+  localStorage.setItem("kivo_auth", JSON.stringify(dados));
 }
 
 function limparAuth() {
-  localStorage.removeItem("gotur_auth");
+  localStorage.removeItem("kivo_auth");
 }
 
 async function api(metodo, caminho, corpo) {

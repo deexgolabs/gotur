@@ -1602,7 +1602,7 @@ function aposLogin() {
 // ---------- Bootstrap ----------
 
 function chaveCacheMarca() {
-  return `gotur_marca_${SLUG}`;
+  return `kivo_marca_${SLUG}`;
 }
 
 function aplicarSplash(marca) {
@@ -1641,7 +1641,7 @@ async function iniciar() {
     return;
   }
 
-  document.title = `${BRANDING.nome} — GoTur`;
+  document.title = `${BRANDING.nome} — Kivo`;
   document.getElementById("loja-nome").textContent = BRANDING.nome;
   if (BRANDING.logo_url) {
     const img = document.getElementById("loja-logo");

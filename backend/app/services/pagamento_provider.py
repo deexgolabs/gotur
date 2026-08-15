@@ -303,9 +303,9 @@ class MercadoPagoProvider(PagamentoProvider):
     def _cobrar_pix(self, valor: float, referencia_pedido: str) -> ResultadoCobranca:
         corpo = {
             "transaction_amount": round(float(valor), 2),
-            "description": f"GoTur - {referencia_pedido}",
+            "description": f"Kivo - {referencia_pedido}",
             "payment_method_id": "pix",
-            "payer": {"email": f"comprador+{referencia_pedido}@gotur.app"},
+            "payer": {"email": f"comprador+{referencia_pedido}@kivo.app"},
             "notification_url": self._notification_url(),
         }
         taxa = self._application_fee(valor)
@@ -331,14 +331,14 @@ class MercadoPagoProvider(PagamentoProvider):
                 "cliente (ver frontend/js/mercadopago-checkout.js) — nenhum token foi enviado."
             )
 
-        payer: dict = {"email": dados_cartao.payer_email or f"comprador+{referencia_pedido}@gotur.app"}
+        payer: dict = {"email": dados_cartao.payer_email or f"comprador+{referencia_pedido}@kivo.app"}
         if dados_cartao.payer_documento:
             digitos = _somente_digitos(dados_cartao.payer_documento)
             payer["identification"] = {"type": "CPF" if len(digitos) <= 11 else "CNPJ", "number": digitos}
 
         corpo = {
             "transaction_amount": round(float(valor), 2),
-            "description": f"GoTur - {referencia_pedido}",
+            "description": f"Kivo - {referencia_pedido}",
             "token": dados_cartao.token,
             "installments": dados_cartao.installments or 1,
             "payment_method_id": dados_cartao.payment_method_id,
@@ -371,10 +371,10 @@ class MercadoPagoProvider(PagamentoProvider):
 
         corpo = {
             "transaction_amount": round(float(valor), 2),
-            "description": f"GoTur - {referencia_pedido}",
+            "description": f"Kivo - {referencia_pedido}",
             "payment_method_id": "bolbradesco",
             "payer": {
-                "email": dados_boleto.email or f"comprador+{referencia_pedido}@gotur.app",
+                "email": dados_boleto.email or f"comprador+{referencia_pedido}@kivo.app",
                 "first_name": primeiro_nome,
                 "last_name": sobrenome,
                 "identification": {"type": "CPF" if len(digitos) <= 11 else "CNPJ", "number": digitos},

@@ -10,7 +10,7 @@ logger = logging.getLogger("gotur.config")
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="GOTUR_", env_file=str(BACKEND_DIR / ".env"), extra="ignore")
 
-    app_name: str = "GoTur API"
+    app_name: str = "Kivo API"
     debug: bool = True
 
     # Por padrão usa um sqlite local ao lado do código. Em produção, defina
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str | None = None
     smtp_password: str | None = None
-    smtp_remetente: str = "naoresponda@gotur.com"
+    smtp_remetente: str = "naoresponda@kivo.app"
 
     # Gateway de pagamento (Fase 5, ver app/services/pagamento_provider.py).
     # Sem GOTUR_GATEWAY_API_KEY definido, roda em modo simulado: Pix gera um
@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     #   backend/venv/Scripts/python.exe backend/scripts/gerar_chaves_vapid.py
     vapid_public_key: str | None = None
     vapid_private_key: str | None = None
-    vapid_claims_email: str = "naoresponda@gotur.com"
+    vapid_claims_email: str = "naoresponda@kivo.app"
 
     # Cobrança recorrente (ver app/services/faturamento.py e
     # scripts/gerar_faturas_mensais.py). Empresa nova fica `trial` sem

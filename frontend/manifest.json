@@ -1,6 +1,6 @@
 {
-  "name": "GoTur",
-  "short_name": "GoTur",
+  "name": "Kivo",
+  "short_name": "Kivo",
   "description": "Compra de passagens, gestão de viagens, fretamento e rastreio em tempo real.",
   "start_url": "/index.html",
   "scope": "/",

@@ -1,6 +1,13 @@
 # Deploy no PythonAnywhere
 
-O PythonAnywhere hospeda aplicações via WSGI. O GoTur é uma API FastAPI
+> **Nota:** o produto se chama **Kivo**, mas a pasta local, o repositório
+> GitHub, as variáveis de ambiente (`GOTUR_*`) e o arquivo do banco
+> (`gotur.db`) continuam com o nome interno `gotur` por continuidade —
+> renomear essas coisas quebraria configuração já feita em produção sem
+> nenhum ganho pra quem usa o sistema. Isso é só nomenclatura interna,
+> invisível pro usuário final.
+
+O PythonAnywhere hospeda aplicações via WSGI. O Kivo é uma API FastAPI
 (ASGI), então usamos um adaptador ASGI→WSGI próprio
 (`backend/app/wsgi_adapter.py`, referenciado por
 `backend/pythonanywhere_wsgi.py`) para rodar sem mudar o código da

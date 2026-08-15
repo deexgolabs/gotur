@@ -59,7 +59,7 @@ from app.routers import (
 # criado/alterado automaticamente aqui. Rode `alembic upgrade head` antes de
 # subir a aplicação (veja DEPLOY.md).
 
-app = FastAPI(title="GoTur API")
+app = FastAPI(title="Kivo API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -88,7 +88,7 @@ async def sem_cache_agressivo_no_frontend(request, call_next):
         resposta.headers["Cache-Control"] = "no-cache"
     return resposta
 
-api = FastAPI(title="GoTur API - v1")
+api = FastAPI(title="Kivo API - v1")
 for router in (
     auth.router,
     empresas.router,

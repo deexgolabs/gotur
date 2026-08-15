@@ -205,7 +205,7 @@ def gerar_bilhete_pdf(dados: DadosBilhete) -> bytes:
     pdf.set_margin(5)
 
     pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 8, "GoTur", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.cell(0, 8, "Kivo", new_x="LMARGIN", new_y="NEXT", align="C")
 
     pdf.set_font("Helvetica", "", 9)
     pdf.cell(0, 5, dados.empresa_nome, new_x="LMARGIN", new_y="NEXT", align="C")
@@ -272,7 +272,7 @@ def gerar_ingresso_pdf(dados: DadosIngresso) -> bytes:
     pdf.set_margin(5)
 
     pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 8, "GoTur", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.cell(0, 8, "Kivo", new_x="LMARGIN", new_y="NEXT", align="C")
 
     pdf.set_font("Helvetica", "", 9)
     pdf.cell(0, 5, dados.empresa_nome, new_x="LMARGIN", new_y="NEXT", align="C")
