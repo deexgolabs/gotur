@@ -128,6 +128,27 @@ def test_pagina_e_manifest_da_loja(client, db):
     assert inexistente.status_code == 404
 
 
+def test_landing_page_de_evento_e_aula_servem_o_mesmo_shell_da_loja(client, db):
+    """Links diretos compartilháveis (ex: divulgação de um show ou aula
+    específica) servem o mesmo HTML da SPA — é o frontend que lê a URL e
+    abre direto no item certo."""
+    empresa = criar_empresa_completa(db, "WL9")
+    token = login(client, empresa["admin_email"], empresa["senha"])
+    headers = auth_header(token)
+    slug = client.patch("/api/empresas/minha/marca", json={"slug": "loja-wl9"}, headers=headers).json()["slug"]
+
+    pagina_evento = client.get(f"/loja/{slug}/eventos/999")
+    assert pagina_evento.status_code == 200
+    assert "text/html" in pagina_evento.headers["content-type"]
+
+    pagina_aula = client.get(f"/loja/{slug}/aulas/999")
+    assert pagina_aula.status_code == 200
+    assert "text/html" in pagina_aula.headers["content-type"]
+
+    assert client.get("/loja/nao-existe-123/eventos/1").status_code == 404
+    assert client.get("/loja/nao-existe-123/aulas/1").status_code == 404
+
+
 def test_busca_de_viagens_filtrada_por_tenant(client, db):
     empresa_a = criar_empresa_completa(db, "WL7")
     empresa_b = criar_empresa_completa(db, "WL8")

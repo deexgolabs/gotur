@@ -60,6 +60,7 @@
   <script>
     const auth = exigirPapel("admin_empresa", "funcionario");
     const ehAdmin = auth && auth.role === "admin_empresa";
+    let empresaSlug = null;
 
     function mostrarAlerta(mensagem, tipo = "erro") {
       document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
@@ -67,6 +68,24 @@
 
     function formatarDataHora(iso) {
       return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    async function carregarEmpresa() {
+      try {
+        const empresa = await api("GET", "/empresas/minha");
+        empresaSlug = empresa.slug || null;
+      } catch (e) {
+        empresaSlug = null;
+      }
+    }
+
+    async function copiarLink(url) {
+      try {
+        await navigator.clipboard.writeText(url);
+        mostrarAlerta("Link copiado!", "sucesso");
+      } catch (e) {
+        prompt("Copie o link abaixo:", url);
+      }
     }
 
     async function carregarSelects() {
@@ -92,6 +111,7 @@
           <td><span class="selo ${s.ativo ? "livre" : "bloqueada"}">${s.ativo ? "Ativa" : "Cancelada"}</span></td>
           <td>
             <a href="/pages/mapa-assentos.html?sessao_id=${s.id}"><button>Mapa de assentos</button></a>
+            ${empresaSlug && s.ativo ? `<button class="secundario" data-copiar-link="${s.id}">Copiar link</button>` : ""}
             ${ehAdmin ? `<button class="secundario" data-editar="${s.id}">Editar</button>` : ""}
             ${ehAdmin
               ? s.ativo
@@ -102,6 +122,12 @@
         </tr>`
         )
         .join("");
+
+      corpo.querySelectorAll("button[data-copiar-link]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          copiarLink(`${window.location.origin}/loja/${empresaSlug}/eventos/${btn.dataset.copiarLink}`);
+        });
+      });
 
       if (!ehAdmin) return;
 
@@ -139,7 +165,7 @@
         document.getElementById("cartao-nova-sessao").classList.remove("escondido");
         carregarSelects().catch((e) => mostrarAlerta(e.message));
       }
-      carregarSessoes().catch((e) => mostrarAlerta(e.message));
+      carregarEmpresa().then(() => carregarSessoes()).catch((e) => mostrarAlerta(e.message));
     }
 
     document.getElementById("form-sessao").addEventListener("submit", async (ev) => {

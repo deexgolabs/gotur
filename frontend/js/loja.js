@@ -48,6 +48,46 @@ function mostrarAlerta(mensagem, tipo = "erro", alvo = "alerta") {
   if (tipo === "sucesso") setTimeout(() => (document.getElementById(alvo).innerHTML = ""), 4000);
 }
 
+function entrarEmModoVitrine(mensagem) {
+  document.body.classList.add("modo-vitrine");
+  document.getElementById("vitrine-topo-texto").textContent = mensagem;
+  document.getElementById("vitrine-topo").classList.remove("escondido");
+}
+
+function sairDoModoVitrine() {
+  document.body.classList.remove("modo-vitrine");
+  document.getElementById("vitrine-topo").classList.add("escondido");
+}
+
+async function abrirLandingEvento(sessaoId) {
+  try {
+    const lista = await fetch(`/api/sessoes/loja/${SLUG}`).then((r) => (r.ok ? r.json() : []));
+    const sessao = lista.find((s) => s.id === sessaoId);
+    if (!sessao) {
+      mostrarAlerta("Esse evento não está mais disponível.");
+      sairDoModoVitrine();
+      trocarVista("eventos");
+      return;
+    }
+    abrirCompraEvento(sessao);
+  } catch (erro) {
+    sairDoModoVitrine();
+    trocarVista("eventos");
+  }
+}
+
+async function abrirLandingAula(ocorrenciaId) {
+  document.querySelectorAll(".loja-vista").forEach((v) => v.classList.remove("ativa"));
+  document.getElementById("vista-academia").classList.add("ativa");
+  await carregarAcademia();
+  const ocorrencia = ocorrenciasAcademiaCache.find((o) => o.id === ocorrenciaId);
+  if (!ocorrencia) {
+    mostrarAlerta("Essa aula não está mais disponível.");
+    return;
+  }
+  reservarAula(ocorrencia);
+}
+
 function trocarVista(nome) {
   document.querySelectorAll(".loja-vista").forEach((v) => v.classList.remove("ativa"));
   document.getElementById(`vista-${nome}`).classList.add("ativa");
@@ -1051,7 +1091,10 @@ function atualizarFormaPagamentoEvento() {
 }
 
 function configurarCompraEvento() {
-  document.getElementById("btn-voltar-eventos").addEventListener("click", () => trocarVista("eventos"));
+  document.getElementById("btn-voltar-eventos").addEventListener("click", () => {
+    sairDoModoVitrine();
+    trocarVista("eventos");
+  });
 
   document.getElementById("evento-forma").addEventListener("change", atualizarFormaPagamentoEvento);
 
@@ -1636,6 +1679,11 @@ async function iniciar() {
     btn.addEventListener("click", () => trocarVista(btn.dataset.vista));
   });
 
+  document.getElementById("link-sair-vitrine").addEventListener("click", (ev) => {
+    ev.preventDefault();
+    sairDoModoVitrine();
+  });
+
   // Essa empresa pode ter desligado algum dos módulos (ver
   // Configurações → Módulos) — some com a aba correspondente.
   if (!BRANDING.passagens_habilitado) {
@@ -1678,7 +1726,23 @@ async function iniciar() {
   const params = new URLSearchParams(window.location.search);
   const codigoNaUrl = params.get("codigo");
   const freteNaUrl = params.get("frete");
-  if (codigoNaUrl) {
+
+  // Landing page compartilhável de um evento/aula específico, no formato
+  // /loja/{slug}/eventos/{id} ou /loja/{slug}/aulas/{id} — abre direto
+  // nesse item (sem passar pela lista) e some com o menu inferior, pra
+  // quem clicou num link de divulgação não ficar se perguntando onde
+  // caiu. "Ver loja completa" no topo volta ao app normal.
+  const segmentosPath = window.location.pathname.replace(/\/+$/, "").split("/");
+  const tipoDeepLink = segmentosPath[3];
+  const idDeepLink = segmentosPath[4] ? parseInt(segmentosPath[4], 10) : null;
+
+  if (tipoDeepLink === "eventos" && idDeepLink && BRANDING.eventos_habilitado) {
+    entrarEmModoVitrine("Você está vendo um evento específico.");
+    abrirLandingEvento(idDeepLink);
+  } else if (tipoDeepLink === "aulas" && idDeepLink && BRANDING.academia_habilitado) {
+    entrarEmModoVitrine("Você está vendo uma aula específica.");
+    abrirLandingAula(idDeepLink);
+  } else if (codigoNaUrl) {
     abrirAcompanharFretamento(codigoNaUrl.toUpperCase());
   } else if (freteNaUrl) {
     abrirAcompanharFrete(freteNaUrl.toUpperCase());

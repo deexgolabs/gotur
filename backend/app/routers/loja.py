@@ -29,12 +29,33 @@ def _buscar_empresa_por_slug(db: Session, slug: str) -> Empresa:
     return empresa
 
 
-@router.get("/loja/{slug}", response_class=HTMLResponse)
-def pagina_loja(slug: str, db: Session = Depends(get_db)):
-    _buscar_empresa_por_slug(db, slug)
+def _servir_shell_da_loja() -> HTMLResponse:
     if not LOJA_SHELL.exists():
         raise HTTPException(status_code=500, detail="Loja ainda não configurada no servidor")
     return HTMLResponse(LOJA_SHELL.read_text(encoding="utf-8"))
+
+
+@router.get("/loja/{slug}", response_class=HTMLResponse)
+def pagina_loja(slug: str, db: Session = Depends(get_db)):
+    _buscar_empresa_por_slug(db, slug)
+    return _servir_shell_da_loja()
+
+
+@router.get("/loja/{slug}/eventos/{sessao_id}", response_class=HTMLResponse)
+def pagina_loja_evento(slug: str, sessao_id: int, db: Session = Depends(get_db)):
+    """Landing page compartilhável de um evento específico — mesmo shell
+    da loja (SPA); é o frontend (js/loja.js) que lê a URL e abre direto
+    na tela de compra dessa sessão, sem passar pela lista."""
+    _buscar_empresa_por_slug(db, slug)
+    return _servir_shell_da_loja()
+
+
+@router.get("/loja/{slug}/aulas/{ocorrencia_id}", response_class=HTMLResponse)
+def pagina_loja_aula(slug: str, ocorrencia_id: int, db: Session = Depends(get_db)):
+    """Landing page compartilhável de uma aula específica — mesmo shell
+    da loja; js/loja.js abre direto no fluxo de reserva dessa ocorrência."""
+    _buscar_empresa_por_slug(db, slug)
+    return _servir_shell_da_loja()
 
 
 @router.get("/loja/{slug}/manifest.json")

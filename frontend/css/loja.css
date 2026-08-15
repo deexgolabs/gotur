@@ -3,6 +3,34 @@ body {
   background: var(--cinza-claro);
 }
 
+/* Modo vitrine: landing direta de um evento/aula compartilhado (link
+   /loja/{slug}/eventos/{id} ou /aulas/{id}) — some com a navegação
+   inferior pra não distrair de quem só clicou pra ver aquele item. */
+body.modo-vitrine {
+  padding-bottom: 0;
+}
+
+body.modo-vitrine .loja-bottom-nav {
+  display: none;
+}
+
+.loja-vitrine-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 0.82rem;
+  color: var(--cinza);
+}
+
+.loja-vitrine-topo a {
+  color: var(--roxo);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 .loja-header {
   background: var(--roxo-escuro);
   color: #fff;

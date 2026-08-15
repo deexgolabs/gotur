@@ -45,6 +45,7 @@
     const auth = exigirPapel("admin_empresa", "funcionario");
     const params = new URLSearchParams(window.location.search);
     const turmaId = params.get("turma_id");
+    let empresaSlug = null;
 
     function mostrarAlerta(mensagem, tipo = "erro") {
       document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
@@ -55,6 +56,24 @@
 
     function formatarDataHora(iso) {
       return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    async function carregarEmpresa() {
+      try {
+        const empresa = await api("GET", "/empresas/minha");
+        empresaSlug = empresa.slug || null;
+      } catch (e) {
+        empresaSlug = null;
+      }
+    }
+
+    async function copiarLink(url) {
+      try {
+        await navigator.clipboard.writeText(url);
+        mostrarAlerta("Link copiado!", "sucesso");
+      } catch (e) {
+        prompt("Copie o link abaixo:", url);
+      }
     }
 
     async function carregar() {
@@ -75,6 +94,7 @@
           <td><span class="selo ${o.cancelada ? "bloqueada" : "livre"}">${o.cancelada ? "Cancelada" : "Normal"}</span></td>
           <td>
             <button class="secundario" data-reservas="${o.id}">Ver reservas</button>
+            ${empresaSlug && !o.cancelada && !passou ? `<button class="secundario" data-copiar-link="${o.id}">Copiar link</button>` : ""}
             ${!o.cancelada && !passou ? `<button class="perigo" data-cancelar="${o.id}">Cancelar aula</button>` : ""}
           </td>
         </tr>`;
@@ -83,6 +103,12 @@
 
       corpo.querySelectorAll("button[data-reservas]").forEach((btn) => {
         btn.addEventListener("click", () => abrirDialogReservas(lista.find((o) => o.id == btn.dataset.reservas)));
+      });
+
+      corpo.querySelectorAll("button[data-copiar-link]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          copiarLink(`${window.location.origin}/loja/${empresaSlug}/aulas/${btn.dataset.copiarLink}`);
+        });
       });
 
       corpo.querySelectorAll("button[data-cancelar]").forEach((btn) => {
@@ -133,7 +159,7 @@
       if (turmaId) {
         document.getElementById("subtitulo").textContent = "Ocorrências desta turma.";
       }
-      carregar().catch((e) => mostrarAlerta(e.message));
+      carregarEmpresa().then(() => carregar()).catch((e) => mostrarAlerta(e.message));
     }
   </script>
 </body>

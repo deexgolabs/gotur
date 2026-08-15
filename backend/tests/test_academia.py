@@ -10,12 +10,19 @@ def _empresa_com_turma(client, db, sufixo: str, capacidade_vagas: int = 20, prec
     empresa = criar_empresa_completa(db, sufixo)
     headers_admin = auth_header(login(client, empresa["admin_email"], empresa["senha"]))
 
+    # dia_semana E hora_inicio vêm do MESMO instante de referência (agora +
+    # 2h) em vez de "hoje" + hora fixa "07:00:00" — testado depois das 7h
+    # UTC, a hora fixa geraria a ocorrência de hoje já no passado (409
+    # "Esta aula já aconteceu" em qualquer reserva). Somar 2h ao instante
+    # de referência garante ocorrência futura mesmo perto da virada do dia.
+    referencia = datetime.utcnow() + timedelta(hours=2)
+
     resposta = client.post(
         "/api/turmas",
         json={
             "nome": f"Spinning {sufixo}",
-            "dia_semana": datetime.utcnow().date().weekday(),
-            "hora_inicio": "07:00:00",
+            "dia_semana": referencia.weekday(),
+            "hora_inicio": referencia.strftime("%H:%M:%S"),
             "duracao_minutos": 45,
             "capacidade_vagas": capacidade_vagas,
             "instrutor": "Professor Teste",
@@ -26,7 +33,7 @@ def _empresa_com_turma(client, db, sufixo: str, capacidade_vagas: int = 20, prec
     assert resposta.status_code == 201, resposta.text
     turma = resposta.json()
 
-    return {"empresa": empresa, "headers_admin": headers_admin, "turma": turma}
+    return {"empresa": empresa, "headers_admin": headers_admin, "turma": turma, "dia_semana": referencia.weekday()}
 
 
 def _primeira_ocorrencia_id(db, turma_id: int) -> int:
@@ -74,11 +81,12 @@ def _usuario_id_por_email(db, email: str) -> int:
 def test_criar_turma_gera_ocorrencias_da_janela(client, db):
     cenario = _empresa_com_turma(client, db, "AC1")
     ocorrencias = db.query(OcorrenciaTurma).filter(OcorrenciaTurma.turma_id == cenario["turma"]["id"]).all()
-    # dia_semana = hoje, então a primeira ocorrência é hoje e depois semana
-    # a semana até a janela de SEMANAS_JANELA semanas à frente.
+    # dia_semana = o de referência (ver _empresa_com_turma), então a
+    # primeira ocorrência cai nele e depois semana a semana até a janela
+    # de SEMANAS_JANELA semanas à frente.
     assert len(ocorrencias) == SEMANAS_JANELA + 1
     for o in ocorrencias:
-        assert o.data_hora_inicio.weekday() == datetime.utcnow().date().weekday()
+        assert o.data_hora_inicio.weekday() == cenario["dia_semana"]
         assert o.capacidade_vagas == 20
 
 
