@@ -1688,6 +1688,7 @@ async function iniciar() {
   // Configurações → Módulos) — some com a aba correspondente.
   if (!BRANDING.passagens_habilitado) {
     document.querySelector('.loja-nav-item[data-vista="buscar"]').classList.add("escondido");
+    document.querySelector('.loja-nav-item[data-vista="minhas"]').classList.add("escondido");
   }
   if (!BRANDING.fretamento_habilitado) {
     document.querySelector('.loja-nav-item[data-vista="fretamento"]').classList.add("escondido");
