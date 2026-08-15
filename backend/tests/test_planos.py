@@ -196,6 +196,32 @@ def test_editar_plano_liga_e_desliga_modulo_frete(client, db):
     assert religado.json()["modulo_frete"] is True
 
 
+def test_criar_e_editar_plano_liga_e_desliga_modulo_eventos_e_academia(client, db):
+    """Regressão: modulo_eventos/modulo_academia existem na coluna do
+    Plano desde a Fase 2/3, mas modulo_academia ficou de fora do schema
+    (PlanoCreate/Update/Out) até esse teste ser escrito — a API aceitava
+    o campo silenciosamente sem persistir nada. Cobre os dois módulos
+    dos nichos novos (não-aviação) do mesmo jeito que já se cobre frete."""
+    super_admin = criar_super_admin(db, "P10")
+    headers = auth_header(login(client, super_admin["email"], super_admin["senha"]))
+
+    plano = _criar_plano(client, headers, nome="Cinema e Academia", modulo_eventos=False, modulo_academia=False)
+    assert plano["modulo_eventos"] is False
+    assert plano["modulo_academia"] is False
+
+    lista = client.get("/api/planos", headers=headers).json()
+    encontrado = next(p for p in lista if p["id"] == plano["id"])
+    assert encontrado["modulo_eventos"] is False
+    assert encontrado["modulo_academia"] is False
+
+    religado = client.patch(
+        f"/api/planos/{plano['id']}", json={"modulo_eventos": True, "modulo_academia": True}, headers=headers
+    )
+    assert religado.status_code == 200, religado.text
+    assert religado.json()["modulo_eventos"] is True
+    assert religado.json()["modulo_academia"] is True
+
+
 def test_editar_detalhes_do_plano(client, db):
     super_admin = criar_super_admin(db, "P9")
     headers = auth_header(login(client, super_admin["email"], super_admin["senha"]))

@@ -12,6 +12,7 @@ class PlanoCreate(BaseModel):
     modulo_passagens: bool = True
     modulo_frete: bool = True
     modulo_eventos: bool = True
+    modulo_academia: bool = True
     modulo_frota: bool = True
     modulo_motorista: bool = True
     modulo_dre: bool = True
@@ -30,6 +31,7 @@ class PlanoUpdate(BaseModel):
     modulo_passagens: bool | None = None
     modulo_frete: bool | None = None
     modulo_eventos: bool | None = None
+    modulo_academia: bool | None = None
     modulo_frota: bool | None = None
     modulo_motorista: bool | None = None
     modulo_dre: bool | None = None
@@ -52,6 +54,7 @@ class PlanoOut(BaseModel):
     modulo_passagens: bool = True
     modulo_frete: bool = True
     modulo_eventos: bool = True
+    modulo_academia: bool = True
     modulo_frota: bool = True
     modulo_motorista: bool = True
     modulo_dre: bool = True

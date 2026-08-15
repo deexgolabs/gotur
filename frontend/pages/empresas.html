@@ -50,7 +50,7 @@
     <div class="cartao">
       <table>
         <thead>
-          <tr><th>Nome</th><th>CNPJ</th><th>Plano</th><th>Assinatura</th><th>Cobrança</th><th>Status</th><th></th></tr>
+          <tr><th>Nome</th><th>CNPJ</th><th>Plano</th><th>Módulos</th><th>Assinatura</th><th>Cobrança</th><th>Status</th><th></th></tr>
         </thead>
         <tbody id="corpo-tabela"></tbody>
       </table>
@@ -129,6 +129,20 @@
       document.getElementById("plano").innerHTML = `<option value="">Sem plano (trial livre)</option>${opcoes}`;
     }
 
+    const MODULOS_NICHO = [
+      { campo: "passagens_habilitado", rotulo: "Passagens" },
+      { campo: "fretamento_habilitado", rotulo: "Fretamento" },
+      { campo: "frete_habilitado", rotulo: "Frete" },
+      { campo: "eventos_habilitado", rotulo: "Eventos" },
+      { campo: "academia_habilitado", rotulo: "Academia" },
+    ];
+
+    function modulosHtml(empresa) {
+      const ativos = MODULOS_NICHO.filter((m) => empresa[m.campo]);
+      if (!ativos.length) return `<span class="selo bloqueada">Nenhum</span>`;
+      return ativos.map((m) => `<span class="selo livre">${m.rotulo}</span>`).join(" ");
+    }
+
     async function carregarEmpresas() {
       const empresas = await api("GET", "/empresas");
       const corpo = document.getElementById("corpo-tabela");
@@ -140,6 +154,7 @@
           <td>${e.nome}</td>
           <td>${e.cnpj}</td>
           <td>${e.plano ? e.plano.nome : "—"}</td>
+          <td style="white-space:nowrap">${modulosHtml(e)}</td>
           <td><span class="selo ${SELO_ASSINATURA[e.status_assinatura]}">${ROTULOS_ASSINATURA[e.status_assinatura]}</span></td>
           <td><span class="selo ${e.isento_cobranca ? "hold" : "livre"}" title="${e.isento_cobranca ? "Não gera fatura nem é suspensa por inadimplência" : "Cobrança normal da assinatura"}">${e.isento_cobranca ? "Isenta (teste)" : "Normal"}</span></td>
           <td><span class="selo ${e.ativo ? "livre" : "bloqueada"}">${e.ativo ? "Ativa" : "Desativada"}</span></td>

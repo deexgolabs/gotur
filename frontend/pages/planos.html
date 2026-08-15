@@ -58,6 +58,14 @@
           <input type="checkbox" id="inclui-frete" checked style="width:auto" />
           Inclui frete
         </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="inclui-eventos" checked style="width:auto" />
+          Inclui eventos (cinema/teatro/show/estádio)
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+          <input type="checkbox" id="inclui-academia" checked style="width:auto" />
+          Inclui academia (matrícula + aulas com vaga limitada)
+        </label>
         <p class="subtitulo" style="margin:12px 0 4px">Diferenciais premium (plano Completo)</p>
         <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
           <input type="checkbox" id="inclui-frota" checked style="width:auto" />
@@ -136,6 +144,14 @@
         <input type="checkbox" id="editar-inclui-frete" style="width:auto" />
         Inclui frete
       </label>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+        <input type="checkbox" id="editar-inclui-eventos" style="width:auto" />
+        Inclui eventos (cinema/teatro/show/estádio)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
+        <input type="checkbox" id="editar-inclui-academia" style="width:auto" />
+        Inclui academia (matrícula + aulas com vaga limitada)
+      </label>
       <p class="subtitulo" style="margin:12px 0 4px">Diferenciais premium (plano Completo)</p>
       <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:4px">
         <input type="checkbox" id="editar-inclui-frota" style="width:auto" />
@@ -196,6 +212,8 @@
             <span class="selo ${p.modulo_passagens ? "livre" : "bloqueada"}" data-toggle-modulo="passagens" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Viagens</span>
             <span class="selo ${p.modulo_fretamento ? "livre" : "bloqueada"}" data-toggle-modulo="fretamento" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Fretamento</span>
             <span class="selo ${p.modulo_frete ? "livre" : "bloqueada"}" data-toggle-modulo="frete" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Frete</span>
+            <span class="selo ${p.modulo_eventos ? "livre" : "bloqueada"}" data-toggle-modulo="eventos" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Eventos</span>
+            <span class="selo ${p.modulo_academia ? "livre" : "bloqueada"}" data-toggle-modulo="academia" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Academia</span>
             <span class="selo ${p.modulo_frota ? "livre" : "bloqueada"}" data-toggle-modulo="frota" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Frota</span>
             <span class="selo ${p.modulo_motorista ? "livre" : "bloqueada"}" data-toggle-modulo="motorista" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Motoristas</span>
             <span class="selo ${p.modulo_dre ? "livre" : "bloqueada"}" data-toggle-modulo="dre" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">DRE</span>
@@ -244,6 +262,8 @@
             passagens: "modulo_passagens",
             fretamento: "modulo_fretamento",
             frete: "modulo_frete",
+            eventos: "modulo_eventos",
+            academia: "modulo_academia",
             frota: "modulo_frota",
             motorista: "modulo_motorista",
             dre: "modulo_dre",
@@ -273,6 +293,8 @@
       document.getElementById("editar-inclui-passagens").checked = plano.modulo_passagens;
       document.getElementById("editar-inclui-fretamento").checked = plano.modulo_fretamento;
       document.getElementById("editar-inclui-frete").checked = plano.modulo_frete;
+      document.getElementById("editar-inclui-eventos").checked = plano.modulo_eventos;
+      document.getElementById("editar-inclui-academia").checked = plano.modulo_academia;
       document.getElementById("editar-inclui-frota").checked = plano.modulo_frota;
       document.getElementById("editar-inclui-motorista").checked = plano.modulo_motorista;
       document.getElementById("editar-inclui-dre").checked = plano.modulo_dre;
@@ -302,6 +324,8 @@
           modulo_passagens: document.getElementById("editar-inclui-passagens").checked,
           modulo_fretamento: document.getElementById("editar-inclui-fretamento").checked,
           modulo_frete: document.getElementById("editar-inclui-frete").checked,
+          modulo_eventos: document.getElementById("editar-inclui-eventos").checked,
+          modulo_academia: document.getElementById("editar-inclui-academia").checked,
           modulo_frota: document.getElementById("editar-inclui-frota").checked,
           modulo_motorista: document.getElementById("editar-inclui-motorista").checked,
           modulo_dre: document.getElementById("editar-inclui-dre").checked,
@@ -338,6 +362,8 @@
           modulo_passagens: document.getElementById("inclui-passagens").checked,
           modulo_fretamento: document.getElementById("inclui-fretamento").checked,
           modulo_frete: document.getElementById("inclui-frete").checked,
+          modulo_eventos: document.getElementById("inclui-eventos").checked,
+          modulo_academia: document.getElementById("inclui-academia").checked,
           modulo_frota: document.getElementById("inclui-frota").checked,
           modulo_motorista: document.getElementById("inclui-motorista").checked,
           modulo_dre: document.getElementById("inclui-dre").checked,
