@@ -64,6 +64,14 @@ python seed.py
 ```
 Ou pule este passo e crie o super admin manualmente depois — veja a seção 8.
 
+Isso cria uma empresa de demonstração ("Viação Demo") junto — não rode em
+produção se não quiser esse dado fake junto. Pra criar só os 3 planos
+oficiais (Essencial/Profissional/Completo) sem empresa demo nenhuma,
+rode em vez disso (idempotente, seguro rodar de novo):
+```bash
+python scripts/criar_planos_oficiais.py
+```
+
 ## 6. Configurar a aba "Web"
 
 1. Na aba **Web**, clique em **Add a new web app**.
