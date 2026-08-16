@@ -8,6 +8,7 @@ from app.models.enums import UserRole
 from app.models.academia import Turma
 from app.models.usuario import Usuario
 from app.schemas.academia import TurmaCreate, TurmaOut, TurmaUpdate
+from app.services.limites_plano import verificar_limite_turmas
 from app.services.ocorrencias_turma import gerar_ocorrencias
 
 router = APIRouter(prefix="/turmas", tags=["turmas"])
@@ -26,6 +27,7 @@ def criar_turma(
 ):
     empresa = db.get(Empresa, usuario_atual.tenant_id)
     _exigir_modulo_academia(empresa)
+    verificar_limite_turmas(db, empresa)
 
     turma = Turma(tenant_id=usuario_atual.tenant_id, **dados.model_dump())
     db.add(turma)

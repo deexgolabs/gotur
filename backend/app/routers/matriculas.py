@@ -10,6 +10,7 @@ from app.models.enums import StatusFatura, StatusMatricula, TipoMatricula, UserR
 from app.models.academia import FaturaMatricula, Matricula
 from app.models.usuario import Usuario
 from app.schemas.matricula import MatriculaCreate, MatriculaLojaCreate, MatriculaOut
+from app.services.limites_plano import verificar_limite_matriculas_ativas
 from app.services.matricula_status import atualizar_situacao_matriculas
 
 router = APIRouter(tags=["matriculas"])
@@ -82,6 +83,7 @@ def criar_matricula(
     preço; usa sempre `Empresa.preco_padrao_mensalidade_academia`."""
     empresa = db.get(Empresa, usuario_atual.tenant_id)
     _exigir_modulo_academia(empresa)
+    verificar_limite_matriculas_ativas(db, empresa)
 
     cliente = db.get(Usuario, dados.cliente_usuario_id)
     if not cliente or cliente.role != UserRole.CLIENTE:
@@ -111,6 +113,7 @@ def matricular_se_pela_loja(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Esta academia ainda não configurou o preço da mensalidade pra autoatendimento. Fale com a recepção.",
         )
+    verificar_limite_matriculas_ativas(db, empresa)
 
     matricula = _criar_matricula_com_primeira_fatura(
         db,

@@ -1,10 +1,11 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from app.database import SessionLocal
 from app.models.empresa import Empresa
 from app.models.enums import StatusAssinatura
 from app.models.fatura_empresa import FaturaEmpresa
-from tests.helpers import auth_header, criar_empresa_completa, criar_super_admin, login
+from app.models.usuario import Usuario
+from tests.helpers import auth_header, criar_cliente, criar_empresa_completa, criar_super_admin, login
 
 
 def _criar_plano(client, headers, **kwargs):
@@ -247,3 +248,106 @@ def test_editar_detalhes_do_plano(client, db):
     assert corpo["max_onibus"] == 3
     assert corpo["max_funcionarios"] == 5
     assert corpo["max_viagens_mes"] == 10
+
+
+def test_limite_de_locais_do_plano_bloqueia_criacao_extra(client, db):
+    """Equivalente de test_limite_de_onibus_do_plano_bloqueia_criacao_extra
+    pro nicho de eventos — locais são pro eventos o que ônibus é pra
+    viação (ver app/services/limites_plano.py)."""
+    empresa, _plano, _headers_super = _empresa_com_plano(client, db, "P11", max_locais=1)
+    token = login(client, empresa["admin_email"], empresa["senha"])
+    headers = auth_header(token)
+
+    # _empresa_com_plano já não cria local nenhum, então o primeiro deve passar.
+    primeiro = client.post(
+        "/api/locais",
+        json={"nome": "Teatro Principal", "total_assentos": 4},
+        headers=headers,
+    )
+    assert primeiro.status_code == 201, primeiro.text
+
+    segundo = client.post(
+        "/api/locais",
+        json={"nome": "Teatro Extra", "total_assentos": 4},
+        headers=headers,
+    )
+    assert segundo.status_code == 402
+
+
+def test_limite_de_sessoes_mes_do_plano_bloqueia_criacao_extra(client, db):
+    empresa, _plano, _headers_super = _empresa_com_plano(client, db, "P12", max_sessoes_mes=1)
+    token = login(client, empresa["admin_email"], empresa["senha"])
+    headers = auth_header(token)
+
+    local = client.post(
+        "/api/locais",
+        json={"nome": "Teatro P12", "total_assentos": 4},
+        headers=headers,
+    )
+    assert local.status_code == 201, local.text
+    local_id = local.json()["id"]
+
+    def _criar_sessao():
+        return client.post(
+            "/api/sessoes",
+            json={
+                "local_id": local_id,
+                "nome_evento": "Show",
+                "data_hora": (datetime.now() + timedelta(days=5)).isoformat(),
+                "preco": 100.0,
+            },
+            headers=headers,
+        )
+
+    primeira = _criar_sessao()
+    assert primeira.status_code == 201, primeira.text
+
+    segunda = _criar_sessao()
+    assert segunda.status_code == 402
+
+
+def test_limite_de_turmas_do_plano_bloqueia_criacao_extra(client, db):
+    empresa, _plano, _headers_super = _empresa_com_plano(client, db, "P13", max_turmas=1)
+    token = login(client, empresa["admin_email"], empresa["senha"])
+    headers = auth_header(token)
+
+    def _criar_turma(nome):
+        return client.post(
+            "/api/turmas",
+            json={
+                "nome": nome,
+                "dia_semana": 1,
+                "hora_inicio": "10:00:00",
+                "duracao_minutos": 45,
+                "capacidade_vagas": 10,
+            },
+            headers=headers,
+        )
+
+    primeira = _criar_turma("Turma 1")
+    assert primeira.status_code == 201, primeira.text
+
+    segunda = _criar_turma("Turma 2")
+    assert segunda.status_code == 402
+
+
+def test_limite_de_matriculas_ativas_do_plano_bloqueia_criacao_extra(client, db):
+    empresa, _plano, _headers_super = _empresa_com_plano(client, db, "P14", max_matriculas_ativas=1)
+    token = login(client, empresa["admin_email"], empresa["senha"])
+    headers = auth_header(token)
+
+    cliente = criar_cliente(db, "P14")
+    cliente_usuario_id = db.query(Usuario).filter(Usuario.email == cliente["email"]).first().id
+
+    def _matricular():
+        return client.post(
+            "/api/matriculas",
+            json={"cliente_usuario_id": cliente_usuario_id, "tipo": "mensal_ilimitado", "valor_mensalidade": 100.0},
+            headers=headers,
+        )
+
+    primeira = _matricular()
+    assert primeira.status_code == 201, primeira.text
+
+    segunda = _matricular()
+    assert segunda.status_code == 402

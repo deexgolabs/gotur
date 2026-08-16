@@ -41,6 +41,22 @@
             <label for="max-viagens">Limite de viagens/mês</label>
             <input id="max-viagens" type="number" min="0" placeholder="Vazio = ilimitado" />
           </div>
+          <div id="campo-max-locais">
+            <label for="max-locais">Limite de locais</label>
+            <input id="max-locais" type="number" min="0" placeholder="Vazio = ilimitado" />
+          </div>
+          <div id="campo-max-sessoes">
+            <label for="max-sessoes">Limite de sessões/mês</label>
+            <input id="max-sessoes" type="number" min="0" placeholder="Vazio = ilimitado" />
+          </div>
+          <div id="campo-max-turmas">
+            <label for="max-turmas">Limite de turmas</label>
+            <input id="max-turmas" type="number" min="0" placeholder="Vazio = ilimitado" />
+          </div>
+          <div id="campo-max-matriculas">
+            <label for="max-matriculas">Limite de matrículas ativas</label>
+            <input id="max-matriculas" type="number" min="0" placeholder="Vazio = ilimitado" />
+          </div>
           <div>
             <label for="descricao">Descrição</label>
             <input id="descricao" placeholder="Opcional" />
@@ -96,7 +112,7 @@
     <h2>Planos cadastrados</h2>
     <div class="cartao">
       <table>
-        <thead><tr><th>Nome</th><th>Preço/mês</th><th>Ônibus</th><th>Funcionários</th><th>Viagens/mês</th><th>Módulos</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Nome</th><th>Preço/mês</th><th>Ônibus</th><th>Funcionários</th><th>Viagens/mês</th><th>Locais</th><th>Sessões/mês</th><th>Turmas</th><th>Matrículas</th><th>Módulos</th><th>Status</th><th></th></tr></thead>
         <tbody id="corpo-tabela"></tbody>
       </table>
       <p class="vazio escondido" id="vazio">Nenhum plano cadastrado ainda.</p>
@@ -126,6 +142,22 @@
         <div id="campo-editar-max-viagens">
           <label for="editar-max-viagens">Limite de viagens/mês</label>
           <input id="editar-max-viagens" type="number" min="0" placeholder="Vazio = ilimitado" />
+        </div>
+        <div id="campo-editar-max-locais">
+          <label for="editar-max-locais">Limite de locais</label>
+          <input id="editar-max-locais" type="number" min="0" placeholder="Vazio = ilimitado" />
+        </div>
+        <div id="campo-editar-max-sessoes">
+          <label for="editar-max-sessoes">Limite de sessões/mês</label>
+          <input id="editar-max-sessoes" type="number" min="0" placeholder="Vazio = ilimitado" />
+        </div>
+        <div id="campo-editar-max-turmas">
+          <label for="editar-max-turmas">Limite de turmas</label>
+          <input id="editar-max-turmas" type="number" min="0" placeholder="Vazio = ilimitado" />
+        </div>
+        <div id="campo-editar-max-matriculas">
+          <label for="editar-max-matriculas">Limite de matrículas ativas</label>
+          <input id="editar-max-matriculas" type="number" min="0" placeholder="Vazio = ilimitado" />
         </div>
         <div>
           <label for="editar-descricao">Descrição</label>
@@ -195,20 +227,41 @@
       return v === null || v === undefined ? "Ilimitado" : v;
     }
 
-    function atualizarCamposDeViagem(prefixo) {
-      const usaModuloDeViagem =
-        document.getElementById(`${prefixo}inclui-passagens`).checked ||
-        document.getElementById(`${prefixo}inclui-fretamento`).checked;
+    function atualizarCamposPorModulo(prefixo, checkboxes, campos) {
       const sufixo = prefixo ? `-${prefixo.replace(/-$/, "")}` : "";
-      document.getElementById(`campo${sufixo}-max-onibus`).classList.toggle("escondido", !usaModuloDeViagem);
-      document.getElementById(`campo${sufixo}-max-viagens`).classList.toggle("escondido", !usaModuloDeViagem);
+      const habilitado = checkboxes.some((id) => document.getElementById(`${prefixo}${id}`).checked);
+      campos.forEach((campo) => {
+        document.getElementById(`campo${sufixo}-${campo}`).classList.toggle("escondido", !habilitado);
+      });
+    }
+
+    function atualizarCamposDeViagem(prefixo) {
+      atualizarCamposPorModulo(prefixo, ["inclui-passagens", "inclui-fretamento"], ["max-onibus", "max-viagens"]);
+    }
+
+    function atualizarCamposDeEventos(prefixo) {
+      atualizarCamposPorModulo(prefixo, ["inclui-eventos"], ["max-locais", "max-sessoes"]);
+    }
+
+    function atualizarCamposDeAcademia(prefixo) {
+      atualizarCamposPorModulo(prefixo, ["inclui-academia"], ["max-turmas", "max-matriculas"]);
+    }
+
+    function atualizarTodosOsCamposDeLimite(prefixo) {
+      atualizarCamposDeViagem(prefixo);
+      atualizarCamposDeEventos(prefixo);
+      atualizarCamposDeAcademia(prefixo);
     }
 
     document.getElementById("inclui-passagens").addEventListener("change", () => atualizarCamposDeViagem(""));
     document.getElementById("inclui-fretamento").addEventListener("change", () => atualizarCamposDeViagem(""));
+    document.getElementById("inclui-eventos").addEventListener("change", () => atualizarCamposDeEventos(""));
+    document.getElementById("inclui-academia").addEventListener("change", () => atualizarCamposDeAcademia(""));
     document.getElementById("editar-inclui-passagens").addEventListener("change", () => atualizarCamposDeViagem("editar-"));
     document.getElementById("editar-inclui-fretamento").addEventListener("change", () => atualizarCamposDeViagem("editar-"));
-    atualizarCamposDeViagem("");
+    document.getElementById("editar-inclui-eventos").addEventListener("change", () => atualizarCamposDeEventos("editar-"));
+    document.getElementById("editar-inclui-academia").addEventListener("change", () => atualizarCamposDeAcademia("editar-"));
+    atualizarTodosOsCamposDeLimite("");
 
     async function carregar() {
       const lista = await api("GET", "/planos");
@@ -223,6 +276,10 @@
           <td>${fmtLimite(p.max_onibus)}</td>
           <td>${fmtLimite(p.max_funcionarios)}</td>
           <td>${fmtLimite(p.max_viagens_mes)}</td>
+          <td>${fmtLimite(p.max_locais)}</td>
+          <td>${fmtLimite(p.max_sessoes_mes)}</td>
+          <td>${fmtLimite(p.max_turmas)}</td>
+          <td>${fmtLimite(p.max_matriculas_ativas)}</td>
           <td>
             <span class="selo ${p.modulo_passagens ? "livre" : "bloqueada"}" data-toggle-modulo="passagens" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Viagens</span>
             <span class="selo ${p.modulo_fretamento ? "livre" : "bloqueada"}" data-toggle-modulo="fretamento" data-plano="${p.id}" style="cursor:pointer" title="Clique pra ligar/desligar">Fretamento</span>
@@ -304,6 +361,10 @@
       document.getElementById("editar-max-onibus").value = plano.max_onibus ?? "";
       document.getElementById("editar-max-funcionarios").value = plano.max_funcionarios ?? "";
       document.getElementById("editar-max-viagens").value = plano.max_viagens_mes ?? "";
+      document.getElementById("editar-max-locais").value = plano.max_locais ?? "";
+      document.getElementById("editar-max-sessoes").value = plano.max_sessoes_mes ?? "";
+      document.getElementById("editar-max-turmas").value = plano.max_turmas ?? "";
+      document.getElementById("editar-max-matriculas").value = plano.max_matriculas_ativas ?? "";
       document.getElementById("editar-descricao").value = plano.descricao || "";
       document.getElementById("editar-inclui-passagens").checked = plano.modulo_passagens;
       document.getElementById("editar-inclui-fretamento").checked = plano.modulo_fretamento;
@@ -315,7 +376,7 @@
       document.getElementById("editar-inclui-dre").checked = plano.modulo_dre;
       document.getElementById("editar-inclui-white-label").checked = plano.modulo_white_label;
       document.getElementById("editar-inclui-nfse").checked = plano.modulo_nfse;
-      atualizarCamposDeViagem("editar-");
+      atualizarTodosOsCamposDeLimite("editar-");
       document.getElementById("dialog-editar-plano").showModal();
     }
 
@@ -336,6 +397,10 @@
           max_onibus: lerInt("editar-max-onibus"),
           max_funcionarios: lerInt("editar-max-funcionarios"),
           max_viagens_mes: lerInt("editar-max-viagens"),
+          max_locais: lerInt("editar-max-locais"),
+          max_sessoes_mes: lerInt("editar-max-sessoes"),
+          max_turmas: lerInt("editar-max-turmas"),
+          max_matriculas_ativas: lerInt("editar-max-matriculas"),
           descricao: document.getElementById("editar-descricao").value.trim() || null,
           modulo_passagens: document.getElementById("editar-inclui-passagens").checked,
           modulo_fretamento: document.getElementById("editar-inclui-fretamento").checked,
@@ -374,6 +439,10 @@
           max_onibus: lerInt("max-onibus"),
           max_funcionarios: lerInt("max-funcionarios"),
           max_viagens_mes: lerInt("max-viagens"),
+          max_locais: lerInt("max-locais"),
+          max_sessoes_mes: lerInt("max-sessoes"),
+          max_turmas: lerInt("max-turmas"),
+          max_matriculas_ativas: lerInt("max-matriculas"),
           descricao: document.getElementById("descricao").value.trim() || null,
           modulo_passagens: document.getElementById("inclui-passagens").checked,
           modulo_fretamento: document.getElementById("inclui-fretamento").checked,
@@ -387,7 +456,7 @@
           modulo_nfse: document.getElementById("inclui-nfse").checked,
         });
         ev.target.reset();
-        atualizarCamposDeViagem("");
+        atualizarTodosOsCamposDeLimite("");
         mostrarAlerta("Plano cadastrado com sucesso.", "sucesso");
         carregar();
       } catch (erro) {

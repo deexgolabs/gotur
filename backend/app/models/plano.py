@@ -17,6 +17,13 @@ class Plano(Base):
     max_onibus: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_funcionarios: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_viagens_mes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Equivalentes de max_onibus/max_viagens_mes pros nichos não-viação:
+    # locais/sessões pra eventos, turmas/matrículas pra academia. Mesma
+    # regra de "vazio = ilimitado" dos limites acima.
+    max_locais: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_sessoes_mes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_turmas: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_matriculas_ativas: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Quais módulos esse plano inclui. Uma empresa só consegue ligar um

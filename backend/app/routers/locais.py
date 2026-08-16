@@ -8,6 +8,7 @@ from app.models.enums import UserRole
 from app.models.evento import AssentoLocal, Local
 from app.models.usuario import Usuario
 from app.schemas.evento import AssentoLocalOut, AssentoLocalUpdate, LocalCreate, LocalOut, LocalUpdate
+from app.services.limites_plano import verificar_limite_locais
 
 router = APIRouter(prefix="/locais", tags=["locais"])
 
@@ -40,6 +41,7 @@ def criar_local(
 ):
     empresa = db.get(Empresa, usuario_atual.tenant_id)
     _exigir_modulo_eventos(empresa)
+    verificar_limite_locais(db, empresa)
 
     if dados.assentos:
         layout = [a.model_dump() for a in dados.assentos]

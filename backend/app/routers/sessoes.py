@@ -10,6 +10,7 @@ from app.models.enums import StatusPoltrona, UserRole
 from app.models.evento import AssentoLocal, AssentoSessao, Local, Sessao
 from app.models.usuario import Usuario
 from app.schemas.evento import SessaoCreate, SessaoLojaOut, SessaoOut, SessaoUpdate
+from app.services.limites_plano import verificar_limite_sessoes_mes
 
 router = APIRouter(prefix="/sessoes", tags=["sessoes"])
 
@@ -31,6 +32,7 @@ def criar_sessao(
 
     empresa = db.get(Empresa, usuario_atual.tenant_id)
     _exigir_modulo_eventos(empresa)
+    verificar_limite_sessoes_mes(db, empresa)
 
     sessao = Sessao(
         tenant_id=usuario_atual.tenant_id,
