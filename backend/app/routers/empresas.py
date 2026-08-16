@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import get_current_user, require_roles, require_staff
-from app.core.security import hash_senha
+from app.core.security import hash_senha, normalizar_email
 from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.enums import ModoCobranca, StatusAssinatura, UserRole
@@ -435,13 +436,14 @@ def criar_admin_empresa(
     _usuario=Depends(require_roles(UserRole.SUPER_ADMIN)),
 ):
     empresa = _buscar_empresa_ou_404(db, empresa_id)
-    if db.query(Usuario).filter(Usuario.email == dados.email).first():
+    email = normalizar_email(dados.email)
+    if db.query(Usuario).filter(func.lower(Usuario.email) == email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail já cadastrado")
 
     usuario = Usuario(
         tenant_id=empresa.id,
         nome=dados.nome,
-        email=dados.email,
+        email=email,
         senha_hash=hash_senha(dados.senha),
         role=UserRole.ADMIN_EMPRESA,
         telefone=dados.telefone,

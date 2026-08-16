@@ -8,6 +8,15 @@ from app.config import settings
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
+def normalizar_email(email: str) -> str:
+    """E-mail não é case-sensitive na prática (Gmail, Outlook etc. tratam
+    maiúscula/minúscula como iguais), mas a comparação `==` no banco é.
+    Sem isso, um cliente cadastrado como "Fulano@Live.com" não é achado
+    depois por um staff digitando "fulano@live.com" — mesma conta, e a
+    busca falha silenciosamente com "não encontrado"."""
+    return email.strip().lower()
+
+
 def hash_senha(senha: str) -> str:
     return pwd_context.hash(senha)
 

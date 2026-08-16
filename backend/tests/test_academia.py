@@ -1,7 +1,10 @@
 from datetime import datetime, time, timedelta
 
+from app.core.security import hash_senha
 from app.models.academia import FaturaMatricula, Matricula, OcorrenciaTurma, Turma
 from app.models.empresa import Empresa
+from app.models.enums import UserRole
+from app.models.usuario import Usuario
 from app.services.ocorrencias_turma import SEMANAS_JANELA, estender_janela_todas_turmas, gerar_ocorrencias
 from tests.helpers import auth_header, criar_cliente, criar_empresa_completa, login
 
@@ -439,3 +442,40 @@ def test_matricula_pela_loja_usa_preco_configurado_pelo_admin(client, db):
     )
     assert resposta.status_code == 201, resposta.text
     assert resposta.json()["valor_mensalidade"] == 129.9
+
+
+def test_staff_matricula_cliente_buscando_email_em_caixa_diferente(client, db):
+    """Regressão: staff tentando matricular um aluno pelo e-mail digitado
+    em minúsculo levava 'Cliente não encontrado' se a conta do cliente
+    tivesse sido criada com alguma letra maiúscula no e-mail — a busca
+    comparava o e-mail no banco de forma exata (case-sensitive).
+
+    Cria o cliente direto no banco (não via /auth/registrar-cliente) pra
+    não gastar cota do rate limit global desse endpoint, compartilhado
+    por toda a sessão de testes (ver tests/helpers.py)."""
+    cenario = _empresa_com_turma(client, db, "AC16")
+
+    cliente = Usuario(
+        tenant_id=None,
+        nome="Aluno Caixa",
+        email="Aluno.Caixa@Exemplo.com",
+        senha_hash=hash_senha("senha123"),
+        role=UserRole.CLIENTE,
+        documento="555.555.555-55",
+    )
+    db.add(cliente)
+    db.commit()
+
+    busca = client.get(
+        "/api/usuarios/clientes/buscar?email=aluno.caixa@exemplo.com",
+        headers=cenario["headers_admin"],
+    )
+    assert busca.status_code == 200, busca.text
+    cliente_id = busca.json()["id"]
+
+    matricular = client.post(
+        "/api/matriculas",
+        json={"cliente_usuario_id": cliente_id, "tipo": "mensal_ilimitado", "valor_mensalidade": 150.0},
+        headers=cenario["headers_admin"],
+    )
+    assert matricular.status_code == 201, matricular.text

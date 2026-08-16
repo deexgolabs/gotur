@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_roles
-from app.core.security import hash_senha
+from app.core.security import hash_senha, normalizar_email
 from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.enums import StatusFrete, StatusFretamento, UserRole
@@ -161,13 +162,14 @@ def criar_acesso_motorista(
     jornada e checklist sem precisar do painel do admin/funcionário (ver
     GET /motoristas/minha/viagens e frontend/pages/motorista-app.html)."""
     motorista = _buscar_motorista_da_empresa(db, motorista_id, usuario_atual)
-    if db.query(Usuario).filter(Usuario.email == dados.email).first():
+    email = normalizar_email(dados.email)
+    if db.query(Usuario).filter(func.lower(Usuario.email) == email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail já cadastrado")
 
     usuario = Usuario(
         tenant_id=usuario_atual.tenant_id,
         nome=motorista.nome,
-        email=dados.email,
+        email=email,
         senha_hash=hash_senha(dados.senha),
         role=UserRole.MOTORISTA,
         motorista_id=motorista.id,

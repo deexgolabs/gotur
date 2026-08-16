@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.security import criar_access_token, hash_senha, verificar_senha
+from app.core.security import criar_access_token, hash_senha, normalizar_email, verificar_senha
 from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.enums import UserRole
@@ -19,7 +20,7 @@ _limite_registro_cliente = limitar_taxa("registrar-cliente", max_chamadas=5, jan
 
 @router.post("/login", response_model=TokenResponse)
 def login(dados: LoginRequest, db: Session = Depends(get_db)):
-    usuario = db.query(Usuario).filter(Usuario.email == dados.email).first()
+    usuario = db.query(Usuario).filter(func.lower(Usuario.email) == normalizar_email(dados.email)).first()
     if not usuario or not verificar_senha(dados.senha, usuario.senha_hash) or not usuario.ativo:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="E-mail ou senha inválidos")
 
@@ -41,9 +42,10 @@ def registrar_empresa(dados: RegistroEmpresa, db: Session = Depends(get_db)):
     """Cadastro público (onboarding self-service): uma viação nova se
     cadastra sozinha, escolhe o plano e já entra logada como admin da
     própria empresa, sem depender do super admin criar manualmente."""
+    admin_email = normalizar_email(dados.admin_email)
     if db.query(Empresa).filter(Empresa.cnpj == dados.cnpj).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="CNPJ já cadastrado")
-    if db.query(Usuario).filter(Usuario.email == dados.admin_email).first():
+    if db.query(Usuario).filter(func.lower(Usuario.email) == admin_email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail já cadastrado")
 
     plano = db.query(Plano).filter(Plano.id == dados.plano_id, Plano.ativo.is_(True)).first()
@@ -63,7 +65,7 @@ def registrar_empresa(dados: RegistroEmpresa, db: Session = Depends(get_db)):
     admin = Usuario(
         tenant_id=empresa.id,
         nome=dados.admin_nome,
-        email=dados.admin_email,
+        email=admin_email,
         senha_hash=hash_senha(dados.admin_senha),
         role=UserRole.ADMIN_EMPRESA,
         telefone=dados.admin_telefone,
@@ -83,7 +85,8 @@ def registrar_empresa(dados: RegistroEmpresa, db: Session = Depends(get_db)):
     dependencies=[Depends(_limite_registro_cliente)],
 )
 def registrar_cliente(dados: RegistroCliente, db: Session = Depends(get_db)):
-    if db.query(Usuario).filter(Usuario.email == dados.email).first():
+    email = normalizar_email(dados.email)
+    if db.query(Usuario).filter(func.lower(Usuario.email) == email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail já cadastrado")
 
     indicador_id = None
@@ -95,7 +98,7 @@ def registrar_cliente(dados: RegistroCliente, db: Session = Depends(get_db)):
     usuario = Usuario(
         tenant_id=None,
         nome=dados.nome,
-        email=dados.email,
+        email=email,
         senha_hash=hash_senha(dados.senha),
         role=UserRole.CLIENTE,
         documento=dados.documento,

@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_roles
-from app.core.security import hash_senha
+from app.core.security import hash_senha, normalizar_email
 from app.database import get_db
 from app.models.enums import StatusFrete, StatusPassagem, StatusRepasse, UserRole
 from app.models.frete import Frete
@@ -114,13 +114,14 @@ def criar_acesso_parceiro(
     e senha próprios e só enxerga as vendas marcadas com o parceiro dele
     (ver /parceiros/minha/*)."""
     parceiro = _buscar_parceiro_da_empresa(db, parceiro_id, usuario_atual)
-    if db.query(Usuario).filter(Usuario.email == dados.email).first():
+    email = normalizar_email(dados.email)
+    if db.query(Usuario).filter(func.lower(Usuario.email) == email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail já cadastrado")
 
     usuario = Usuario(
         tenant_id=usuario_atual.tenant_id,
         nome=parceiro.nome,
-        email=dados.email,
+        email=email,
         senha_hash=hash_senha(dados.senha),
         role=UserRole.PARCEIRO,
         parceiro_id=parceiro.id,

@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, require_roles, require_staff
-from app.core.security import hash_senha, verificar_senha
+from app.core.security import hash_senha, normalizar_email, verificar_senha
 from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.enums import UserRole
@@ -29,7 +30,8 @@ def criar_funcionario(
 ):
     if dados.role not in (UserRole.FUNCIONARIO, UserRole.ADMIN_EMPRESA):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Papel inválido para este cadastro")
-    if db.query(Usuario).filter(Usuario.email == dados.email).first():
+    email = normalizar_email(dados.email)
+    if db.query(Usuario).filter(func.lower(Usuario.email) == email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail já cadastrado")
 
     empresa = db.get(Empresa, usuario_atual.tenant_id)
@@ -38,7 +40,7 @@ def criar_funcionario(
     funcionario = Usuario(
         tenant_id=usuario_atual.tenant_id,
         nome=dados.nome,
-        email=dados.email,
+        email=email,
         senha_hash=hash_senha(dados.senha),
         role=dados.role,
         telefone=dados.telefone,
@@ -87,7 +89,7 @@ def buscar_cliente_por_email(
     cliente a partir do e-mail (ex: matricular alguém numa academia) — não
     existe busca de cliente por nome/lista paginada hoje, só por e-mail
     exato, que é único."""
-    cliente = db.query(Usuario).filter(Usuario.email == email, Usuario.role == UserRole.CLIENTE).first()
+    cliente = db.query(Usuario).filter(func.lower(Usuario.email) == normalizar_email(email), Usuario.role == UserRole.CLIENTE).first()
     if not cliente:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente não encontrado")
     return cliente
