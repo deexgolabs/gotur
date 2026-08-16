@@ -1252,7 +1252,16 @@ async function carregarStatusMatricula() {
     return;
   }
 
-  container.innerHTML = `<p class="loja-selo-vazio">Você ainda não é aluno.</p><button type="button" id="btn-abrir-matricula">Matricular-se</button>`;
+  if (!BRANDING.preco_padrao_mensalidade_academia) {
+    container.innerHTML = `<p class="loja-selo-vazio">Essa academia ainda não abriu matrícula por aqui — fale com a recepção.</p>`;
+    return;
+  }
+
+  const precoFormatado = Number(BRANDING.preco_padrao_mensalidade_academia).toFixed(2);
+  container.innerHTML = `
+    <p class="loja-selo-vazio">Você ainda não é aluno.</p>
+    <p class="info" style="margin-bottom:10px">Mensalidade: R$ ${precoFormatado}</p>
+    <button type="button" id="btn-abrir-matricula">Quero me matricular</button>`;
   document.getElementById("btn-abrir-matricula").addEventListener("click", () => {
     document.getElementById("academia-form-matricula").classList.remove("escondido");
   });
