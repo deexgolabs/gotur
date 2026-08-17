@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kivo — Passagens, fretamento, frete, eventos e academia</title>
+  <meta name="description" content="Kivo é a plataforma que roda a venda, o controle de vaga e o rastreio ao vivo de viações, transportadoras, casas de evento e academias — cada uma com a própria loja, a própria marca." />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#400056" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <style>
+    :root {
+      --bg: #f5f1ea;
+      --ink: #241226;
+      --ink-soft: #5b4a63;
+      --surface: #ffffff;
+      --surface-2: #ece4d8;
+      --purple: #6e00a7;
+      --purple-deep: #400056;
+      --accent: #d84aff;
+      --on-brand: #ffffff;
+      --line: #d9cfe0;
+      --line-strong: #b9a6c9;
+      --shadow: 0 18px 40px -22px rgba(36, 18, 38, 0.35);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #1a0f21;
+        --ink: #f4eef8;
+        --ink-soft: #c9b7d4;
+        --surface: #251632;
+        --surface-2: #2f1d3e;
+        --purple: #b96bf0;
+        --purple-deep: #e6b8ff;
+        --accent: #ef7dff;
+        --on-brand: #2a1233;
+        --line: #40294f;
+        --line-strong: #5a3d6c;
+        --shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.55);
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #1a0f21;
+      --ink: #f4eef8;
+      --ink-soft: #c9b7d4;
+      --surface: #251632;
+      --surface-2: #2f1d3e;
+      --purple: #b96bf0;
+      --purple-deep: #e6b8ff;
+      --accent: #ef7dff;
+      --on-brand: #2a1233;
+      --line: #40294f;
+      --line-strong: #5a3d6c;
+      --shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.55);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .serif {
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    }
+
+    .mono {
+      font-family: "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 28px;
+    }
+
+    a { color: inherit; }
+
+    /* ---------- top bar ---------- */
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 26px 0 0;
+    }
+
+    .brand {
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .brand em { font-style: normal; color: var(--accent); }
+
+    .topbar nav {
+      display: flex;
+      gap: 26px;
+      font-size: 0.92rem;
+      color: var(--ink-soft);
+    }
+    .topbar nav a { text-decoration: none; }
+    .topbar nav a:hover { color: var(--ink); }
+    .topbar nav a:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; border-radius: 2px; }
+
+    .topbar .cta {
+      color: var(--ink);
+      border: 1px solid var(--line-strong);
+      padding: 8px 16px;
+      border-radius: 100px;
+      text-decoration: none;
+      font-size: 0.88rem;
+    }
+    .topbar .cta:hover { border-color: var(--purple); color: var(--purple); }
+
+    @media (max-width: 700px) {
+      .topbar nav { display: none; }
+    }
+
+    /* ---------- hero ---------- */
+
+    .hero {
+      position: relative;
+      padding: 64px 0 30px;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 40px;
+      align-items: center;
+    }
+
+    @media (max-width: 860px) {
+      .hero { grid-template-columns: 1fr; padding-top: 40px; }
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      font-weight: 600;
+      margin: 0 0 18px;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    h1 {
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+      font-size: clamp(2.3rem, 4.6vw, 3.6rem);
+      line-height: 1.05;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin: 0 0 22px;
+      text-wrap: balance;
+    }
+    h1 em { font-style: italic; color: var(--purple); }
+
+    .hero p.lede {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      color: var(--ink-soft);
+      max-width: 46ch;
+      margin: 0 0 30px;
+    }
+
+    .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 34px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 22px;
+      border-radius: 100px;
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+      transition: transform 0.15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; }
+    .btn-primary { background: var(--purple-deep); color: var(--on-brand); }
+    .btn-ghost { border-color: var(--line-strong); color: var(--ink); }
+    .btn-ghost:hover { border-color: var(--purple); color: var(--purple); }
+
+    .trust-row {
+      display: flex;
+      gap: 22px;
+      flex-wrap: wrap;
+      font-size: 0.82rem;
+      color: var(--ink-soft);
+    }
+    .trust-row span { display: flex; align-items: center; gap: 7px; }
+    .trust-row span::before {
+      content: "";
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--line-strong);
+    }
+
+    /* ---------- manifest canvas ---------- */
+
+    .manifest {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      max-width: 420px;
+      justify-self: end;
+      width: 100%;
+    }
+    .manifest canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 6px;
+    }
+    .manifest-caption {
+      position: absolute;
+      left: 14px;
+      bottom: 12px;
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      background: color-mix(in srgb, var(--bg) 78%, transparent);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    @media (max-width: 860px) {
+      .manifest { max-width: 320px; justify-self: start; margin-top: 8px; }
+    }
+
+    /* ---------- section shell ---------- */
+
+    section { padding: 74px 0; }
+    .section-head { max-width: 60ch; margin-bottom: 44px; }
+    .section-label {
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      font-weight: 600;
+      margin: 0 0 12px;
+    }
+    h2 {
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      font-size: clamp(1.7rem, 3vw, 2.3rem);
+      font-weight: 600;
+      margin: 0 0 14px;
+      text-wrap: balance;
+    }
+    .section-head p {
+      color: var(--ink-soft);
+      font-size: 1.02rem;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    hr.rule {
+      border: none;
+      border-top: 1px solid var(--line);
+      margin: 0;
+    }
+
+    /* ---------- ticket stubs (verticals) ---------- */
+
+    .stub-rack {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 980px) {
+      .stub-rack { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .stub-rack { grid-template-columns: 1fr; }
+    }
+
+    .stub {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 22px 18px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transform: rotate(var(--tilt, 0deg));
+      transition: transform 0.2s ease;
+    }
+    .stub:hover { transform: rotate(0deg) translateY(-4px); }
+    .stub:nth-child(1) { --tilt: -1.4deg; }
+    .stub:nth-child(2) { --tilt: 0.8deg; }
+    .stub:nth-child(3) { --tilt: -0.6deg; }
+    .stub:nth-child(4) { --tilt: 1.2deg; }
+    .stub:nth-child(5) { --tilt: -1deg; }
+    @media (max-width: 980px) { .stub { --tilt: 0deg !important; } }
+
+    .stub::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0;
+      top: 66px;
+      border-top: 1.5px dashed var(--line-strong);
+    }
+    .stub::before {
+      content: "";
+      position: absolute;
+      top: 60px;
+      left: -8px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--bg);
+      box-shadow: 404px 0 0 var(--bg);
+    }
+    .stub-route {
+      font-family: inherit;
+      font-size: 0.66rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .stub-name {
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      font-size: 1.14rem;
+      font-weight: 600;
+      margin: 0;
+    }
+    .stub-desc {
+      font-size: 0.86rem;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      margin-top: 12px;
+      flex: 1;
+    }
+    .stub-code {
+      font-size: 0.72rem;
+      color: var(--ink-soft);
+      letter-spacing: 0.03em;
+      margin-top: 6px;
+    }
+
+    /* ---------- feature grid ---------- */
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    @media (max-width: 700px) { .feature-grid { grid-template-columns: 1fr; } }
+
+    .feature {
+      background: var(--surface);
+      padding: 30px 28px;
+    }
+    .feature .num {
+      font-family: inherit;
+      font-size: 0.72rem;
+      color: var(--ink-soft);
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+    .feature h3 {
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+    .feature p {
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+
+    /* ---------- plans ---------- */
+
+    .plans {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 800px) { .plans { grid-template-columns: 1fr; } }
+
+    .plan {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 28px 24px;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+    }
+    .plan.featured {
+      border-color: var(--purple);
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+    .plan.featured::before {
+      content: "Mais escolhido";
+      position: absolute;
+      top: -12px; left: 24px;
+      background: var(--purple-deep);
+      color: #fff;
+      font-size: 0.66rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 100px;
+    }
+    .plan-name { font-size: 0.85rem; color: var(--ink-soft); margin: 0 0 6px; }
+    .plan-price {
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      font-size: 2rem;
+      font-weight: 600;
+      margin: 0 0 4px;
+    }
+    .plan-price .mono { font-size: 0.95rem; color: var(--ink-soft); font-weight: 400; }
+    .plan-fit { font-size: 0.82rem; color: var(--ink-soft); margin: 0 0 18px; }
+    .plan ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+    .plan li {
+      font-size: 0.88rem;
+      color: var(--ink-soft);
+      padding-left: 18px;
+      position: relative;
+      line-height: 1.4;
+    }
+    .plan li::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 6px;
+      width: 8px; height: 8px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+
+    /* ---------- closing strip ---------- */
+
+    .closing {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 52px 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+    .closing h2 { margin: 0 0 8px; }
+    .closing p { color: var(--ink-soft); margin: 0; font-size: 0.95rem; max-width: 40ch; }
+
+    footer {
+      padding: 40px 0 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+      color: var(--ink-soft);
+    }
+    footer .brand { font-size: 1rem; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">Ki<em>vo</em></div>
+    <nav>
+      <a href="#nichos">Nichos</a>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#planos">Planos</a>
+    </nav>
+    <a class="cta" href="/index.html">Entrar</a>
+  </div>
+
+  <div class="hero">
+    <div>
+      <p class="eyebrow">Operação com vaga limitada e hora marcada</p>
+      <h1>Cada vaga reservada,<br>em <em>tempo real</em>.</h1>
+      <p class="lede">Kivo é a plataforma que roda a venda, o controle de vaga e o rastreio ao vivo de viações, transportadoras, casas de evento e academias — cada uma com a própria loja, a própria marca.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="/cadastro-empresa.html">Cadastre sua empresa</a>
+        <a class="btn btn-ghost" href="#nichos">Ver os 5 nichos</a>
+      </div>
+      <div class="trust-row">
+        <span>Multi-empresa, cada uma com sua loja</span>
+        <span>Pix e Mercado Pago</span>
+        <span>Instalável como app</span>
+      </div>
+    </div>
+    <div class="manifest">
+      <canvas id="manifest-canvas" width="420" height="420" aria-hidden="true"></canvas>
+      <div class="manifest-caption">vagas sendo reservadas agora</div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <hr class="rule" />
+</div>
+
+<section id="nichos">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="section-label">Cinco nichos, um sistema</p>
+      <h2>O que muda é o produto vendido. O motor por trás é o mesmo.</h2>
+      <p>Cada empresa liga só o módulo que usa — sem ver preço de passagem quem só vende ingresso, sem ver mapa de poltrona quem só matricula aluno.</p>
+    </div>
+    <div class="stub-rack">
+      <article class="stub">
+        <p class="stub-route">São Paulo → Rio de Janeiro</p>
+        <h3 class="stub-name">Passagens</h3>
+        <p class="stub-desc">Mapa de poltronas, venda por trecho, check-in por QR code e bilhete em PDF na hora.</p>
+        <p class="stub-code mono">GTKV-2481</p>
+      </article>
+      <article class="stub">
+        <p class="stub-route">Contrato · preço por km</p>
+        <h3 class="stub-name">Fretamento</h3>
+        <p class="stub-desc">Orçamento, contrato em PDF e rastreio ao vivo do trajeto pro cliente acompanhar.</p>
+        <p class="stub-code mono">FRT-0092</p>
+      </article>
+      <article class="stub">
+        <p class="stub-route">Coleta → entrega</p>
+        <h3 class="stub-name">Frete</h3>
+        <p class="stub-desc">Envio de encomendas sem depender de ônibus, com rastreio ao vivo ponta a ponta.</p>
+        <p class="stub-code mono">FRE-1150</p>
+      </article>
+      <article class="stub">
+        <p class="stub-route">Teatro Municipal · 20h</p>
+        <h3 class="stub-name">Eventos</h3>
+        <p class="stub-desc">Ingresso com lugar marcado pra cinema, teatro, show e estádio — venda com mapa de assentos.</p>
+        <p class="stub-code mono">EVT-7734</p>
+      </article>
+      <article class="stub">
+        <p class="stub-route">Ter/Qui · 07h</p>
+        <h3 class="stub-name">Academia</h3>
+        <p class="stub-desc">Matrícula com mensalidade recorrente e aulas de vaga limitada — spinning, pilates, crossfit.</p>
+        <p class="stub-code mono">MAT-0356</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><hr class="rule" /></div>
+
+<section id="como-funciona">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="section-label">Como funciona</p>
+      <h2>Uma plataforma, a loja de cada empresa.</h2>
+      <p>Por baixo, tudo roda no mesmo sistema. Pro cliente final, cada empresa parece ter o próprio app.</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature">
+        <p class="num mono">01</p>
+        <h3>Loja com a marca de cada empresa</h3>
+        <p>Logo, cor e link próprios — <span class="mono">kivo.app/loja/sua-empresa</span> — instalável como app no celular do cliente.</p>
+      </div>
+      <div class="feature">
+        <p class="num mono">02</p>
+        <h3>Planos com limite por nicho</h3>
+        <p>Ônibus e viagens/mês pra quem vende passagem; locais e sessões pra eventos; turmas e matrículas pra academia.</p>
+      </div>
+      <div class="feature">
+        <p class="num mono">03</p>
+        <h3>Pagamento de verdade</h3>
+        <p>Pix e cartão via Mercado Pago, com a conta de cada empresa — a cobrança cai direto pra ela, não pra plataforma.</p>
+      </div>
+      <div class="feature">
+        <p class="num mono">04</p>
+        <h3>Financeiro por nicho</h3>
+        <p>DRE e relatórios de venda separados por passagem, fretamento, frete, ingresso e mensalidade.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><hr class="rule" /></div>
+
+<section id="planos">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="section-label">Planos</p>
+      <h2>Comece pequeno, cresça sem trocar de sistema.</h2>
+      <p>Todo plano inclui suporte e atualizações. Sem contrato de fidelidade.</p>
+    </div>
+    <div class="plans">
+      <div class="plan">
+        <p class="plan-name">Essencial</p>
+        <p class="plan-price"><span class="mono">R$ 99</span></p>
+        <p class="plan-fit">Pra quem tá começando a vender online</p>
+        <ul>
+          <li>Controle de poltrona e venda</li>
+          <li>Loja própria instalável</li>
+          <li>Suporte por e-mail</li>
+        </ul>
+      </div>
+      <div class="plan featured">
+        <p class="plan-name">Profissional</p>
+        <p class="plan-price"><span class="mono">R$ 249</span></p>
+        <p class="plan-fit">Fretamento, frete, eventos e academia inclusos</p>
+        <ul>
+          <li>Todos os 5 nichos liberados</li>
+          <li>Mais frota e mais equipe</li>
+          <li>Relatórios por nicho</li>
+        </ul>
+      </div>
+      <div class="plan">
+        <p class="plan-name">Completo</p>
+        <p class="plan-price"><span class="mono">R$ 499</span></p>
+        <p class="plan-fit">Sem limite de ônibus, funcionários ou viagens</p>
+        <ul>
+          <li>Gestão de frota e app do motorista</li>
+          <li>DRE e NFS-e</li>
+          <li>White-label completo</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <section style="padding-top:0">
+    <div class="closing">
+      <div>
+        <h2 class="serif">Sua empresa também tem vaga limitada?</h2>
+        <p>Cadastre em poucos minutos e comece a vender ainda hoje — sem instalar nada, sem depender de TI.</p>
+      </div>
+      <a class="btn btn-primary" href="/cadastro-empresa.html">Cadastre sua empresa</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="brand">Ki<em>vo</em></div>
+    <div>Passagens · Fretamento · Frete · Eventos · Academia</div>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var canvas = document.getElementById("manifest-canvas");
+    var ctx = canvas.getContext("2d");
+    var cols = 9, rows = 9;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var size = 420;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    ctx.scale(dpr, dpr);
+
+    var cellStates = [];
+    for (var i = 0; i < cols * rows; i++) cellStates.push(Math.random() < 0.22 ? 1 : 0);
+
+    var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function styleFor() {
+      var cs = getComputedStyle(document.documentElement);
+      return {
+        ink: cs.getPropertyValue("--ink").trim(),
+        purple: cs.getPropertyValue("--purple").trim(),
+        accent: cs.getPropertyValue("--accent").trim(),
+        line: cs.getPropertyValue("--line").trim(),
+        surface: cs.getPropertyValue("--surface").trim(),
+      };
+    }
+
+    function draw() {
+      var s = styleFor();
+      ctx.clearRect(0, 0, size, size);
+      var pad = 26, gap = 6;
+      var cellW = (size - pad * 2 - gap * (cols - 1)) / cols;
+      var cellH = (size - pad * 2 - gap * (rows - 1)) / rows;
+      for (var r = 0; r < rows; r++) {
+        for (var c = 0; c < cols; c++) {
+          var idx = r * cols + c;
+          var x = pad + c * (cellW + gap);
+          var y = pad + r * (cellH + gap);
+          var filled = cellStates[idx];
+          ctx.fillStyle = filled ? s.ink : s.surface;
+          ctx.strokeStyle = filled ? s.ink : s.line;
+          ctx.lineWidth = 1;
+          roundRect(ctx, x, y, cellW, cellH, 2.5);
+          ctx.fill();
+          ctx.stroke();
+          if (filled && Math.random() < 0.09) {
+            ctx.fillStyle = s.purple;
+            roundRect(ctx, x, y, cellW, cellH, 2.5);
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    draw();
+
+    if (!reduced) {
+      setInterval(function () {
+        var idx = Math.floor(Math.random() * cellStates.length);
+        cellStates[idx] = cellStates[idx] ? 0 : 1;
+        draw();
+      }, 700);
+    }
+
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+  })();
+</script>
+</body>
+</html>
