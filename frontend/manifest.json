@@ -1,7 +1,7 @@
 {
   "name": "Kivo",
   "short_name": "Kivo",
-  "description": "Compra de passagens, gestão de viagens, fretamento e rastreio em tempo real.",
+  "description": "Passagens, fretamento, frete, eventos e academia — tudo num só sistema.",
   "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",

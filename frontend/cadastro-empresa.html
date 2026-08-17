@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kivo — Cadastre sua viação</title>
+  <title>Kivo — Cadastre sua empresa</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#400056" />
@@ -13,14 +13,14 @@
   <div class="tela-login">
     <div class="caixa-login" style="max-width:460px">
       <div class="marca">Ki<span>vo</span></div>
-      <p class="lema">Cadastre sua viação e comece a vender passagens hoje.</p>
+      <p class="lema">Cadastre sua empresa — viação, frete, eventos ou academia — e comece a vender hoje.</p>
 
       <div id="alerta"></div>
 
       <form id="form-cadastro">
         <h2 style="font-size:1rem;margin:0 0 10px">Dados da empresa</h2>
         <div style="margin-bottom:14px">
-          <label for="empresa-nome">Nome da viação</label>
+          <label for="empresa-nome">Nome da empresa</label>
           <input id="empresa-nome" required />
         </div>
         <div style="margin-bottom:14px">
@@ -65,15 +65,22 @@
       document.getElementById("alerta").innerHTML = `<div class="alerta ${tipo}">${mensagem}</div>`;
     }
 
+    const MODULOS_NICHO = [
+      { campo: "modulo_passagens", rotulo: "Passagens" },
+      { campo: "modulo_fretamento", rotulo: "Fretamento" },
+      { campo: "modulo_frete", rotulo: "Frete" },
+      { campo: "modulo_eventos", rotulo: "Eventos" },
+      { campo: "modulo_academia", rotulo: "Academia" },
+    ];
+
     async function carregarPlanos() {
       const planos = await api("GET", "/planos/publicos");
       document.getElementById("plano").innerHTML = planos
         .map((p) => {
-          const limites = [
-            p.max_onibus ? `${p.max_onibus} ônibus` : "ônibus ilimitados",
-            p.max_funcionarios ? `${p.max_funcionarios} funcionários` : "funcionários ilimitados",
-          ].join(", ");
-          return `<option value="${p.id}">${p.nome} — R$ ${Number(p.preco_mensal).toFixed(2)}/mês (${limites})</option>`;
+          const nichos = MODULOS_NICHO.filter((m) => p[m.campo])
+            .map((m) => m.rotulo)
+            .join(", ");
+          return `<option value="${p.id}">${p.nome} — R$ ${Number(p.preco_mensal).toFixed(2)}/mês (${nichos || "sob consulta"})</option>`;
         })
         .join("");
     }
