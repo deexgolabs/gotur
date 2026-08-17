@@ -83,6 +83,36 @@ def test_vender_ingresso_apos_hold_previo_do_mesmo_usuario(client, db):
     assert resposta.json()["ingresso"]["status"] == "confirmada"
 
 
+def test_relatorio_vendas_eventos_soma_ingressos_confirmados(client, db):
+    cenario = _empresa_com_local_e_sessao(client, db, "EV10")
+    headers_admin = cenario["headers_admin"]
+    assento_id = _assento_livre_id(db, cenario["sessao"]["id"])
+
+    hold = client.post(f"/api/sessoes/{cenario['sessao']['id']}/assentos/{assento_id}/hold", headers=headers_admin)
+    assert hold.status_code == 200, hold.text
+    venda = client.post(
+        f"/api/sessoes/{cenario['sessao']['id']}/ingressos",
+        json={
+            "assento_sessao_id": assento_id,
+            "cliente_nome": "Comprador Relatorio",
+            "cliente_documento": "222.222.222-22",
+            "forma_pagamento": "dinheiro",
+        },
+        headers=headers_admin,
+    )
+    assert venda.status_code == 201, venda.text
+
+    hoje = datetime.now().date()
+    inicio = (hoje - timedelta(days=1)).isoformat()
+    fim = (hoje + timedelta(days=1)).isoformat()
+    relatorio = client.get(f"/api/relatorios/vendas-eventos?inicio={inicio}&fim={fim}", headers=headers_admin)
+    assert relatorio.status_code == 200, relatorio.text
+    corpo = relatorio.json()
+    assert corpo["total_itens"] == 1
+    assert corpo["total_arrecadado"] == 100.0
+    assert corpo["por_forma_pagamento"]["dinheiro"] == 100.0
+
+
 def test_vender_ingresso_com_cartao_aprova_na_hora(client, db):
     cenario = _empresa_com_local_e_sessao(client, db, "EV3")
     cliente = criar_cliente(db, "EV3")

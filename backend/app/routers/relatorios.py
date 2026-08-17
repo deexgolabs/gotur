@@ -6,8 +6,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import require_roles
 from app.database import get_db
+from app.models.academia import FaturaMatricula
 from app.models.empresa import Empresa
 from app.models.enums import StatusFatura, StatusFrete, StatusFretamento, StatusPassagem, TipoOcupacao, UserRole
+from app.models.evento import Ingresso
 from app.models.fatura_empresa import FaturaEmpresa
 from app.models.frete import Frete
 from app.models.fretamento import Fretamento
@@ -19,7 +21,13 @@ from app.models.poltrona_viagem import PoltronaViagem
 from app.models.usuario import Usuario
 from app.models.viagem import Viagem
 from app.schemas.dre import DreOut
-from app.schemas.relatorio import OcupacaoViagemOut, VendasPorFuncionarioOut, VendasPorParceiroOut, VendasResumoOut
+from app.schemas.relatorio import (
+    OcupacaoViagemOut,
+    VendasNichoResumoOut,
+    VendasPorFuncionarioOut,
+    VendasPorParceiroOut,
+    VendasResumoOut,
+)
 from app.services.trecho import buscar_paradas_da_rota
 
 router = APIRouter(prefix="/relatorios", tags=["relatorios"])
@@ -118,6 +126,100 @@ def relatorio_vendas(
     )
 
 
+def _exigir_modulo_eventos(empresa: Empresa) -> None:
+    if not empresa.eventos_habilitado:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de eventos não está habilitado para sua empresa")
+
+
+def _exigir_modulo_academia(empresa: Empresa) -> None:
+    if not empresa.academia_habilitado:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de academia não está habilitado para sua empresa")
+
+
+@router.get("/vendas-eventos", response_model=VendasNichoResumoOut)
+def relatorio_vendas_eventos(
+    inicio: date,
+    fim: date,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """Equivalente de relatorio_vendas pro módulo de eventos."""
+    empresa = db.get(Empresa, usuario_atual.tenant_id)
+    _exigir_modulo_eventos(empresa)
+
+    inicio_dt = datetime.combine(inicio, time.min)
+    fim_dt = datetime.combine(fim, time.max)
+
+    ingressos = (
+        db.query(Ingresso)
+        .filter(
+            Ingresso.tenant_id == usuario_atual.tenant_id,
+            Ingresso.criado_em.between(inicio_dt, fim_dt),
+            Ingresso.status == StatusPassagem.CONFIRMADA,
+        )
+        .all()
+    )
+
+    por_forma: dict[str, float] = {}
+    total = 0.0
+    for i in ingressos:
+        valor = float(i.preco)
+        total += valor
+        forma = i.forma_pagamento.value
+        por_forma[forma] = por_forma.get(forma, 0.0) + valor
+
+    return VendasNichoResumoOut(
+        periodo_inicio=inicio_dt,
+        periodo_fim=fim_dt,
+        total_itens=len(ingressos),
+        total_arrecadado=round(total, 2),
+        por_forma_pagamento={k: round(v, 2) for k, v in por_forma.items()},
+    )
+
+
+@router.get("/vendas-academia", response_model=VendasNichoResumoOut)
+def relatorio_vendas_academia(
+    inicio: date,
+    fim: date,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
+):
+    """Equivalente de relatorio_vendas pro módulo de academia — conta
+    faturas de mensalidade pagas no período, não matrículas criadas (uma
+    matrícula sem fatura paga ainda não é receita de verdade)."""
+    empresa = db.get(Empresa, usuario_atual.tenant_id)
+    _exigir_modulo_academia(empresa)
+
+    inicio_dt = datetime.combine(inicio, time.min)
+    fim_dt = datetime.combine(fim, time.max)
+
+    faturas = (
+        db.query(FaturaMatricula)
+        .filter(
+            FaturaMatricula.tenant_id == usuario_atual.tenant_id,
+            FaturaMatricula.status == StatusFatura.PAGA,
+            FaturaMatricula.pago_em.between(inicio_dt, fim_dt),
+        )
+        .all()
+    )
+
+    por_forma: dict[str, float] = {}
+    total = 0.0
+    for f in faturas:
+        valor = float(f.valor)
+        total += valor
+        forma = f.forma_pagamento.value if f.forma_pagamento else "outro"
+        por_forma[forma] = por_forma.get(forma, 0.0) + valor
+
+    return VendasNichoResumoOut(
+        periodo_inicio=inicio_dt,
+        periodo_fim=fim_dt,
+        total_itens=len(faturas),
+        total_arrecadado=round(total, 2),
+        por_forma_pagamento={k: round(v, 2) for k, v in por_forma.items()},
+    )
+
+
 @router.get("/funcionarios", response_model=list[VendasPorFuncionarioOut])
 def relatorio_por_funcionario(
     db: Session = Depends(get_db),
@@ -198,10 +300,11 @@ def relatorio_dre(
     db: Session = Depends(get_db),
     usuario_atual: Usuario = Depends(require_roles(UserRole.ADMIN_EMPRESA)),
 ):
-    """DRE simplificado: receita bruta (passagens + fretamento + frete)
-    menos reembolsos e a assinatura do GoTur paga no período. Não é uma
-    contabilidade completa (não inclui outras despesas da empresa, como
-    combustível ou salário) — é um resumo pra acompanhar receita líquida."""
+    """DRE simplificado: receita bruta (passagens + fretamento + frete +
+    eventos + academia) menos reembolsos e a assinatura do Kivo paga no
+    período. Não é uma contabilidade completa (não inclui outras despesas
+    da empresa, como combustível ou salário) — é um resumo pra acompanhar
+    receita líquida."""
     empresa = db.get(Empresa, usuario_atual.tenant_id)
     if not empresa.dre_habilitado:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="O módulo de DRE não está habilitado para sua empresa")
@@ -242,12 +345,44 @@ def relatorio_dre(
         .scalar()
     )
 
-    reembolsos = (
+    # Ingresso não filtra por status de propósito, mesmo motivo de
+    # receita_passagens: o valor já foi cobrado na venda.
+    receita_eventos = (
+        db.query(func.coalesce(func.sum(Ingresso.preco), 0))
+        .filter(
+            Ingresso.tenant_id == usuario_atual.tenant_id,
+            Ingresso.criado_em.between(inicio_dt, fim_dt),
+        )
+        .scalar()
+    )
+
+    # Academia reconhece receita no pagamento da fatura, não na criação da
+    # matrícula — diferente de passagens/eventos, a mensalidade só é
+    # receita de verdade quando o aluno efetivamente paga.
+    receita_academia = (
+        db.query(func.coalesce(func.sum(FaturaMatricula.valor), 0))
+        .filter(
+            FaturaMatricula.tenant_id == usuario_atual.tenant_id,
+            FaturaMatricula.status == StatusFatura.PAGA,
+            FaturaMatricula.pago_em.between(inicio_dt, fim_dt),
+        )
+        .scalar()
+    )
+
+    reembolsos_passagens = (
         db.query(func.coalesce(func.sum(Pagamento.valor_reembolsado), 0))
         .join(Passagem, Passagem.id == Pagamento.passagem_id)
         .filter(Passagem.tenant_id == usuario_atual.tenant_id, Pagamento.reembolsado_em.between(inicio_dt, fim_dt))
         .scalar()
     )
+
+    reembolsos_eventos = (
+        db.query(func.coalesce(func.sum(Ingresso.valor_reembolsado), 0))
+        .filter(Ingresso.tenant_id == usuario_atual.tenant_id, Ingresso.reembolsado_em.between(inicio_dt, fim_dt))
+        .scalar()
+    )
+
+    reembolsos = float(reembolsos_passagens) + float(reembolsos_eventos)
 
     despesa_assinatura = (
         db.query(func.coalesce(func.sum(FaturaEmpresa.valor), 0))
@@ -262,9 +397,11 @@ def relatorio_dre(
     receita_passagens = round(float(receita_passagens), 2)
     receita_fretamento = round(float(receita_fretamento), 2)
     receita_frete = round(float(receita_frete), 2)
-    reembolsos = round(float(reembolsos), 2)
+    receita_eventos = round(float(receita_eventos), 2)
+    receita_academia = round(float(receita_academia), 2)
+    reembolsos = round(reembolsos, 2)
     despesa_assinatura = round(float(despesa_assinatura), 2)
-    receita_bruta_total = round(receita_passagens + receita_fretamento + receita_frete, 2)
+    receita_bruta_total = round(receita_passagens + receita_fretamento + receita_frete + receita_eventos + receita_academia, 2)
 
     return DreOut(
         periodo_inicio=inicio_dt,
@@ -272,6 +409,8 @@ def relatorio_dre(
         receita_passagens=receita_passagens,
         receita_fretamento=receita_fretamento,
         receita_frete=receita_frete,
+        receita_eventos=receita_eventos,
+        receita_academia=receita_academia,
         receita_bruta_total=receita_bruta_total,
         reembolsos=reembolsos,
         despesa_assinatura_gotur=despesa_assinatura,

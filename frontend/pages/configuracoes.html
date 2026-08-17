@@ -94,7 +94,7 @@
       </form>
     </div>
 
-    <div class="cartao">
+    <div class="cartao" id="cartao-fidelidade">
       <h2 style="margin-top:0">Programa de fidelidade</h2>
       <p class="rodape-form" style="text-align:left;margin-top:-8px">
         A cada X passagens confirmadas de um cliente com conta, o sistema gera sozinho um cupom pessoal de desconto pra próxima compra dele.
@@ -120,7 +120,7 @@
       </form>
     </div>
 
-    <div class="cartao">
+    <div class="cartao" id="cartao-indicacao">
       <h2 style="margin-top:0">Programa de indicação</h2>
       <p class="rodape-form" style="text-align:left;margin-top:-8px">
         Quando um cliente indicado confirma a primeira passagem, ele e quem indicou ganham cada um um cupom de desconto.
@@ -179,8 +179,8 @@
     <div class="cartao">
       <h2 style="margin-top:0">App da sua empresa (white-label)</h2>
       <p class="rodape-form" style="text-align:left;margin-top:-8px">
-        Sua própria loja, com sua cor e seu logo, pra você divulgar pros seus clientes. Eles compram passagem,
-        pedem orçamento de fretamento e acompanham tudo por lá — instalável como app no celular.
+        Sua própria loja, com sua cor e seu logo, pra você divulgar pros seus clientes. Eles compram, reservam ou se
+        matriculam conforme o que sua empresa oferece e acompanham tudo por lá — instalável como app no celular.
       </p>
 
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
@@ -211,7 +211,7 @@
       </form>
     </div>
 
-    <div class="cartao">
+    <div class="cartao" id="cartao-fretamento">
       <h2 style="margin-top:0">Fretamento</h2>
       <form id="form-fretamento">
         <div class="grid-form">
@@ -332,6 +332,13 @@
         ? ""
         : "Seu plano atual não inclui esse módulo.";
 
+      // Fidelidade/indicação só valem pra quem vende passagem; a seção de
+      // fretamento (preço/km) só faz sentido pra quem usa esse módulo —
+      // some pra empresas de eventos/academia que nunca vão usar isso.
+      document.getElementById("cartao-fidelidade").classList.toggle("escondido", !empresa.passagens_habilitado);
+      document.getElementById("cartao-indicacao").classList.toggle("escondido", !empresa.passagens_habilitado);
+      document.getElementById("cartao-fretamento").classList.toggle("escondido", !empresa.fretamento_habilitado);
+
       return empresa;
     }
 
@@ -444,6 +451,7 @@
           eventos_ativo: document.getElementById("modulo-eventos").checked,
           academia_ativo: document.getElementById("modulo-academia").checked,
         });
+        await carregarEmpresa();
         mostrarAlerta("Módulos atualizados.", "sucesso");
       } catch (erro) {
         mostrarAlerta(erro.message);

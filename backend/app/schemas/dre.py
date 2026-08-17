@@ -10,6 +10,8 @@ class DreOut(BaseModel):
     receita_passagens: float
     receita_fretamento: float
     receita_frete: float
+    receita_eventos: float
+    receita_academia: float
     receita_bruta_total: float
 
     reembolsos: float

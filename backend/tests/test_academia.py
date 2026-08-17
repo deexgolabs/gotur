@@ -154,6 +154,21 @@ def test_pagar_fatura_matricula_com_cartao_ativa_matricula(client, db):
     assert matricula_db.status.value == "ativa"
 
 
+def test_relatorio_vendas_academia_soma_faturas_pagas(client, db):
+    cenario = _empresa_com_turma(client, db, "AC17")
+    aluno = _matricula_ativa(client, db, cenario, "AC17")
+
+    hoje = datetime.utcnow().date()
+    inicio = (hoje - timedelta(days=1)).isoformat()
+    fim = (hoje + timedelta(days=1)).isoformat()
+    relatorio = client.get(f"/api/relatorios/vendas-academia?inicio={inicio}&fim={fim}", headers=cenario["headers_admin"])
+    assert relatorio.status_code == 200, relatorio.text
+    corpo = relatorio.json()
+    assert corpo["total_itens"] == 1
+    assert corpo["total_arrecadado"] == 150.0
+    assert corpo["por_forma_pagamento"]["cartao"] == 150.0
+
+
 def test_pagar_fatura_matricula_com_pix_fica_pendente_e_confirmar_simulado_ativa(client, db):
     cenario = _empresa_com_turma(client, db, "AC5")
     cliente = criar_cliente(db, "AC5")

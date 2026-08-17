@@ -47,9 +47,11 @@
     <div class="cartao escondido" id="cartao-dre">
       <h2 style="margin-top:0">Resultado do período</h2>
 
-      <div class="dre-linha"><span class="dre-label">Receita — passagens</span><span class="dre-valor" id="v-passagens"></span></div>
-      <div class="dre-linha"><span class="dre-label">Receita — fretamento</span><span class="dre-valor" id="v-fretamento"></span></div>
-      <div class="dre-linha"><span class="dre-label">Receita — frete</span><span class="dre-valor" id="v-frete"></span></div>
+      <div class="dre-linha" id="linha-passagens"><span class="dre-label">Receita — passagens</span><span class="dre-valor" id="v-passagens"></span></div>
+      <div class="dre-linha" id="linha-fretamento"><span class="dre-label">Receita — fretamento</span><span class="dre-valor" id="v-fretamento"></span></div>
+      <div class="dre-linha" id="linha-frete"><span class="dre-label">Receita — frete</span><span class="dre-valor" id="v-frete"></span></div>
+      <div class="dre-linha" id="linha-eventos"><span class="dre-label">Receita — eventos</span><span class="dre-valor" id="v-eventos"></span></div>
+      <div class="dre-linha" id="linha-academia"><span class="dre-label">Receita — academia</span><span class="dre-valor" id="v-academia"></span></div>
       <div class="dre-linha dre-total"><span class="dre-label">(=) Receita bruta</span><span class="dre-valor" id="v-bruta"></span></div>
 
       <div class="dre-linha"><span class="dre-label">(−) Reembolsos</span><span class="dre-valor dre-negativo" id="v-reembolsos"></span></div>
@@ -87,6 +89,8 @@
       document.getElementById("v-passagens").textContent = reais(dre.receita_passagens);
       document.getElementById("v-fretamento").textContent = reais(dre.receita_fretamento);
       document.getElementById("v-frete").textContent = reais(dre.receita_frete);
+      document.getElementById("v-eventos").textContent = reais(dre.receita_eventos);
+      document.getElementById("v-academia").textContent = reais(dre.receita_academia);
       document.getElementById("v-bruta").textContent = reais(dre.receita_bruta_total);
       document.getElementById("v-reembolsos").textContent = dre.reembolsos > 0 ? "− " + reais(dre.reembolsos) : reais(0);
       document.getElementById("v-assinatura").textContent = dre.despesa_assinatura_gotur > 0 ? "− " + reais(dre.despesa_assinatura_gotur) : reais(0);
@@ -112,6 +116,17 @@
       document.getElementById("inicio").value = inicio;
       document.getElementById("fim").value = fim;
       gerarDre(inicio, fim).catch((e) => mostrarAlerta(e.message));
+
+      // Só mostra a linha de receita de um nicho que a empresa realmente usa.
+      api("GET", "/empresas/minha")
+        .then((empresa) => {
+          document.getElementById("linha-passagens").classList.toggle("escondido", !empresa.passagens_habilitado);
+          document.getElementById("linha-fretamento").classList.toggle("escondido", !empresa.fretamento_habilitado);
+          document.getElementById("linha-frete").classList.toggle("escondido", !empresa.frete_habilitado);
+          document.getElementById("linha-eventos").classList.toggle("escondido", !empresa.eventos_habilitado);
+          document.getElementById("linha-academia").classList.toggle("escondido", !empresa.academia_habilitado);
+        })
+        .catch(() => {});
     }
   </script>
 </body>

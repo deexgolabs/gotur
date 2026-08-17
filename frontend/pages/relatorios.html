@@ -17,8 +17,8 @@
 
     <div id="alerta"></div>
 
-    <div class="cartao">
-      <h2 style="margin-top:0">Vendas por período</h2>
+    <div class="cartao" id="cartao-form-periodo">
+      <h2 style="margin-top:0">Período do relatório</h2>
       <form id="form-periodo">
         <div class="grid-form">
           <div>
@@ -34,49 +34,71 @@
           <button type="submit">Gerar</button>
         </div>
       </form>
+    </div>
 
-      <div id="resumo-vendas" class="cartoes-resumo escondido" style="margin-top:20px"></div>
+    <div class="cartao" id="cartao-vendas-passagens">
+      <h2 style="margin-top:0">Vendas — passagens</h2>
+      <div id="resumo-vendas" class="cartoes-resumo escondido"></div>
       <div id="grafico-vendas" style="margin-top:20px"></div>
       <div class="linha-acoes" id="acoes-vendas" style="margin-top:12px" hidden>
         <button type="button" class="secundario" id="btn-csv-vendas">Exportar CSV</button>
       </div>
     </div>
 
-    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      Ocupação das viagens
-      <button type="button" class="secundario" id="btn-csv-ocupacao">Exportar CSV</button>
-    </h2>
-    <div class="cartao">
-      <div id="grafico-ocupacao" style="overflow-x:auto"></div>
-      <table>
-        <thead><tr><th>Rota</th><th>Data/Hora</th><th>Poltronas</th><th>Vendidas</th><th>Ocupação</th></tr></thead>
-        <tbody id="corpo-ocupacao"></tbody>
-      </table>
-      <p class="vazio escondido" id="vazio-ocupacao">Nenhuma viagem cadastrada ainda.</p>
+    <div class="cartao" id="cartao-vendas-eventos">
+      <h2 style="margin-top:0">Vendas — eventos</h2>
+      <div id="resumo-vendas-eventos" class="cartoes-resumo escondido"></div>
+      <div id="grafico-vendas-eventos" style="margin-top:20px"></div>
     </div>
 
-    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      Desempenho por funcionário
-      <button type="button" class="secundario" id="btn-csv-funcionarios">Exportar CSV</button>
-    </h2>
-    <div class="cartao">
-      <table>
-        <thead><tr><th>Funcionário</th><th>Passagens vendidas</th><th>Total arrecadado</th></tr></thead>
-        <tbody id="corpo-funcionarios"></tbody>
-      </table>
-      <p class="vazio escondido" id="vazio-funcionarios">Nenhuma venda registrada por funcionários ainda.</p>
+    <div class="cartao" id="cartao-vendas-academia">
+      <h2 style="margin-top:0">Vendas — academia</h2>
+      <p class="rodape-form" style="text-align:left;margin-top:-8px">Mensalidades efetivamente pagas no período — matrícula sem fatura paga ainda não conta como venda.</p>
+      <div id="resumo-vendas-academia" class="cartoes-resumo escondido"></div>
+      <div id="grafico-vendas-academia" style="margin-top:20px"></div>
     </div>
 
-    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      Vendas por parceiro
-      <button type="button" class="secundario" id="btn-csv-parceiros">Exportar CSV</button>
-    </h2>
-    <div class="cartao">
-      <table>
-        <thead><tr><th>Parceiro</th><th>Comissão</th><th>Passagens</th><th>Total passagens</th><th>Fretes</th><th>Total fretes</th><th>Comissão estimada</th></tr></thead>
-        <tbody id="corpo-parceiros"></tbody>
-      </table>
-      <p class="vazio escondido" id="vazio-parceiros">Nenhuma venda registrada por parceiros ainda.</p>
+    <div id="secao-ocupacao">
+      <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        Ocupação das viagens
+        <button type="button" class="secundario" id="btn-csv-ocupacao">Exportar CSV</button>
+      </h2>
+      <div class="cartao">
+        <div id="grafico-ocupacao" style="overflow-x:auto"></div>
+        <table>
+          <thead><tr><th>Rota</th><th>Data/Hora</th><th>Poltronas</th><th>Vendidas</th><th>Ocupação</th></tr></thead>
+          <tbody id="corpo-ocupacao"></tbody>
+        </table>
+        <p class="vazio escondido" id="vazio-ocupacao">Nenhuma viagem cadastrada ainda.</p>
+      </div>
+    </div>
+
+    <div id="secao-funcionarios">
+      <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        Desempenho por funcionário
+        <button type="button" class="secundario" id="btn-csv-funcionarios">Exportar CSV</button>
+      </h2>
+      <div class="cartao">
+        <table>
+          <thead><tr><th>Funcionário</th><th>Passagens vendidas</th><th>Total arrecadado</th></tr></thead>
+          <tbody id="corpo-funcionarios"></tbody>
+        </table>
+        <p class="vazio escondido" id="vazio-funcionarios">Nenhuma venda registrada por funcionários ainda.</p>
+      </div>
+    </div>
+
+    <div id="secao-parceiros">
+      <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        Vendas por parceiro
+        <button type="button" class="secundario" id="btn-csv-parceiros">Exportar CSV</button>
+      </h2>
+      <div class="cartao">
+        <table>
+          <thead><tr><th>Parceiro</th><th>Comissão</th><th>Passagens</th><th>Total passagens</th><th>Fretes</th><th>Total fretes</th><th>Comissão estimada</th></tr></thead>
+          <tbody id="corpo-parceiros"></tbody>
+        </table>
+        <p class="vazio escondido" id="vazio-parceiros">Nenhuma venda registrada por parceiros ainda.</p>
+      </div>
     </div>
   </main>
 
@@ -196,42 +218,109 @@
         .join("");
     }
 
+    function renderizarResumoNicho(prefixo, resumo, rotuloItem, cor) {
+      const porForma = Object.entries(resumo.por_forma_pagamento)
+        .map(([forma, valor]) => `<div class="cartao-resumo"><div class="titulo">R$ ${valor.toFixed(2)}</div><div class="desc">${ROTULOS_PAGAMENTO[forma] || forma}</div></div>`)
+        .join("");
+      document.getElementById(`resumo-vendas-${prefixo}`).classList.remove("escondido");
+      document.getElementById(`resumo-vendas-${prefixo}`).innerHTML = `
+        <div class="cartao-resumo"><div class="titulo">${resumo.total_itens}</div><div class="desc">${rotuloItem}</div></div>
+        <div class="cartao-resumo"><div class="titulo">R$ ${resumo.total_arrecadado.toFixed(2)}</div><div class="desc">Total arrecadado</div></div>
+        ${porForma}
+      `;
+      document.getElementById(`grafico-vendas-${prefixo}`).innerHTML = svgBarrasHorizontal(
+        Object.entries(resumo.por_forma_pagamento).map(([forma, valor]) => ({
+          label: ROTULOS_PAGAMENTO[forma] || forma,
+          valor,
+          valorTexto: `R$ ${valor.toFixed(2)}`,
+        })),
+        { cor }
+      );
+    }
+
+    async function carregarVendasPassagens(inicio, fim) {
+      const resumo = await api("GET", `/relatorios/vendas?inicio=${inicio}&fim=${fim}`);
+      ultimoResumoVendas = resumo;
+      document.getElementById("acoes-vendas").hidden = false;
+      const porForma = Object.entries(resumo.por_forma_pagamento)
+        .map(([forma, valor]) => `<div class="cartao-resumo"><div class="titulo">R$ ${valor.toFixed(2)}</div><div class="desc">${ROTULOS_PAGAMENTO[forma] || forma}</div></div>`)
+        .join("");
+      document.getElementById("resumo-vendas").classList.remove("escondido");
+      document.getElementById("resumo-vendas").innerHTML = `
+        <div class="cartao-resumo"><div class="titulo">${resumo.total_passagens}</div><div class="desc">Passagens vendidas</div></div>
+        <div class="cartao-resumo"><div class="titulo">R$ ${resumo.total_arrecadado.toFixed(2)}</div><div class="desc">Total arrecadado</div></div>
+        ${porForma}
+      `;
+      document.getElementById("grafico-vendas").innerHTML = svgBarrasHorizontal(
+        Object.entries(resumo.por_forma_pagamento).map(([forma, valor]) => ({
+          label: ROTULOS_PAGAMENTO[forma] || forma,
+          valor,
+          valorTexto: `R$ ${valor.toFixed(2)}`,
+        })),
+        { cor: "#1c9b6e" }
+      );
+    }
+
+    async function carregarVendasEventos(inicio, fim) {
+      const resumo = await api("GET", `/relatorios/vendas-eventos?inicio=${inicio}&fim=${fim}`);
+      renderizarResumoNicho("eventos", resumo, "Ingressos vendidos", "#8e44ad");
+    }
+
+    async function carregarVendasAcademia(inicio, fim) {
+      const resumo = await api("GET", `/relatorios/vendas-academia?inicio=${inicio}&fim=${fim}`);
+      renderizarResumoNicho("academia", resumo, "Mensalidades pagas", "#e67e22");
+    }
+
+    let empresaAtual = null;
+
     if (auth) {
       montarTopo("topo");
       const hoje = new Date().toISOString().slice(0, 10);
       const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       document.getElementById("inicio").value = trintaDiasAtras;
       document.getElementById("fim").value = hoje;
-      carregarOcupacao().catch((e) => mostrarAlerta(e.message));
-      carregarFuncionarios().catch((e) => mostrarAlerta(e.message));
-      carregarParceiros().catch((e) => mostrarAlerta(e.message));
+
+      api("GET", "/empresas/minha")
+        .then((empresa) => {
+          empresaAtual = empresa;
+          document.getElementById("cartao-vendas-passagens").classList.toggle("escondido", !empresa.passagens_habilitado);
+          document.getElementById("cartao-vendas-eventos").classList.toggle("escondido", !empresa.eventos_habilitado);
+          document.getElementById("cartao-vendas-academia").classList.toggle("escondido", !empresa.academia_habilitado);
+          document.getElementById("secao-ocupacao").classList.toggle("escondido", !empresa.passagens_habilitado);
+          document.getElementById("secao-funcionarios").classList.toggle("escondido", !empresa.passagens_habilitado);
+          document.getElementById("secao-parceiros").classList.toggle("escondido", !(empresa.passagens_habilitado || empresa.frete_habilitado));
+
+          if (empresa.passagens_habilitado) {
+            carregarOcupacao().catch((e) => mostrarAlerta(e.message));
+            carregarFuncionarios().catch((e) => mostrarAlerta(e.message));
+          }
+          if (empresa.passagens_habilitado || empresa.frete_habilitado) {
+            carregarParceiros().catch((e) => mostrarAlerta(e.message));
+          }
+          if (empresa.eventos_habilitado) {
+            carregarVendasEventos(trintaDiasAtras, hoje).catch((e) => mostrarAlerta(e.message));
+          }
+          if (empresa.academia_habilitado) {
+            carregarVendasAcademia(trintaDiasAtras, hoje).catch((e) => mostrarAlerta(e.message));
+          }
+        })
+        .catch((e) => mostrarAlerta(e.message));
     }
 
     document.getElementById("form-periodo").addEventListener("submit", async (ev) => {
       ev.preventDefault();
+      const inicio = document.getElementById("inicio").value;
+      const fim = document.getElementById("fim").value;
       try {
-        const inicio = document.getElementById("inicio").value;
-        const fim = document.getElementById("fim").value;
-        const resumo = await api("GET", `/relatorios/vendas?inicio=${inicio}&fim=${fim}`);
-        ultimoResumoVendas = resumo;
-        document.getElementById("acoes-vendas").hidden = false;
-        const porForma = Object.entries(resumo.por_forma_pagamento)
-          .map(([forma, valor]) => `<div class="cartao-resumo"><div class="titulo">R$ ${valor.toFixed(2)}</div><div class="desc">${ROTULOS_PAGAMENTO[forma] || forma}</div></div>`)
-          .join("");
-        document.getElementById("resumo-vendas").classList.remove("escondido");
-        document.getElementById("resumo-vendas").innerHTML = `
-          <div class="cartao-resumo"><div class="titulo">${resumo.total_passagens}</div><div class="desc">Passagens vendidas</div></div>
-          <div class="cartao-resumo"><div class="titulo">R$ ${resumo.total_arrecadado.toFixed(2)}</div><div class="desc">Total arrecadado</div></div>
-          ${porForma}
-        `;
-        document.getElementById("grafico-vendas").innerHTML = svgBarrasHorizontal(
-          Object.entries(resumo.por_forma_pagamento).map(([forma, valor]) => ({
-            label: ROTULOS_PAGAMENTO[forma] || forma,
-            valor,
-            valorTexto: `R$ ${valor.toFixed(2)}`,
-          })),
-          { cor: "#1c9b6e" }
-        );
+        if (!empresaAtual || empresaAtual.passagens_habilitado) {
+          await carregarVendasPassagens(inicio, fim);
+        }
+        if (empresaAtual && empresaAtual.eventos_habilitado) {
+          await carregarVendasEventos(inicio, fim);
+        }
+        if (empresaAtual && empresaAtual.academia_habilitado) {
+          await carregarVendasAcademia(inicio, fim);
+        }
       } catch (erro) {
         mostrarAlerta(erro.message);
       }

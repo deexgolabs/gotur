@@ -21,6 +21,17 @@ class VendasResumoOut(BaseModel):
     por_forma_pagamento: dict[str, float]
 
 
+class VendasNichoResumoOut(BaseModel):
+    """Mesma forma de VendasResumoOut, mas genérica pra qualquer nicho
+    (ingressos de evento, faturas de matrícula) em vez de "passagens"."""
+
+    periodo_inicio: datetime
+    periodo_fim: datetime
+    total_itens: int
+    total_arrecadado: float
+    por_forma_pagamento: dict[str, float]
+
+
 class VendasPorFuncionarioOut(BaseModel):
     usuario_id: int
     nome: str

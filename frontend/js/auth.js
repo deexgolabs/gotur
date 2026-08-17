@@ -60,7 +60,7 @@ function linksPorPapel(role) {
       { href: "/pages/ocorrencias-turma.html", label: "Agenda", modulo: "academia", grupo: "Academia" },
       { href: "/pages/matriculas.html", label: "Matrículas", modulo: "academia", grupo: "Academia" },
       { href: "/pages/checkin-academia.html", label: "Check-in academia", modulo: "academia", grupo: "Academia" },
-      { href: "/pages/relatorios.html", label: "Relatórios", modulo: "passagens", grupo: "Financeiro" },
+      { href: "/pages/relatorios.html", label: "Relatórios", modulo: ["passagens", "eventos", "academia"], grupo: "Financeiro" },
       { href: "/pages/dre.html", label: "DRE", modulo: "dre", grupo: "Financeiro" },
       { href: "/pages/minhas-faturas.html", label: "Faturas", grupo: "Financeiro" },
       { href: "/pages/acertos-interline.html", label: "Acertos interline", modulo: "passagens", grupo: "Financeiro" },
