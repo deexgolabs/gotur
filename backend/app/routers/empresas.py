@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
@@ -61,7 +63,13 @@ def listar_empresas(
     _usuario=Depends(require_roles(UserRole.SUPER_ADMIN)),
 ):
     atualizar_situacao_assinaturas(db)
-    return db.query(Empresa).options(joinedload(Empresa.plano)).order_by(Empresa.nome).all()
+    return (
+        db.query(Empresa)
+        .options(joinedload(Empresa.plano))
+        .filter(Empresa.excluida_em.is_(None))
+        .order_by(Empresa.nome)
+        .all()
+    )
 
 
 def _buscar_empresa_ou_404(db: Session, empresa_id: int) -> Empresa:
@@ -116,6 +124,38 @@ def ativar_empresa(
 ):
     empresa = _buscar_empresa_ou_404(db, empresa_id)
     empresa.ativo = True
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
+@router.patch("/{empresa_id}/excluir", response_model=EmpresaOut)
+def excluir_empresa(
+    empresa_id: int,
+    db: Session = Depends(get_db),
+    usuario_atual: Usuario = Depends(require_roles(UserRole.SUPER_ADMIN)),
+):
+    """Soft delete: some da listagem do super admin, mas os dados
+    continuam no banco (faturas já emitidas, histórico de vendas etc. —
+    não é seguro nem necessário apagar de verdade). Só permite excluir
+    uma empresa já desativada, pra evitar excluir sem querer uma conta
+    que ainda está em uso."""
+    empresa = _buscar_empresa_ou_404(db, empresa_id)
+    if empresa.excluida_em is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Empresa já excluída")
+    if empresa.ativo:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Desative a empresa antes de excluir")
+
+    empresa.excluida_em = datetime.utcnow()
+    registrar_auditoria(
+        db,
+        usuario=usuario_atual,
+        acao="exclusao_empresa",
+        entidade_tipo="empresa",
+        entidade_id=empresa.id,
+        detalhes=f"Empresa {empresa.nome} excluída (soft delete)",
+        tenant_id=empresa.id,
+    )
     db.commit()
     db.refresh(empresa)
     return empresa

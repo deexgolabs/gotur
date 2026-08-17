@@ -22,6 +22,12 @@ class Empresa(Base):
     texto_loja: Mapped[str | None] = mapped_column(Text, nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    # Soft delete: some das listagens do super admin, mas os dados
+    # continuam no banco (histórico fiscal das faturas já emitidas pra
+    # essa empresa, entre outros motivos pra não apagar de verdade). Só
+    # pode ser setado com a empresa já desativada (ver
+    # app/routers/empresas.py::excluir_empresa).
+    excluida_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     plano_id: Mapped[int | None] = mapped_column(ForeignKey("planos.id"), nullable=True)
     status_assinatura: Mapped[StatusAssinatura] = mapped_column(SAEnum(StatusAssinatura), default=StatusAssinatura.TRIAL)

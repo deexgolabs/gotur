@@ -88,6 +88,7 @@ class EmpresaOut(BaseModel):
     texto_loja: str | None = None
     ativo: bool
     criado_em: datetime
+    excluida_em: datetime | None = None
     plano_id: int | None
     status_assinatura: StatusAssinatura
     plano: PlanoOut | None = None

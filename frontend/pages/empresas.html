@@ -164,6 +164,7 @@
             <button class="secundario" data-faturas="${e.id}" data-nome-fatura="${e.nome}">Faturas</button>
             ${e.isento_cobranca ? `<button class="secundario" data-cobrar="${e.id}">Cobrar normalmente</button>` : `<button class="secundario" data-isentar="${e.id}">Isentar cobrança</button>`}
             ${e.ativo ? `<button class="perigo" data-desativar="${e.id}">Desativar</button>` : `<button class="secundario" data-ativar="${e.id}">Reativar</button>`}
+            ${!e.ativo ? `<button class="perigo" data-excluir="${e.id}" data-nome-excluir="${e.nome}">Excluir</button>` : ""}
           </td>
         </tr>`
         )
@@ -211,6 +212,27 @@
         btn.addEventListener("click", async () => {
           try {
             await api("PATCH", `/empresas/${btn.dataset.ativar}/ativar`);
+            carregarEmpresas();
+          } catch (erro) {
+            mostrarAlerta(erro.message);
+          }
+        });
+      });
+
+      corpo.querySelectorAll("button[data-excluir]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const nome = btn.dataset.nomeExcluir;
+          const digitado = prompt(
+            `Isso vai excluir "${nome}" da lista de empresas. Os dados dela (faturas, vendas, usuários) continuam guardados, mas ela some daqui e ninguém da equipe dela consegue mais acessar.\n\nPra confirmar, digite o nome exato da empresa:`
+          );
+          if (digitado === null) return;
+          if (digitado.trim() !== nome) {
+            mostrarAlerta("Nome digitado não bate com o nome da empresa — nada foi excluído.");
+            return;
+          }
+          try {
+            await api("PATCH", `/empresas/${btn.dataset.excluir}/excluir`);
+            mostrarAlerta("Empresa excluída.", "sucesso");
             carregarEmpresas();
           } catch (erro) {
             mostrarAlerta(erro.message);
